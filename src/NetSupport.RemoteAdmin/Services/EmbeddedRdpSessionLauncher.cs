@@ -4,7 +4,9 @@ using NetSupport.RemoteAdmin.Views;
 
 namespace NetSupport.RemoteAdmin.Services;
 
-public sealed class EmbeddedRdpSessionLauncher : IRdpSessionLauncher
+public sealed class EmbeddedRdpSessionLauncher(
+    AppConfig config,
+    ConfigService configService) : IRdpSessionLauncher
 {
     public bool IsAvailable => OperatingSystem.IsWindowsVersionAtLeast(10);
 
@@ -21,6 +23,29 @@ public sealed class EmbeddedRdpSessionLauncher : IRdpSessionLauncher
             {
                 Owner = System.Windows.Application.Current.MainWindow
             };
+
+            window.Closed += async (_, _) =>
+            {
+                var savedTarget = config.Targets.FirstOrDefault(t =>
+                    string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase));
+
+                if (savedTarget is null)
+                    return;
+
+                savedTarget.RdpUserName = target.RdpUserName;
+                savedTarget.RdpDomain = target.RdpDomain;
+
+                try
+                {
+                    await configService.SaveAsync(config);
+                }
+                catch
+                {
+                    // Session shutdown must not be blocked by a configuration write failure.
+                    // The next explicit config save can persist the identity values.
+                }
+            };
+
             window.Show();
         });
     }
