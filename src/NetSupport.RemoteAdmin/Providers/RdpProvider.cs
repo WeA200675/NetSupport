@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Services;
 
@@ -31,7 +32,7 @@ public sealed class RdpProvider(AppConfig config) : IRemoteProvider
         if (config.UseFullScreenRdp)
             psi.ArgumentList.Add("/f");
 
-        Process.Start(psi) ?? throw new InvalidOperationException("Remote Desktop konnte nicht gestartet werden.");
+        _ = Process.Start(psi) ?? throw new InvalidOperationException("Remote Desktop konnte nicht gestartet werden.");
         return Task.CompletedTask;
     }
 }
