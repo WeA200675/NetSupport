@@ -12,5 +12,9 @@ public interface ISessionHistoryService
         SessionHistoryEntry entry,
         CancellationToken cancellationToken = default);
 
+    Task ExportCsvAsync(
+        string destinationPath,
+        CancellationToken cancellationToken = default);
+
     Task ClearAsync(CancellationToken cancellationToken = default);
 }
