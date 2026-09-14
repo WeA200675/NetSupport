@@ -55,7 +55,7 @@ Der Pfad zu `PCICTLUI.EXE` wird automatisch in den üblichen `Program Files`-Ver
 
 ### Windows Remote Desktop
 
-RDP ist als zweiter Remote-Provider vorhanden und unterstützt jetzt zwei Betriebsarten:
+RDP ist als zweiter Remote-Provider vorhanden und unterstützt zwei Betriebsarten:
 
 **Eingebettet:** Das Microsoft Remote Desktop ActiveX Control wird in einem eigenen Session-Fenster innerhalb der Anwendung gehostet.
 
@@ -64,10 +64,20 @@ RDP ist als zweiter Remote-Provider vorhanden und unterstützt jetzt zwei Betrie
 Der eingebettete Session-Baustein bietet aktuell:
 
 - eingebettete RDP-Darstellung
-- Verbinden / Neu verbinden
-- Trennen
-- Vollbild des Session-Fensters
+- Verbinden / Neu verbinden / Trennen
+- Vollbild und Rückkehr in den Fenstermodus
+- echte Sessionstatus-Ereignisse für Connecting, Connected und Login Complete
+- Disconnect-Grund inklusive Extended Disconnect Reason, soweit vom Microsoft-Control verfügbar
+- Fatal-Error-Anzeige
+- Anzeige der aktuellen Remote-Auflösung
+- `SmartSizing` zur Anpassung an die Fenstergröße, auch während einer aktiven Verbindung
+- optionalen Benutzernamen und Windows-/AD-Domäne
+- normalen Windows-Credential-Prompt für das Kennwort
+- keine Passwortspeicherung durch die Anwendung
+- Speicherung von Benutzername und Domäne für bereits gespeicherte Zielrechner
 - isolierte ActiveX-Kapselung hinter `IRdpSessionLauncher`
+
+Die ausführliche RDP-Dokumentation liegt in [`docs/RDP_SESSION.md`](RDP_SESSION.md).
 
 ### Active Directory
 
@@ -103,6 +113,8 @@ MainWindow
    |               |               +--> RdpSessionWindow
    |               |                       |
    |               |                       +--> RdpActiveXControl
+   |               |                               |
+   |               |                               +--> MsTscAx.dll / IMsTscAxEvents
    |               |
    |               +--> mstsc.exe Fallback
    |
@@ -150,13 +162,17 @@ Beispiel:
     {
       "name": "PC-001",
       "host": "PC-001",
-      "description": "Büro"
+      "description": "Büro",
+      "rdpUserName": "max.mustermann",
+      "rdpDomain": "CONTOSO"
     }
   ]
 }
 ```
 
 `useEmbeddedRdp` aktiviert standardmäßig den eingebetteten RDP-Viewer. Wird die Option auf `false` gesetzt, nutzt der Provider `mstsc.exe`.
+
+`rdpUserName` und `rdpDomain` sind optional. RDP-Passwörter werden bewusst **nicht** in `settings.json` gespeichert.
 
 ---
 
@@ -166,12 +182,15 @@ Beispiel:
 NetSupport/
 ├── docs/
 │   ├── PROJECT_OVERVIEW.md
-│   └── DEVELOPMENT_LOG.md
+│   ├── DEVELOPMENT_LOG.md
+│   └── RDP_SESSION.md
 ├── src/
 │   └── NetSupport.RemoteAdmin/
 │       ├── Controls/
 │       │   └── RdpActiveXControl.cs
 │       ├── Models/
+│       │   ├── RemoteTarget.cs
+│       │   └── RdpSessionEvents.cs
 │       ├── Providers/
 │       ├── Services/
 │       ├── Views/
@@ -218,23 +237,25 @@ Das Repository enthält einen GitHub-Actions-Workflow für Windows.
 
 Bei jedem Push bzw. Pull Request werden Restore und Release-Build ausgeführt. Compilerfehler werden dadurch früh erkannt und direkt im Entwicklungsbranch korrigiert.
 
+Der letzte vollständig geprüfte Stand vor RDP Phase 2 wurde erfolgreich gebaut. Phase 2 wird nach jeder Änderung erneut über denselben Windows-Build validiert.
+
 Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlende `System.IO`-Imports und ungültige Ausdruckszeilen durch CI erkannt und behoben.
 
 ---
 
 ## Nächste Ausbaustufen
 
-### RDP-Session Phase 2
+### RDP Phase 3
 
-Geplant sind:
+Als nächste RDP-Schritte sind vorgesehen:
 
-- Connection-/Disconnect-Ereignisse sauber auswerten
-- automatische Größenanpassung / Smart Sizing
-- Benutzername- und Credential-Handling
-- Zwischenablageoptionen
 - Multi-Monitor-Unterstützung
-- verständliche RDP-Fehleranzeige
-- erweiterte Session-Toolbar
+- Clipboard-Einstellungen
+- Auto-Reconnect sauber auswerten und anzeigen
+- optionale administrative RDP-Sitzung
+- Sondertasten-/Keyboard-Werkzeuge
+- noch verständlichere Fehlertexte
+- Session-Historie bzw. letzte Verbindung
 
 ### Rechnerdetails
 
@@ -257,6 +278,7 @@ Durch `IRemoteProvider` können weitere Fernsteuerungssysteme ergänzt werden, o
 - keine Abhängigkeit von instabil verteilten NetSupport-UI-Einstellungen
 - klare Trennung zwischen UI, Discovery und Remote-Backends
 - möglichst wenige externe Abhängigkeiten
+- keine Speicherung von Passwörtern in der Anwendungskonfiguration
 - Konfiguration verständlich und transparent halten
 - neue Funktionen so integrieren, dass sie später austauschbar bleiben
 
