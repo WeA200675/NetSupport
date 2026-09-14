@@ -81,7 +81,8 @@ public sealed class RdpActiveXControl : AxHost
         string? userName = null,
         string? domain = null,
         bool redirectClipboard = true,
-        bool adminSession = false)
+        bool adminSession = false,
+        bool useMultiMonitor = false)
     {
         if (string.IsNullOrWhiteSpace(host))
             throw new ArgumentException("Ein Zielrechner ist erforderlich.", nameof(host));
@@ -101,6 +102,7 @@ public sealed class RdpActiveXControl : AxHost
         if (!string.IsNullOrWhiteSpace(domain))
             client.Domain = domain.Trim();
 
+        ConfigureMultiMonitor(client, useMultiMonitor);
         ConfigureAdvancedSettings(client, redirectClipboard, adminSession);
         client.Connect();
     }
@@ -193,6 +195,21 @@ public sealed class RdpActiveXControl : AxHost
         }
 
         base.DetachSink();
+    }
+
+    private static void ConfigureMultiMonitor(dynamic client, bool useMultiMonitor)
+    {
+        try
+        {
+            // MsRdpClient12NotSafeForScripting exposes UseMultimon as a read/write property.
+            // Apply it before Connect(). If a locally registered control does not expose it,
+            // the session gracefully falls back to a single-monitor connection.
+            client.UseMultimon = useMultiMonitor;
+        }
+        catch
+        {
+            // Optional capability; keep single-monitor RDP available.
+        }
     }
 
     private static void ConfigureAdvancedSettings(
