@@ -8,7 +8,7 @@
 
 **NetSupport Remote Admin** ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
 
-NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
+NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf, Betriebseinstellungen und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
 
 Wichtige Prinzipien:
 
@@ -19,6 +19,7 @@ Wichtige Prinzipien:
 - explizites Speichern dauerhafter Zielpräferenzen
 - flüchtige Inventardaten bleiben flüchtig
 - dokumentierte Windows-/Microsoft-Schnittstellen vor undokumentierten Workarounds
+- Diagnose darf die eigentliche Remoteverwaltung niemals blockieren
 
 ---
 
@@ -31,7 +32,8 @@ Wichtige Prinzipien:
 5. Optional Online-Status und Rechnerdetails laden.
 6. Favorit, Gruppe, Standard-Provider und RDP-Zielpräferenzen mit **Speichern / Aktualisieren** sichern.
 7. Direkte Schnellaktion oder **Standardverbindung starten** verwenden.
-8. Unter **Zuletzt verwendet** jüngste Startversuche einsehen.
+8. Unter **Zuletzt verwendet** jüngste Startversuche einsehen oder als CSV exportieren.
+9. Unter **Erweitert → Einstellungen** Start-, RDP-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
 
 ---
 
@@ -85,7 +87,7 @@ Die Ansichten liegen in `settings.json` und werden beim Auswählen sofort angewe
 
 ---
 
-## Lokaler Startverlauf
+## Lokaler Startverlauf und CSV-Export
 
 `ISessionHistoryService` protokolliert die letzten Remote-Aktionsstarts separat in:
 
@@ -104,7 +106,58 @@ Gespeichert werden nur:
 
 Der Verlauf ist auf 100 Einträge begrenzt, kann gelöscht werden und enthält keine Passwörter, Bildschirminhalte oder CIM-Inventardaten.
 
-Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
+Über **CSV exportieren** kann der vollständige lokale Verlauf semikolongetrennt und als UTF-8 mit BOM exportiert werden. Das Format ist bewusst auf zuverlässiges Öffnen in deutschsprachigen Excel-Installationen ausgelegt.
+
+Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md) und [`OPERATIONS.md`](OPERATIONS.md).
+
+---
+
+## Einstellungen, Autostart und Diagnose
+
+Unter **Erweitert → Einstellungen** können ohne manuelle JSON-Bearbeitung geändert werden:
+
+- Mit Windows starten
+- beim Start minimiert öffnen
+- Diagnoseprotokoll aktivieren/deaktivieren
+- eingebettetes RDP bevorzugen
+- externes RDP im Vollbild starten
+- Pfad zu `PCICTLUI.EXE`
+
+### Windows-Autostart
+
+Autostart wird ausschließlich im Profil des aktuellen Benutzers verwaltet:
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+Wert:
+
+```text
+NetSupportRemoteAdmin
+```
+
+Dadurch werden keine computerweiten Einstellungen oder Gruppenrichtlinien verändert.
+
+### Diagnoseprotokoll
+
+Optionales Log:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
+```
+
+Das Log wird bei ungefähr 2 MB nach
+
+```text
+application.log.1
+```
+
+rotiert.
+
+Erfasst werden unter anderem Programmstart/-ende, Remote-Aktionsstarts, Provider/Aktion/Zielhost, AD-Ladevorgänge, Statusprüfungen und Fehler. Nicht protokolliert werden Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte.
+
+Details: [`OPERATIONS.md`](OPERATIONS.md).
 
 ---
 
@@ -164,6 +217,8 @@ Aktuelle Schnellaktionen:
 | Inventar | NetSupport Inventory |
 | Remote CMD | NetSupport Remote Command Prompt |
 | Dateien | NetSupport File Transfer |
+
+Der NetSupport-Pfad kann in der Einstellungsseite geändert werden; die Liste der verfügbaren Provider wird anschließend ohne Neustart aktualisiert.
 
 ---
 
@@ -245,11 +300,18 @@ Enthält unter anderem:
 - nicht geheime RDP-Präferenzen
 - `rdpSelectedMonitors`
 - gespeicherte Ansichten
+- Start-/RDP-/Diagnoseoptionen
 
 ### Startverlauf
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+### Diagnose
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
 ### Generierte RDP-Verbindungsdateien
@@ -288,6 +350,12 @@ MainWindow
    +--> ISessionHistoryService
    |       +--> JsonSessionHistoryService
    |
+   +--> IAutoStartService
+   |       +--> WindowsAutoStartService --> HKCU Run
+   |
+   +--> IDiagnosticLogService
+   |       +--> DiagnosticLogService --> logs/application.log
+   |
    +--> HostAvailabilityService
    +--> ConfigService
 ```
@@ -301,6 +369,8 @@ ITargetDetailsService
 ISessionHistoryService
 IRdpSessionLauncher
 IRdpConnectionFileService
+IAutoStartService
+IDiagnosticLogService
 ```
 
 ---
@@ -330,7 +400,8 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 - weitere RDP-Redirects wie Laufwerke/Audio
 - weitere Tastatur-/Sondertastenfunktionen
 - detailliertere RDP-Fehlertexte
-- optionaler Export/Filter des Startverlaufs
+- Filter/Zeitraum für den History-Export
+- optional Diagnosepaket für Supportfälle erzeugen
 - weitere Discovery-, Details-, History- und Remote-Provider
 
 ---
