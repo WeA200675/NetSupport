@@ -49,7 +49,13 @@ public sealed class RdpProvider(AppConfig config, IRdpSessionLauncher sessionLau
         };
 
         psi.ArgumentList.Add($"/v:{target.Host}");
-        if (config.UseFullScreenRdp)
+
+        if (target.RdpAdminSession)
+            psi.ArgumentList.Add("/admin");
+
+        if (target.RdpUseMultiMonitor)
+            psi.ArgumentList.Add("/multimon");
+        else if (config.UseFullScreenRdp)
             psi.ArgumentList.Add("/f");
 
         _ = Process.Start(psi) ?? throw new InvalidOperationException("Remote Desktop konnte nicht gestartet werden.");
