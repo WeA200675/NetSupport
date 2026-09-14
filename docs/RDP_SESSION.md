@@ -52,12 +52,17 @@ Falls der eingebettete Client deaktiviert oder nicht verfügbar ist, kann weiter
 
 Eine RDP-Session wird über die Schnellaktion **RDP** am ausgewählten Rechner gestartet.
 
-Das Session-Fenster enthält:
+Das Session-Fenster enthält aktuell:
 
 - Zielrechner und aktuellen Sessionstatus
 - optionalen Benutzernamen
 - optionale Windows-/AD-Domäne
-- Schalter **An Fenster anpassen**
+- **An Fenster anpassen**
+- **Zwischenablage**
+- **Admin-Sitzung**
+- **Alt+Tab remote**
+- **Start remote**
+- **Task-Manager**
 - **Neu verbinden**
 - **Vollbild / Fenstermodus**
 - **Trennen**
@@ -70,30 +75,36 @@ DOMÄNE\Benutzer
 
 eingegeben werden. Wenn das separate Domänenfeld leer ist, trennt die Anwendung diesen Wert automatisch in Domäne und Benutzername auf.
 
+Zwischenablage und Admin-Sitzung werden beim nächsten Verbindungsaufbau bzw. über **Neu verbinden** angewendet.
+
 ---
 
 ## Anmeldeinformationen und Sicherheit
 
 Die Anwendung speichert **keine RDP-Passwörter**.
 
-Vor einer Verbindung werden nur folgende nicht geheimen Werte an das Microsoft-RDP-Control übergeben:
+Vor einer Verbindung werden nur folgende nicht geheimen Werte bzw. Einstellungen an das Microsoft-RDP-Control übergeben:
 
 - Zielrechner
 - optionaler Benutzername
 - optionale Domäne
+- Zwischenablageumleitung an/aus
+- Admin-Sitzung an/aus
 
 Das Passwort wird vom normalen Windows-/RDP-Credential-Dialog angefordert. `AllowPromptingForCredentials` bleibt aktiviert.
 
 Das Speichern von Credentials durch das eingebettete Control wird mit `AllowCredentialSaving = false` deaktiviert.
 
-Für dauerhaft gespeicherte Zielrechner dürfen Benutzername und Domäne in `settings.json` gespeichert werden:
+Für dauerhaft gespeicherte Zielrechner dürfen nicht geheime RDP-Einstellungen in `settings.json` gespeichert werden:
 
 ```json
 {
   "name": "PC-001",
   "host": "PC-001",
   "rdpUserName": "max.mustermann",
-  "rdpDomain": "CONTOSO"
+  "rdpDomain": "CONTOSO",
+  "rdpRedirectClipboard": true,
+  "rdpAdminSession": false
 }
 ```
 
@@ -128,6 +139,40 @@ Die ursprüngliche Desktopgröße wird beim Verbindungsaufbau aus der verfügbar
 
 ---
 
+## Zwischenablage
+
+Die Option **Zwischenablage** steuert die RDP-Eigenschaft `RedirectClipboard`.
+
+Ist sie aktiviert, kann die lokale Zwischenablage in die Remotesitzung umgeleitet werden. Die Einstellung wird vor dem Verbindungsaufbau gesetzt und deshalb bei einer bestehenden Sitzung über **Neu verbinden** übernommen.
+
+Für gespeicherte Rechner bleibt die Auswahl als `rdpRedirectClipboard` erhalten.
+
+---
+
+## Administrative Sitzung
+
+Die Option **Admin-Sitzung** verwendet `ConnectToAdministerServer`.
+
+Damit fordert der RDP-Client eine administrative Sitzung an, vergleichbar mit der administrativen RDP-Verbindungsoption des Windows-Clients. Die Einstellung wird beim Verbindungsaufbau gesetzt und für gespeicherte Rechner als `rdpAdminSession` erhalten.
+
+---
+
+## Remote-Aktionen
+
+Für bestimmte Bedienaktionen nutzt die Anwendung `IMsRdpClient8.SendRemoteAction`.
+
+Aktuell stehen zur Verfügung:
+
+| Schaltfläche | RDP-Aktion |
+|---|---|
+| **Alt+Tab remote** | Remote-App-Switch |
+| **Start remote** | Remote-Startscreen-/Start-Aktion |
+| **Task-Manager** | Remote-Task-Manager-Aktion, sofern vom Client/Server unterstützt |
+
+Diese Aktionen benötigen eine bereits aktive RDP-Sitzung. Nicht unterstützte Aktionen werden abgefangen und als Statusmeldung angezeigt.
+
+---
+
 ## Authentifizierung
 
 Für die RDP-Verbindung wird CredSSP aktiviert, sofern das lokale Microsoft-Control die entsprechende Advanced-Settings-Schnittstelle bereitstellt.
@@ -144,6 +189,7 @@ src/NetSupport.RemoteAdmin/
 │   └── RdpActiveXControl.cs
 ├── Models/
 │   ├── RemoteTarget.cs
+│   ├── RdpRemoteAction.cs
 │   └── RdpSessionEvents.cs
 ├── Services/
 │   ├── IRdpSessionLauncher.cs
@@ -178,6 +224,15 @@ src/NetSupport.RemoteAdmin/
 - keine Passwortspeicherung
 - Speicherung von Benutzername/Domäne für bereits gespeicherte Zielrechner
 
+### Phase 3
+
+- Zwischenablageumleitung pro Zielrechner
+- optionale administrative RDP-Sitzung
+- Speicherung der nicht geheimen RDP-Präferenzen
+- Remote-App-Switch / Alt+Tab
+- Remote-Start-Aktion
+- Remote-Task-Manager-Aktion, sofern unterstützt
+
 ---
 
 ## Nächste Ausbauschritte
@@ -185,12 +240,11 @@ src/NetSupport.RemoteAdmin/
 Geplant sind insbesondere:
 
 - Multi-Monitor-Unterstützung
-- Clipboard-Einstellungen
 - bessere Behandlung von Auto-Reconnect
 - detailliertere RDP-Fehlertexte
-- optionale administrative RDP-Sitzung
-- Tastatur-/Sondertasten-Werkzeuge
+- weitere Tastatur-/Sondertasten-Werkzeuge
 - Session-Historie bzw. letzte Verbindung
+- optionale Anzeige/Änderung weiterer RDP-Redirects wie Laufwerke oder Audio
 
 ---
 
