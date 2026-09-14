@@ -10,6 +10,7 @@ The maintained project documentation lives in:
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
 - [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling, security and session controls
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – favorites, groups, preferred providers and list behavior
+- [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – reusable filters and local connection-launch history
 - [`docs/TESTING.md`](docs/TESTING.md) – how to download and validate the CI-generated Windows test build
 
 ## Goals
@@ -17,7 +18,9 @@ The maintained project documentation lives in:
 - compact UI that can remain in the Windows tray
 - select a computer once and launch common remote actions with one click
 - organize a larger computer fleet with favorites and user-defined groups
+- save recurring filter views for common admin workflows
 - choose a preferred remote provider per target
+- keep a small local history of recent remote-session launch attempts
 - launch NetSupport sessions directly by computer name or IP address
 - discover domain computers without persisting every discovered machine
 - show useful runtime computer information without creating a second inventory database
@@ -28,12 +31,13 @@ The maintained project documentation lives in:
 ## User workflow
 
 1. Enter a computer name/IP address or load computers from Active Directory.
-2. Filter by text, group and/or favorites.
+2. Filter by text, group and/or favorites, or select a previously saved view.
 3. Select the target in the computer list.
 4. Optionally load runtime details such as IP address, Windows version, logged-on user and model.
 5. Set favorite/group/preferred provider and persist changes with **Speichern / Aktualisieren**.
 6. Start the target's preferred control provider through **Standardverbindung starten** or double-click the target.
 7. Direct NetSupport/RDP quick actions remain available independently from the preferred provider.
+8. Recent launches remain visible under **Zuletzt verwendet** and can be used to focus the same target again.
 
 The application can be closed to the notification area and reopened from the tray icon.
 
@@ -48,6 +52,31 @@ Persisted targets support:
 Favorites are sorted first. The text filter also searches group names, and a separate group selector can narrow the list further. If a saved preferred provider is unavailable, the application falls back to NetSupport when available and otherwise to another provider supporting `Control`.
 
 See [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) for the full behavior.
+
+## Saved views
+
+Recurring list states can be stored in `settings.json`. A saved view contains:
+
+- a user-defined name
+- text search
+- group filter
+- favorite-only state
+
+Selecting a saved view reapplies those filters immediately. Saving again under the same name updates the view.
+
+See [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md).
+
+## Local session-launch history
+
+Remote launch attempts are written to a separate local file:
+
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+The history records target, provider, action, time and whether the provider launch succeeded. It is capped at 100 entries and can be cleared from the UI.
+
+It intentionally does **not** contain passwords, RDP credentials, screen contents or runtime CIM inventory. For external tools such as NetSupport it is a launch history, not a compliance-grade session audit.
 
 ## Current providers
 
@@ -82,6 +111,8 @@ The embedded session currently provides:
 
 Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop client.
 
+The embedded ActiveX API exposes all-monitor multi-monitor mode through `UseMultimon`. Selection of specific monitor IDs is therefore intentionally not implemented through an undocumented COM property; a future implementation can use the documented RDP `selectedmonitors` property through the external RDP path.
+
 ## Active Directory discovery
 
 Domain discovery is implemented behind `ITargetDiscoveryService`. The initial `DomainComputerDiscoveryService` invokes `Get-ADComputer`, therefore the admin workstation needs the Microsoft ActiveDirectory PowerShell module (RSAT).
@@ -99,6 +130,7 @@ The selected-computer card can show:
 - Windows edition/version
 - manufacturer/model
 - last status/details check time
+- most recent recorded remote launch for the selected host
 
 The CIM query uses the current Windows identity and normal WSMan policy. If remote CIM is blocked by firewall or policy, the rest of the application continues to work and the UI reports that management data is only partially available. Runtime details are not persisted because they can become stale.
 
@@ -132,6 +164,14 @@ Example:
       "rdpAdminSession": false,
       "rdpUseMultiMonitor": false
     }
+  ],
+  "savedViews": [
+    {
+      "name": "Office favorites",
+      "searchText": null,
+      "group": "Office",
+      "favoritesOnly": true
+    }
   ]
 }
 ```
@@ -140,9 +180,9 @@ RDP passwords are intentionally never stored in `settings.json`.
 
 ## Extending the application
 
-Remote backends implement `IRemoteProvider`. Embedded RDP session hosts are accessed through `IRdpSessionLauncher`. Target sources implement `ITargetDiscoveryService`. Runtime computer information is provided through `ITargetDetailsService`.
+Remote backends implement `IRemoteProvider`. Embedded RDP session hosts are accessed through `IRdpSessionLauncher`. Target sources implement `ITargetDiscoveryService`. Runtime computer information is provided through `ITargetDetailsService`. Session launch history is accessed through `ISessionHistoryService`.
 
-This keeps the main UI independent from NetSupport, RDP ActiveX hosting, future VNC providers, Active Directory and other inventory sources.
+This keeps the main UI independent from NetSupport, RDP ActiveX hosting, future VNC providers, Active Directory, inventory sources and future history/audit backends.
 
 ## Build
 
@@ -181,6 +221,8 @@ It can be downloaded from the successful **Build** workflow run and tested witho
 MainWindow
     |
     +-- selected target action/details/organization card
+    +-- saved filter views
+    +-- recent launch history
     |
     +--> RemoteProviderRegistry
     |        |
@@ -199,6 +241,9 @@ MainWindow
     |
     +--> ITargetDetailsService
     |        +--> PowerShellTargetDetailsService --> DNS + Get-CimInstance
+    |
+    +--> ISessionHistoryService
+    |        +--> JsonSessionHistoryService --> session-history.json
     |
     +--> HostAvailabilityService
 
