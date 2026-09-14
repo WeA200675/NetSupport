@@ -8,6 +8,7 @@ The maintained project documentation lives in:
 
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – current architecture, functions, configuration, build and roadmap
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
+- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling and credential handling
 
 ## Goals
 
@@ -37,14 +38,20 @@ The application looks for `PCICTLUI.EXE` in the usual 32-bit and 64-bit Program 
 
 ### Windows Remote Desktop
 
-RDP now supports an embedded session window based on Microsoft's nonscriptable Remote Desktop ActiveX control. The ActiveX host is isolated from the main UI behind `IRdpSessionLauncher`.
+RDP supports an embedded session window based on Microsoft's nonscriptable Remote Desktop ActiveX control. The ActiveX host is isolated from the main UI behind `IRdpSessionLauncher`.
 
 The embedded session currently provides:
 
 - embedded RDP display
-- connect / reconnect
-- disconnect
+- connect / reconnect / disconnect
 - fullscreen session window
+- real Connecting / Connected / Login / Disconnect status
+- Remote Desktop resolution status
+- SmartSizing that can be toggled while connected
+- optional user name and Windows/AD domain
+- Windows credential prompting without storing passwords in this application
+- persisted user/domain values for already saved targets
+- detailed disconnect reason where the Microsoft control can provide one
 - fallback to `mstsc.exe`
 
 Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop client.
@@ -75,11 +82,15 @@ Example:
     {
       "name": "PC-001",
       "host": "PC-001",
-      "description": "Office"
+      "description": "Office",
+      "rdpUserName": "max.mustermann",
+      "rdpDomain": "CONTOSO"
     }
   ]
 }
 ```
+
+RDP passwords are intentionally never stored in `settings.json`.
 
 ## Extending the application
 
