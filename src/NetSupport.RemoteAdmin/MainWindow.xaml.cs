@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly HostAvailabilityService _availability;
     private readonly ITargetDetailsService _detailsService;
     private readonly ISessionHistoryService _historyService;
+    private readonly IRdpConnectionFileService _rdpConnectionFileService;
     private readonly List<IRemoteProvider> _availableProviders;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly List<RemoteTarget> _targets = new();
@@ -41,7 +42,8 @@ public partial class MainWindow : Window
         ITargetDiscoveryService discovery,
         HostAvailabilityService availability,
         ITargetDetailsService detailsService,
-        ISessionHistoryService historyService)
+        ISessionHistoryService historyService,
+        IRdpConnectionFileService rdpConnectionFileService)
     {
         InitializeComponent();
 
@@ -52,6 +54,7 @@ public partial class MainWindow : Window
         _availability = availability;
         _detailsService = detailsService;
         _historyService = historyService;
+        _rdpConnectionFileService = rdpConnectionFileService;
         _targets.AddRange(_config.Targets);
         _availableProviders = _providers.All.Where(provider => provider.IsAvailable).ToList();
 
@@ -363,6 +366,7 @@ public partial class MainWindow : Window
         FavoriteCheckBox.IsEnabled = hasTarget;
         TargetGroupTextBox.IsEnabled = hasTarget;
         PreferredProviderComboBox.IsEnabled = hasTarget;
+        SelectedMonitorIdsTextBox.IsEnabled = hasTarget;
 
         if (target is null)
         {
@@ -372,6 +376,7 @@ public partial class MainWindow : Window
             FavoriteCheckBox.IsChecked = false;
             TargetGroupTextBox.Text = string.Empty;
             PreferredProviderComboBox.SelectedItem = null;
+            SelectedMonitorIdsTextBox.Text = string.Empty;
             SelectedTargetIpTextBlock.Text = "–";
             SelectedTargetUserTextBlock.Text = "–";
             SelectedTargetOsTextBlock.Text = "–";
@@ -388,6 +393,7 @@ public partial class MainWindow : Window
         FavoriteCheckBox.IsChecked = target.IsFavorite;
         TargetGroupTextBox.Text = target.Group ?? string.Empty;
         PreferredProviderComboBox.SelectedItem = ResolvePreferredControlProvider(target);
+        SelectedMonitorIdsTextBox.Text = target.RdpSelectedMonitors ?? string.Empty;
 
         var details = target.Details;
         SelectedTargetIpTextBlock.Text = details?.IpAddresses ?? "–";
@@ -433,6 +439,7 @@ public partial class MainWindow : Window
         target.IsFavorite = FavoriteCheckBox.IsChecked == true;
         target.Group = NullIfWhiteSpace(TargetGroupTextBox.Text);
         target.PreferredProviderId = (PreferredProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
+        target.RdpSelectedMonitors = _rdpConnectionFileService.NormalizeMonitorIds(SelectedMonitorIdsTextBox.Text);
     }
 
     private static string? NullIfWhiteSpace(string? value)
@@ -789,8 +796,18 @@ public partial class MainWindow : Window
         if (target is null)
             return;
 
-        if (SelectedTarget is not null)
-            ApplyTargetEditor(target);
+        try
+        {
+            if (SelectedTarget is not null)
+                ApplyTargetEditor(target);
+        }
+        catch (ArgumentException ex)
+        {
+            StatusTextBlock.Text = "RDP-Monitor-IDs sind ungültig.";
+            System.Windows.MessageBox.Show(ex.Message, "RDP-Monitorwahl", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SelectedMonitorIdsTextBox.Focus();
+            return;
+        }
 
         var existing = _config.Targets.FirstOrDefault(saved =>
             string.Equals(saved.Host, target.Host, StringComparison.OrdinalIgnoreCase));
@@ -839,6 +856,21 @@ public partial class MainWindow : Window
         destination.RdpRedirectClipboard = source.RdpRedirectClipboard;
         destination.RdpAdminSession = source.RdpAdminSession;
         destination.RdpUseMultiMonitor = source.RdpUseMultiMonitor;
+        destination.RdpSelectedMonitors = source.RdpSelectedMonitors;
+    }
+
+    private void ShowMonitorIdsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            _rdpConnectionFileService.ShowLocalMonitorIds();
+            StatusTextBlock.Text = "Windows RDP zeigt die lokalen Monitor-IDs an. Gewünschte IDs anschließend kommagetrennt eintragen und speichern.";
+        }
+        catch (Exception ex)
+        {
+            StatusTextBlock.Text = "RDP-Monitor-IDs konnten nicht angezeigt werden.";
+            System.Windows.MessageBox.Show(ex.Message, "RDP-Monitorwahl", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void OpenConfigButton_OnClick(object sender, RoutedEventArgs e)
