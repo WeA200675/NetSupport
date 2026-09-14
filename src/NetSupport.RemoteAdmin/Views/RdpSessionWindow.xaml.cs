@@ -25,6 +25,7 @@ public partial class RdpSessionWindow : Window
         DomainTextBox.Text = target.RdpDomain ?? string.Empty;
         ClipboardCheckBox.IsChecked = target.RdpRedirectClipboard;
         AdminSessionCheckBox.IsChecked = target.RdpAdminSession;
+        MultiMonitorCheckBox.IsChecked = target.RdpUseMultiMonitor;
 
         _rdpControl.Connecting += (_, _) => SetStatus($"Verbinde mit {_target.Host} …");
         _rdpControl.Connected += (_, _) => SetStatus($"Transport zu {_target.Host} hergestellt – Anmeldung läuft …");
@@ -53,11 +54,13 @@ public partial class RdpSessionWindow : Window
             var (userName, domain) = ResolveIdentity();
             var redirectClipboard = ClipboardCheckBox.IsChecked == true;
             var adminSession = AdminSessionCheckBox.IsChecked == true;
+            var useMultiMonitor = MultiMonitorCheckBox.IsChecked == true;
 
             _target.RdpUserName = string.IsNullOrWhiteSpace(userName) ? null : userName;
             _target.RdpDomain = string.IsNullOrWhiteSpace(domain) ? null : domain;
             _target.RdpRedirectClipboard = redirectClipboard;
             _target.RdpAdminSession = adminSession;
+            _target.RdpUseMultiMonitor = useMultiMonitor;
 
             _rdpControl.ConnectTo(
                 _target.Host,
@@ -66,8 +69,15 @@ public partial class RdpSessionWindow : Window
                 userName,
                 domain,
                 redirectClipboard,
-                adminSession);
-            _rdpControl.SetSmartSizing(SmartSizingCheckBox.IsChecked == true);
+                adminSession,
+                useMultiMonitor);
+
+            // SmartSizing is intended for a single desktop surface. Multi-monitor sessions
+            // use the native monitor layout instead.
+            _rdpControl.SetSmartSizing(!useMultiMonitor && SmartSizingCheckBox.IsChecked == true);
+
+            if (useMultiMonitor)
+                SetStatus($"Verbinde mit {_target.Host} über mehrere Monitore …");
         }
         catch (Exception ex)
         {
@@ -167,6 +177,9 @@ public partial class RdpSessionWindow : Window
 
     private void SmartSizingCheckBox_OnChanged(object sender, RoutedEventArgs e)
     {
+        if (MultiMonitorCheckBox?.IsChecked == true)
+            return;
+
         _rdpControl.SetSmartSizing(SmartSizingCheckBox.IsChecked == true);
     }
 
