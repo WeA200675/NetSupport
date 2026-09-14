@@ -14,9 +14,7 @@ Artefaktname:
 NetSupport.RemoteAdmin-win-x64
 ```
 
-Der Build enthält die benötigte .NET-Laufzeit und benötigt deshalb auf dem Testrechner keine separate .NET-8-Installation.
-
-Das Artefakt wird aktuell 14 Tage in GitHub Actions aufbewahrt.
+Der Build enthält die benötigte .NET-Laufzeit und benötigt deshalb auf dem Testrechner keine separate .NET-8-Installation. Das Artefakt wird aktuell 14 Tage in GitHub Actions aufbewahrt.
 
 ---
 
@@ -25,11 +23,11 @@ Das Artefakt wird aktuell 14 Tage in GitHub Actions aufbewahrt.
 1. Repository in GitHub öffnen.
 2. **Actions** öffnen.
 3. Einen erfolgreichen Lauf des Workflows **Build** auswählen.
-4. Im Bereich **Artifacts** `NetSupport.RemoteAdmin-win-x64` herunterladen.
-5. ZIP-Datei in einen normalen Ordner entpacken.
+4. Unter **Artifacts** `NetSupport.RemoteAdmin-win-x64` herunterladen.
+5. ZIP-Datei entpacken.
 6. `NetSupport.RemoteAdmin.exe` starten.
 
-Für produktive Verteilung ist später ein signierter Installer bzw. ein sauberer Release-Prozess sinnvoll. Das aktuelle Artefakt ist bewusst ein Entwicklungs-/Testbuild.
+Das Artefakt ist ein Entwicklungs-/Testbuild. Für produktive Verteilung ist später ein signierter Installer beziehungsweise Release-Prozess sinnvoll.
 
 ---
 
@@ -46,17 +44,21 @@ Für produktive Verteilung ist später ein signierter Installer bzw. ein saubere
 
 ### Active Directory
 
-Für **Domäne laden** wird aktuell das ActiveDirectory-PowerShell-Modul benötigt:
+Für **Domäne laden** wird aktuell benötigt:
 
 ```text
 RSAT / ActiveDirectory PowerShell
 ```
 
+### Rechnerdetails
+
+IP-Auflösung funktioniert über DNS. Für Betriebssystem, angemeldeten Benutzer und Modell verwendet das Tool Remote-CIM/WSMan mit der aktuellen Windows-Identität.
+
+Je nach Domänenrichtlinie müssen deshalb Remoteverwaltung/WSMan und die entsprechenden Firewallregeln erlaubt sein. Ist das nicht der Fall, soll die Anwendung **nicht** abstürzen: IP/Status können weiterhin verfügbar sein und die Detailkarte zeigt einen Hinweis auf unvollständige Verwaltungsdaten.
+
 ### Eingebettetes RDP
 
-Das eingebettete RDP verwendet das mit Windows bereitgestellte Microsoft Remote Desktop ActiveX Control.
-
-Es werden keine RDP-Passwörter in der Anwendung gespeichert. Kennwörter werden über den normalen Windows-RDP-Credential-Dialog eingegeben.
+Das eingebettete RDP verwendet das mit Windows bereitgestellte Microsoft Remote Desktop ActiveX Control. RDP-Passwörter werden nicht in der Anwendung gespeichert.
 
 ---
 
@@ -78,8 +80,30 @@ Prüfen:
 - **Domäne laden** liefert Rechner, wenn RSAT vorhanden ist.
 - Filter funktioniert.
 - **Status prüfen** zeigt erreichbare und nicht erreichbare Rechner.
+- In der Detailkarte wird nach der Statusprüfung ein Prüfzeitpunkt angezeigt.
 
-### 3. NetSupport
+### 3. Rechnerdetails
+
+Einen erreichbaren Domänenrechner auswählen und **Rechnerdetails laden** drücken.
+
+Erwartet bei vollständigem CIM/WSMan-Zugriff:
+
+- IP-Adresse wird angezeigt.
+- angemeldeter Benutzer wird angezeigt, sofern Windows einen interaktiven Benutzer meldet.
+- Windows-Edition/-Version wird angezeigt.
+- Hersteller/Modell wird angezeigt.
+- Zeitstempel wird aktualisiert.
+
+Dann einen Rechner testen, auf dem WSMan/CIM absichtlich nicht erreichbar ist.
+
+Erwartet:
+
+- Anwendung bleibt bedienbar.
+- Detailabfrage endet spätestens nach ungefähr 12 Sekunden.
+- Statuszeile meldet nur teilweise verfügbare Verwaltungsdaten oder ein Zeitlimit.
+- NetSupport/RDP/Statusprüfung bleiben unabhängig davon verwendbar.
+
+### 4. NetSupport
 
 Mit einem Testrechner prüfen:
 
@@ -90,28 +114,44 @@ Mit einem Testrechner prüfen:
 - Remote CMD
 - Dateien
 
-### 4. Eingebettetes RDP
+### 5. Eingebettetes RDP
 
 Prüfen:
 
-- RDP-Fenster öffnet sich innerhalb der Anwendung.
+- RDP-Fenster öffnet sich.
 - Credential-Dialog erscheint bei Bedarf.
-- Verbindung wird aufgebaut.
-- Sessionstatus wechselt nachvollziehbar durch Connecting / Connected / Login.
+- Sessionstatus wechselt durch Connecting / Connected / Login.
 - **An Fenster anpassen** funktioniert.
 - Vollbild/Fenstermodus funktioniert.
 - Trennen und Neu verbinden funktionieren.
 
-### 5. RDP-Präferenzen
+### 6. RDP-Präferenzen
 
 Bei einem gespeicherten Ziel prüfen:
 
 - Benutzername/Domäne werden wieder angezeigt.
 - Zwischenablage-Einstellung bleibt erhalten.
 - Admin-Sitzungs-Einstellung bleibt erhalten.
+- Multi-Monitor-Einstellung bleibt erhalten.
 - Es befindet sich **kein Passwort** in `%AppData%\NetSupportRemoteAdmin\settings.json`.
 
-### 6. Remote-Aktionen
+### 7. Multi-Monitor
+
+Voraussetzung: Admin-PC mit mindestens zwei aktiven Monitoren und ein RDP-Ziel, das Multi-Monitor unterstützt.
+
+Prüfen:
+
+1. **Mehrere Monitore** aktivieren.
+2. **Neu verbinden** ausführen.
+3. Prüfen, ob die RDP-Sitzung die lokalen Monitore verwendet.
+4. Multi-Monitor wieder deaktivieren und erneut verbinden.
+5. Prüfen, ob eine normale Einzelmonitor-Sitzung zurückkehrt.
+
+Hinweis: Die aktuelle Version verwendet alle vom Windows-RDP-Client verfügbaren Monitore. Eine Auswahl bestimmter Monitor-IDs ist noch nicht implementiert.
+
+Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
+
+### 8. Remote-Aktionen
 
 Während einer aktiven RDP-Sitzung prüfen:
 
@@ -119,9 +159,9 @@ Während einer aktiven RDP-Sitzung prüfen:
 - **Start remote**
 - **Task-Manager**
 
-Hinweis: Einzelne Remote-Aktionen können abhängig von Windows-/RDP-Version des Clients und Servers nicht unterstützt werden. In diesem Fall soll die Anwendung nur eine Statusmeldung anzeigen und stabil weiterlaufen.
+Einzelne Aktionen können abhängig von Client-/Serverversion nicht unterstützt werden. Dann soll nur eine Statusmeldung erscheinen.
 
-### 7. Auto-Reconnect
+### 9. Auto-Reconnect
 
 Auf einem geeigneten Testsystem kurzzeitig die Netzwerkverbindung unterbrechen und wiederherstellen.
 
@@ -130,6 +170,16 @@ Erwartetes Verhalten:
 - Sessionstatus zeigt den automatischen Wiederverbindungsversuch.
 - Versuchszähler und Netzverfügbarkeit werden angezeigt, soweit vom Microsoft-Control gemeldet.
 - Nach erfolgreicher Wiederverbindung erscheint eine entsprechende Statusmeldung.
+
+### 10. Externer RDP-Fallback
+
+Optional `useEmbeddedRdp` in `settings.json` auf `false` setzen.
+
+Prüfen:
+
+- RDP startet über `mstsc.exe`.
+- aktivierte Admin-Sitzung wird als `/admin` übernommen.
+- aktivierter Multi-Monitor-Modus wird als `/multimon` übernommen.
 
 ---
 
@@ -141,7 +191,7 @@ Pfad:
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Bei Fehlern ist diese Datei hilfreich, um die tatsächlich verwendeten Ziele und nicht geheimen Präferenzen zu prüfen.
+Dort dürfen nur dauerhafte Ziele und nicht geheime Präferenzen stehen. Laufzeitdetails wie aktuelle IP, Windows-Version, Benutzer und Online-Status werden bewusst nicht gespeichert.
 
 Passwörter dürfen dort niemals auftauchen.
 
@@ -152,10 +202,11 @@ Passwörter dürfen dort niemals auftauchen.
 Für einen reproduzierbaren Fehler sind besonders hilfreich:
 
 - betroffene Funktion
-- Zielrechner nur in anonymisierter Form, falls erforderlich
 - genaue sichtbare Fehlermeldung
 - Windows-Version des Admin-PCs
-- bei RDP: ob eingebettetes RDP oder `mstsc.exe` verwendet wurde
+- bei Rechnerdetails: ob `Test-WSMan <rechner>` grundsätzlich funktioniert
+- bei RDP: eingebettetes RDP oder `mstsc.exe`
+- Anzahl/Anordnung der Monitore bei Multi-Monitor-Problemen
 - ob der Fehler bei einem zweiten Zielrechner ebenfalls auftritt
 - zugehöriger GitHub-Actions-Build bzw. Commit
 
