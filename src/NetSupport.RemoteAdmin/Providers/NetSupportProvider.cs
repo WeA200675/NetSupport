@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Net;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Services;
@@ -42,14 +43,13 @@ public sealed class NetSupportProvider(AppConfig config) : IRemoteProvider
             UseShellExecute = true
         };
 
-        // NetSupport expects IP addresses in the special >address notation.
         var connectTarget = IPAddress.TryParse(target.Host, out _) ? $">{target.Host}" : target.Host;
         psi.ArgumentList.Add($"/c\"{connectTarget}\"");
 
         foreach (var argument in GetActionArguments(action))
             psi.ArgumentList.Add(argument);
 
-        Process.Start(psi) ?? throw new InvalidOperationException("NetSupport konnte nicht gestartet werden.");
+        _ = Process.Start(psi) ?? throw new InvalidOperationException("NetSupport konnte nicht gestartet werden.");
         return Task.CompletedTask;
     }
 
