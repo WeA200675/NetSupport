@@ -1,0 +1,39 @@
+<Window x:Class="NetSupport.RemoteAdmin.Views.RdpSessionWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
+        Title="RDP Session"
+        Width="1280"
+        Height="820"
+        MinWidth="900"
+        MinHeight="600"
+        WindowStartupLocation="CenterOwner">
+    <DockPanel>
+        <Border DockPanel.Dock="Top" Padding="10" BorderBrush="#DDD" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel>
+                    <TextBlock x:Name="TargetTextBlock" FontSize="17" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="StatusTextBlock" Margin="0,3,0,0" Opacity="0.65" Text="Nicht verbunden"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ReconnectButton" Content="Neu verbinden" Padding="14,6" Margin="0,0,8,0"
+                            Click="ReconnectButton_OnClick"/>
+                    <Button Content="Vollbild" Padding="14,6" Margin="0,0,8,0"
+                            Click="FullscreenButton_OnClick"/>
+                    <Button Content="Trennen" Padding="14,6"
+                            Click="DisconnectButton_OnClick"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Border Background="#111">
+            <wfi:WindowsFormsHost x:Name="RdpHost"/>
+        </Border>
+    </DockPanel>
+</Window>
