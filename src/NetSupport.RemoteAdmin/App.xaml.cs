@@ -14,7 +14,7 @@ public partial class App : System.Windows.Application
         {
             var configService = new ConfigService();
             var config = await configService.LoadAsync();
-            var rdpSessionLauncher = new EmbeddedRdpSessionLauncher();
+            var rdpSessionLauncher = new EmbeddedRdpSessionLauncher(config, configService);
 
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
