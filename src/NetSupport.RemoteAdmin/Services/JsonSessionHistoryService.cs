@@ -1,4 +1,5 @@
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using NetSupport.RemoteAdmin.Models;
 
@@ -73,6 +74,53 @@ public sealed class JsonSessionHistoryService : ISessionHistoryService
         }
     }
 
+    public async Task ExportCsvAsync(
+        string destinationPath,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(destinationPath);
+
+        await _gate.WaitAsync(cancellationToken);
+        try
+        {
+            var entries = (await LoadUnsafeAsync(cancellationToken))
+                .OrderByDescending(entry => entry.StartedAt)
+                .ToList();
+
+            var builder = new StringBuilder();
+            builder.AppendLine("Zeitpunkt;Rechner;Name;Provider;Provider-ID;Aktion;Erfolg;Fehler");
+
+            foreach (var entry in entries)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                builder.Append(Csv(entry.StartedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss"))).Append(';')
+                    .Append(Csv(entry.Host)).Append(';')
+                    .Append(Csv(entry.TargetName)).Append(';')
+                    .Append(Csv(entry.ProviderName)).Append(';')
+                    .Append(Csv(entry.ProviderId)).Append(';')
+                    .Append(Csv(entry.Action)).Append(';')
+                    .Append(Csv(entry.Succeeded ? "Ja" : "Nein")).Append(';')
+                    .Append(Csv(entry.Error))
+                    .AppendLine();
+            }
+
+            var directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
+
+            // UTF-8 with BOM makes the semicolon-delimited German CSV open reliably in Excel.
+            await File.WriteAllTextAsync(
+                destinationPath,
+                builder.ToString(),
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: true),
+                cancellationToken);
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public async Task ClearAsync(CancellationToken cancellationToken = default)
     {
         await _gate.WaitAsync(cancellationToken);
@@ -127,5 +175,17 @@ public sealed class JsonSessionHistoryService : ISessionHistoryService
         }
 
         File.Move(tempPath, HistoryPath, overwrite: true);
+    }
+
+    private static string Csv(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        var normalized = value.Replace("\r", " ").Replace("\n", " ");
+        if (!normalized.Contains(';') && !normalized.Contains('"'))
+            return normalized;
+
+        return $"\"{normalized.Replace("\"", "\"\"")}\"";
     }
 }
