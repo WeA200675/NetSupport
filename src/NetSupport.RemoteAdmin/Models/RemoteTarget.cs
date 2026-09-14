@@ -50,6 +50,13 @@ public sealed class RemoteTarget
     /// </summary>
     public bool RdpUseMultiMonitor { get; set; }
 
+    /// <summary>
+    /// Optional comma-separated local monitor IDs for a targeted RDP multi-monitor session.
+    /// IDs are obtained from mstsc.exe /l. When set, the provider uses a generated .rdp file
+    /// through the external Windows client so the documented selectedmonitors setting is used.
+    /// </summary>
+    public string? RdpSelectedMonitors { get; set; }
+
     [JsonIgnore]
     public HostStatus Status { get; set; } = HostStatus.Unknown;
 
