@@ -54,7 +54,7 @@ RSAT / ActiveDirectory PowerShell
 
 IP-Auflösung funktioniert über DNS. Für Betriebssystem, angemeldeten Benutzer und Modell verwendet das Tool Remote-CIM/WSMan mit der aktuellen Windows-Identität.
 
-Je nach Domänenrichtlinie müssen deshalb Remoteverwaltung/WSMan und die entsprechenden Firewallregeln erlaubt sein. Ist das nicht der Fall, soll die Anwendung **nicht** abstürzen: IP/Status können weiterhin verfügbar sein und die Detailkarte zeigt einen Hinweis auf unvollständige Verwaltungsdaten.
+Ist WSMan/CIM nicht verfügbar, soll die Anwendung nicht abstürzen. IP/Status und die Remote-Funktionen bleiben unabhängig verwendbar.
 
 ### Eingebettetes RDP
 
@@ -72,17 +72,52 @@ Prüfen:
 - Hauptfenster kann geschlossen und aus dem Tray wieder geöffnet werden.
 - Tray-Menü **Beenden** beendet die Anwendung vollständig.
 
-### 2. Rechnerliste
+### 2. Rechnerliste und Filter
 
 Prüfen:
 
 - Rechnername/IP kann direkt eingegeben werden.
 - **Domäne laden** liefert Rechner, wenn RSAT vorhanden ist.
-- Filter funktioniert.
+- Textfilter funktioniert.
 - **Status prüfen** zeigt erreichbare und nicht erreichbare Rechner.
-- In der Detailkarte wird nach der Statusprüfung ein Prüfzeitpunkt angezeigt.
+- Nach der Statusprüfung erscheint ein Prüfzeitpunkt.
 
-### 3. Rechnerdetails
+### 3. Favoriten, Gruppen und Standardverbindung
+
+Einen Testrechner auswählen und folgende Werte setzen:
+
+- **Favorit** aktivieren
+- Gruppe, z. B. `Testgruppe`
+- Standard-Provider auswählen
+- **Speichern / Aktualisieren** drücken
+
+Prüfen:
+
+1. Der Rechner zeigt ein `★`.
+2. Favoriten stehen vor normalen Rechnern.
+3. **Nur Favoriten** blendet normale Rechner aus.
+4. `Testgruppe` erscheint im Gruppenfilter.
+5. Die Textsuche findet den Rechner auch über `Testgruppe`.
+6. Gruppenfilter `Testgruppe` zeigt nur passende Rechner.
+7. Nach Neustart sind Favorit, Gruppe und Standard-Provider noch vorhanden.
+8. **Standardverbindung starten** öffnet den gewählten Provider.
+9. Doppelklick öffnet den gespeicherten Standard-Provider.
+10. Direkte Schnellaktionen **Steuern** bzw. **RDP** funktionieren weiterhin unabhängig vom Standard-Provider.
+
+Explizites Speicherverhalten prüfen:
+
+1. Gruppe/Favorit im Editor ändern.
+2. **Nicht** auf **Speichern / Aktualisieren** klicken.
+3. Eine Standardverbindung starten und wieder schließen.
+4. Anwendung neu starten.
+5. Die nicht gespeicherte Organisationsänderung darf nicht dauerhaft übernommen worden sein.
+
+Fallback prüfen, wenn möglich:
+
+- einen bevorzugten Provider konfigurieren, der auf einem zweiten Test-Admin-PC nicht verfügbar ist
+- die Standardverbindung soll auf einen verfügbaren Control-Provider zurückfallen und nicht abstürzen
+
+### 4. Rechnerdetails
 
 Einen erreichbaren Domänenrechner auswählen und **Rechnerdetails laden** drücken.
 
@@ -103,7 +138,7 @@ Erwartet:
 - Statuszeile meldet nur teilweise verfügbare Verwaltungsdaten oder ein Zeitlimit.
 - NetSupport/RDP/Statusprüfung bleiben unabhängig davon verwendbar.
 
-### 4. NetSupport
+### 5. NetSupport
 
 Mit einem Testrechner prüfen:
 
@@ -114,7 +149,7 @@ Mit einem Testrechner prüfen:
 - Remote CMD
 - Dateien
 
-### 5. Eingebettetes RDP
+### 6. Eingebettetes RDP
 
 Prüfen:
 
@@ -125,7 +160,7 @@ Prüfen:
 - Vollbild/Fenstermodus funktioniert.
 - Trennen und Neu verbinden funktionieren.
 
-### 6. RDP-Präferenzen
+### 7. RDP-Präferenzen
 
 Bei einem gespeicherten Ziel prüfen:
 
@@ -135,7 +170,7 @@ Bei einem gespeicherten Ziel prüfen:
 - Multi-Monitor-Einstellung bleibt erhalten.
 - Es befindet sich **kein Passwort** in `%AppData%\NetSupportRemoteAdmin\settings.json`.
 
-### 7. Multi-Monitor
+### 8. Multi-Monitor
 
 Voraussetzung: Admin-PC mit mindestens zwei aktiven Monitoren und ein RDP-Ziel, das Multi-Monitor unterstützt.
 
@@ -147,11 +182,9 @@ Prüfen:
 4. Multi-Monitor wieder deaktivieren und erneut verbinden.
 5. Prüfen, ob eine normale Einzelmonitor-Sitzung zurückkehrt.
 
-Hinweis: Die aktuelle Version verwendet alle vom Windows-RDP-Client verfügbaren Monitore. Eine Auswahl bestimmter Monitor-IDs ist noch nicht implementiert.
+Die aktuelle Version verwendet alle vom Windows-RDP-Client verfügbaren Monitore. Eine Auswahl bestimmter Monitor-IDs ist noch nicht implementiert. Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
 
-Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
-
-### 8. Remote-Aktionen
+### 9. Remote-Aktionen
 
 Während einer aktiven RDP-Sitzung prüfen:
 
@@ -161,7 +194,7 @@ Während einer aktiven RDP-Sitzung prüfen:
 
 Einzelne Aktionen können abhängig von Client-/Serverversion nicht unterstützt werden. Dann soll nur eine Statusmeldung erscheinen.
 
-### 9. Auto-Reconnect
+### 10. Auto-Reconnect
 
 Auf einem geeigneten Testsystem kurzzeitig die Netzwerkverbindung unterbrechen und wiederherstellen.
 
@@ -171,7 +204,7 @@ Erwartetes Verhalten:
 - Versuchszähler und Netzverfügbarkeit werden angezeigt, soweit vom Microsoft-Control gemeldet.
 - Nach erfolgreicher Wiederverbindung erscheint eine entsprechende Statusmeldung.
 
-### 10. Externer RDP-Fallback
+### 11. Externer RDP-Fallback
 
 Optional `useEmbeddedRdp` in `settings.json` auf `false` setzen.
 
@@ -191,9 +224,9 @@ Pfad:
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Dort dürfen nur dauerhafte Ziele und nicht geheime Präferenzen stehen. Laufzeitdetails wie aktuelle IP, Windows-Version, Benutzer und Online-Status werden bewusst nicht gespeichert.
+Dort dürfen nur dauerhafte Ziele und nicht geheime Präferenzen stehen. Dazu gehören Favorit, Gruppe, bevorzugter Provider und RDP-Präferenzen.
 
-Passwörter dürfen dort niemals auftauchen.
+Laufzeitdetails wie aktuelle IP, Windows-Version, Benutzer und Online-Status werden bewusst nicht gespeichert. Passwörter dürfen dort niemals auftauchen.
 
 ---
 
@@ -204,6 +237,7 @@ Für einen reproduzierbaren Fehler sind besonders hilfreich:
 - betroffene Funktion
 - genaue sichtbare Fehlermeldung
 - Windows-Version des Admin-PCs
+- bei Organisationsproblemen: betroffene Gruppe und Provider-ID ohne vertrauliche Daten
 - bei Rechnerdetails: ob `Test-WSMan <rechner>` grundsätzlich funktioniert
 - bei RDP: eingebettetes RDP oder `mstsc.exe`
 - Anzahl/Anordnung der Monitore bei Multi-Monitor-Problemen
