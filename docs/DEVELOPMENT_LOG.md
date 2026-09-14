@@ -137,6 +137,8 @@ Durch CI wurden während der Entwicklung mehrere Probleme gefunden und korrigier
 - fehlende `System.IO`-Imports
 - ungültige Null-Coalescing-Ausdrucksstatements bei `Process.Start`
 
+Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut.
+
 Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
 
 ---
@@ -192,17 +194,80 @@ aktiviert standardmäßig den eingebetteten RDP-Weg.
 
 ---
 
+## Eingebettetes RDP – Phase 2
+
+Phase 2 erweitert den Viewer von einem reinen ActiveX-Host zu einer deutlich besser beobachtbaren und bedienbaren Session.
+
+### Session-Ereignisse
+
+`RdpActiveXControl` bindet jetzt ausgewählte Ereignisse aus `IMsTscAxEvents` an .NET-Ereignisse:
+
+- `OnConnecting`
+- `OnConnected`
+- `OnLoginComplete`
+- `OnDisconnected`
+- `OnFatalError`
+- `OnRemoteDesktopSizeChange`
+
+Dadurch zeigt das Session-Fenster echte Zustände statt nur einen statischen „gestartet“-Text.
+
+Bei einer Trennung werden zusätzlich `ExtendedDisconnectReason` und – soweit möglich – `GetErrorDescription` ausgewertet.
+
+### Skalierung
+
+`SmartSizing` wurde gekapselt und kann über **An Fenster anpassen** während einer laufenden Verbindung ein- oder ausgeschaltet werden.
+
+Das Remote-Bild wird damit an den verfügbaren Sessionbereich skaliert, ohne dass die Hauptanwendung RDP-spezifische Details kennen muss.
+
+### Benutzername und Domäne
+
+Das Session-Fenster enthält jetzt optionale Felder für:
+
+- Benutzername
+- Windows-/AD-Domäne
+
+Auch die Schreibweise
+
+```text
+DOMÄNE\Benutzer
+```
+
+wird unterstützt und bei leerem separaten Domänenfeld automatisch aufgeteilt.
+
+Für gespeicherte Zielrechner können `rdpUserName` und `rdpDomain` in der Anwendungskonfiguration erhalten bleiben.
+
+### Passwort- und Credential-Entscheidung
+
+RDP-Passwörter werden **nicht** in der Anwendung gespeichert.
+
+Stattdessen darf das Microsoft-RDP-Control den normalen Windows-Credential-Dialog anzeigen. Das interne Credential-Saving des eingebetteten Controls wird deaktiviert.
+
+Diese Entscheidung hält `settings.json` frei von RDP-Passwörtern und reduziert die Menge sensitiver Daten, die das Tool selbst verwalten müsste.
+
+### Neue Dateien / Modelle
+
+Ergänzt wurden unter anderem:
+
+```text
+Models/RdpSessionEvents.cs
+docs/RDP_SESSION.md
+```
+
+`docs/RDP_SESSION.md` dokumentiert die RDP-Architektur, Bedienung, Sicherheitsentscheidung und den aktuellen Funktionsumfang ausführlich.
+
+---
+
 ## Nächste technische Schritte
 
-Für den eingebetteten RDP-Viewer sind als nächste Ausbaustufen vorgesehen:
+Für RDP Phase 3 sind insbesondere vorgesehen:
 
-- zuverlässige Connection-/Disconnect-Events
-- bessere Skalierung bei Fenstergrößenänderung
-- Credential-/Benutzername-Handling
-- Zwischenablageoptionen
 - Multi-Monitor-Unterstützung
-- RDP-Fehlercodes verständlich anzeigen
-- Session-Toolbar weiter ausbauen
+- Zwischenablageoptionen
+- Auto-Reconnect-Ereignisse
+- optionale administrative Sitzung
+- Sondertasten-/Keyboard-Werkzeuge
+- detailliertere Fehlertexte
+- Session-Historie / letzte Verbindung
 
 Zusätzlich geplant:
 
@@ -221,6 +286,7 @@ Die Dateien
 ```text
 docs/PROJECT_OVERVIEW.md
 docs/DEVELOPMENT_LOG.md
+docs/RDP_SESSION.md
 ```
 
 werden bei weiteren Entwicklungsschritten mit aktualisiert, damit die im Entwicklungsverlauf besprochenen Informationen direkt im Repository nachvollziehbar bleiben.
