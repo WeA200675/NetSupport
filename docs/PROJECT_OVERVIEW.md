@@ -4,23 +4,21 @@
 
 ---
 
-## Ziel des Projekts
+## Ziel
 
-NetSupport Remote Admin ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
+**NetSupport Remote Admin** ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
 
-Das Tool ersetzt NetSupport Manager nicht, sondern stellt eine eigene, einfachere Bedienoberfläche vor vorhandene Remote-Techniken. NetSupport und Windows RDP sind austauschbare Backends. Active Directory dient als Rechnerquelle; flüchtige Rechnerinformationen werden bei Bedarf abgefragt.
+NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
 
-Wichtige Ziele:
+Wichtige Prinzipien:
 
-- wenige Klicks für häufige Aktionen
-- dauerhaft im Windows-Infobereich nutzbar
+- wenige Klicks für häufige Aufgaben
+- Tray-/Infobereich-Betrieb
 - keine Abhängigkeit von unzuverlässig verteilten NetSupport-UI-Einstellungen
-- Rechner mit Favoriten und Gruppen organisieren
-- wiederkehrende Listenfilter als benannte Ansichten speichern
-- Standardverbindung pro Rechner festlegen
-- zuletzt gestartete Remote-Aktionen lokal nachvollziehen
-- klare Trennung zwischen UI, Discovery, Rechnerdetails, Verlauf und Remote-Backends
 - keine Speicherung von Passwörtern
+- explizites Speichern dauerhafter Zielpräferenzen
+- flüchtige Inventardaten bleiben flüchtig
+- dokumentierte Windows-/Microsoft-Schnittstellen vor undokumentierten Workarounds
 
 ---
 
@@ -28,20 +26,18 @@ Wichtige Ziele:
 
 1. Anwendung starten oder aus dem Tray öffnen.
 2. Rechner direkt per Name/IP eingeben oder aus Active Directory laden.
-3. Optional Online-/Offline-Status prüfen.
-4. Liste über Text, Gruppe und/oder **Nur Favoriten** filtern oder eine gespeicherte Ansicht laden.
-5. Rechner auswählen.
-6. Optional **Rechnerdetails laden**.
-7. Favorit, Gruppe und Standard-Provider setzen und mit **Speichern / Aktualisieren** übernehmen.
-8. **Standardverbindung starten** oder den Rechner doppelklicken.
-9. Direkte Schnellaktionen für NetSupport/RDP bleiben unabhängig davon verfügbar.
-10. Unter **Zuletzt verwendet** können jüngste Verbindungsstarts eingesehen und Ziele erneut fokussiert werden.
+3. Liste über Text, Gruppe, Favoriten oder eine gespeicherte Ansicht filtern.
+4. Ziel auswählen.
+5. Optional Online-Status und Rechnerdetails laden.
+6. Favorit, Gruppe, Standard-Provider und RDP-Zielpräferenzen mit **Speichern / Aktualisieren** sichern.
+7. Direkte Schnellaktion oder **Standardverbindung starten** verwenden.
+8. Unter **Zuletzt verwendet** jüngste Startversuche einsehen.
 
 ---
 
-## Zielrechner organisieren
+## Zielorganisation
 
-Gespeicherte Ziele besitzen zusätzlich zu Name, Host und Beschreibung folgende Organisationsfelder:
+Persistierbare Zielattribute umfassen unter anderem:
 
 ```json
 {
@@ -51,38 +47,30 @@ Gespeicherte Ziele besitzen zusätzlich zu Name, Host und Beschreibung folgende 
 }
 ```
 
-### Favoriten
+Funktionen:
 
-- Favoriten werden vor normalen Rechnern sortiert.
-- In der Liste erscheint ein `★`.
-- **Nur Favoriten** reduziert die Liste entsprechend.
+- Favoriten zuerst sortieren
+- **Nur Favoriten**
+- freie Gruppen wie `Büro`, `Werkstatt`, `Server`
+- Gruppenfilter
+- Gruppen werden von der Textsuche berücksichtigt
+- bevorzugter Control-Provider pro Ziel
+- Doppelklick nutzt den bevorzugten Provider
+- Fallback auf einen verfügbaren Control-Provider
 
-### Gruppen
-
-Gruppen sind freie Textwerte wie `Büro`, `Werkstatt`, `Server` oder `Testgeräte`.
-
-- Textsuche berücksichtigt Gruppen.
-- Ein eigener Gruppenfilter steht oberhalb der Liste bereit.
-- Neue Gruppen erscheinen nach dem Speichern automatisch im Filter.
-
-### Standard-Provider
-
-`preferredProviderId` bestimmt die normale Control-Verbindung eines Ziels.
-
-- **Standardverbindung starten** verwendet diesen Provider.
-- Doppelklick verwendet den gespeicherten Standard-Provider.
-- Direkte Buttons **Steuern** und **RDP** bleiben weiterhin verfügbar.
-- Ist der gespeicherte Provider nicht verfügbar, wird zunächst NetSupport und danach ein anderer verfügbarer Control-Provider verwendet.
-
-Die vollständige Beschreibung liegt in [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
+Details: [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
 
 ---
 
 ## Gespeicherte Ansichten
 
-Wiederkehrende Kombinationen aus Listenfiltern können benannt gespeichert werden.
+Benannte Ansichten speichern:
 
-Eine Ansicht enthält:
+- Textsuche
+- Gruppenfilter
+- Favoritenfilter
+
+Beispiel:
 
 ```json
 {
@@ -93,133 +81,58 @@ Eine Ansicht enthält:
 }
 ```
 
+Die Ansichten liegen in `settings.json` und werden beim Auswählen sofort angewendet.
+
+---
+
+## Lokaler Startverlauf
+
+`ISessionHistoryService` protokolliert die letzten Remote-Aktionsstarts separat in:
+
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
 Gespeichert werden nur:
 
-- Textsuche
-- Gruppenfilter
-- **Nur Favoriten**
+- Zeit
+- Ziel
+- Provider
+- Aktion
+- Start erfolgreich/fehlgeschlagen
+- Fehlertext bei fehlgeschlagenem Start
 
-Beim Auswählen einer Ansicht werden die Filter unmittelbar wieder angewendet. Speichern unter demselben Namen aktualisiert die bestehende Ansicht.
-
-Die Ansichten liegen in `settings.json`, weil sie Teil der Bedienkonfiguration sind.
+Der Verlauf ist auf 100 Einträge begrenzt, kann gelöscht werden und enthält keine Passwörter, Bildschirminhalte oder CIM-Inventardaten.
 
 Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
 
 ---
 
-## Lokaler Verbindungsverlauf
+## Active Directory und Status
 
-Jeder Start einer NetSupport-/RDP-Aktion wird über `ISessionHistoryService` protokolliert.
-
-Aktuelle Implementierung:
+Discovery:
 
 ```text
-ISessionHistoryService
-   +--> JsonSessionHistoryService
-           +--> %AppData%\NetSupportRemoteAdmin\session-history.json
+ITargetDiscoveryService
+   +--> DomainComputerDiscoveryService
+           +--> Get-ADComputer
 ```
 
-Gespeichert werden:
+Voraussetzung: RSAT / ActiveDirectory-PowerShell-Modul.
 
-- Zeitpunkt
-- Hostname und optional Anzeigename
-- Provider
-- Aktion
-- Erfolg oder Fehler beim Starten
-- Fehlertext, falls der Provider nicht gestartet werden konnte
-
-Nicht gespeichert werden Passwörter, Credentials, Bildschirminhalte oder CIM-Inventardaten.
-
-Der Verlauf ist auf 100 Einträge begrenzt und kann im UI vollständig gelöscht werden.
-
-Wichtig: Bei externen Programmen wie NetSupport handelt es sich um einen **Startverlauf**, nicht um ein revisionssicheres Session-Audit.
-
----
-
-## NetSupport Manager
-
-Der NetSupport-Provider startet `PCICTLUI.EXE` und unterstützt:
-
-| Aktion | Funktion |
-|---|---|
-| Steuern | Bildschirm, Maus und Tastatur übernehmen |
-| Nur ansehen | Remote-Bildschirm ohne Steuerung |
-| Chat | NetSupport Chat |
-| Inventar | NetSupport Inventaransicht |
-| Remote CMD | Remote Command Prompt |
-| Dateien | File Transfer |
-
-Der Pfad wird in den üblichen `Program Files`-Verzeichnissen automatisch gesucht und kann über die Konfiguration überschrieben werden.
-
----
-
-## Windows Remote Desktop
-
-RDP besitzt zwei Betriebsarten:
-
-**Eingebettet:** Microsoft Remote Desktop ActiveX Control in einem eigenen Session-Fenster.
-
-**Fallback:** `mstsc.exe`, falls eingebettetes RDP deaktiviert oder nicht verfügbar ist.
-
-Aktuelle Funktionen:
-
-- Verbinden / Neu verbinden / Trennen
-- Vollbild / Fenstermodus
-- Connecting-/Connected-/Login-/Disconnect-Status
-- Extended Disconnect Reason und Fatal-Error-Anzeige
-- Anzeige der Remote-Auflösung
-- Auto-Reconnect-Status mit Versuchszähler und Netzstatus
-- SmartSizing
-- Multi-Monitor über `UseMultimon`
-- Benutzername und Domäne
-- normaler Windows-Credential-Prompt
-- keine Passwortspeicherung
-- Zwischenablageumleitung
-- administrative RDP-Sitzung
-- Remote-Aktionen für Alt+Tab, Start und Task-Manager
-- persistente nicht geheime RDP-Präferenzen
-
-Beim externen Client werden Multi-Monitor und Admin-Sitzung über `/multimon` bzw. `/admin` weitergegeben.
-
-Die dokumentierte ActiveX-Schnittstelle unterstützt Multi-Monitor als Ein/Aus-Modus über `UseMultimon`. Eine gezielte Auswahl einzelner Monitor-IDs wird deshalb nicht über eine undokumentierte COM-Eigenschaft implementiert. Die dokumentierte RDP-Eigenschaft `selectedmonitors` eignet sich für einen späteren externen-RDP-Ausbau.
-
-Details: [`RDP_SESSION.md`](RDP_SESSION.md).
-
----
-
-## Active Directory
-
-Die Rechnerliste kann über `ITargetDiscoveryService` aus Active Directory geladen werden.
-
-Aktuelle Implementierung:
-
-```text
-DomainComputerDiscoveryService -> Get-ADComputer
-```
-
-Dafür wird RSAT / das ActiveDirectory-PowerShell-Modul benötigt.
-
-AD-gefundene Rechner bleiben zunächst flüchtig und werden erst mit **Speichern / Aktualisieren** dauerhaft in die lokale Bedienkonfiguration aufgenommen.
-
----
-
-## Online-/Offline-Status
-
-`HostAvailabilityService` prüft Rechner parallel per Ping mit begrenzter Parallelität.
-
-Der Status und der Zeitpunkt der letzten Prüfung sind Laufzeitinformationen und werden nicht in `settings.json` gespeichert.
+`HostAvailabilityService` prüft Rechner parallel per Ping. Status und letzter Prüfzeitpunkt werden nicht dauerhaft gespeichert.
 
 ---
 
 ## Rechnerdetails
 
-Rechnerdetails sind hinter `ITargetDetailsService` gekapselt.
+Details werden über `ITargetDetailsService` geladen.
 
 Aktuelle Implementierung:
 
 ```text
 PowerShellTargetDetailsService
-   +--> lokale DNS-Auflösung
+   +--> DNS
    +--> Get-CimInstance Win32_ComputerSystem
    +--> Get-CimInstance Win32_OperatingSystem
 ```
@@ -227,15 +140,125 @@ PowerShellTargetDetailsService
 Angezeigt werden:
 
 - IP-Adresse(n)
-- aktuell gemeldeter Windows-Benutzer
-- Windows-Edition und Version
-- Hersteller und Modell
-- letzter Status-/Detailprüfzeitpunkt
-- jüngster bekannter Verbindungsstart des ausgewählten Hosts
+- angemeldeter Windows-Benutzer
+- Windows-Edition/-Version
+- Hersteller/Modell
+- letzter Prüfzeitpunkt
+- jüngster bekannter Remote-Start des Hosts
 
-Die Remote-CIM-Abfrage verwendet die aktuelle Windows-Identität und die normale WSMan-Konfiguration. Ein UI-Zeitlimit verhindert langes Blockieren. Ist CIM/WSMan nicht verfügbar, bleiben DNS, Ping, NetSupport und RDP unabhängig nutzbar.
+CIM/WSMan-Fehler blockieren die übrigen Remote-Funktionen nicht.
 
-Diese Inventarinformationen werden bewusst nicht gespeichert, weil sie schnell veralten können.
+---
+
+## NetSupport Manager
+
+Der NetSupport-Provider startet `PCICTLUI.EXE`.
+
+Aktuelle Schnellaktionen:
+
+| Aktion | Backend |
+|---|---|
+| Steuern | NetSupport Control |
+| Nur ansehen | NetSupport View |
+| Chat | NetSupport Chat |
+| Inventar | NetSupport Inventory |
+| Remote CMD | NetSupport Remote Command Prompt |
+| Dateien | NetSupport File Transfer |
+
+---
+
+## Windows Remote Desktop
+
+### Eingebetteter Viewer
+
+Der normale RDP-Weg hostet Microsofts `MsRdpClient12NotSafeForScripting` in einem eigenen Fenster.
+
+Aktuelle Funktionen:
+
+- Connect / Reconnect / Disconnect
+- Vollbild
+- Connecting-/Connected-/Login-/Disconnect-Status
+- Extended Disconnect Reason
+- Fatal-Error-Anzeige
+- Remote-Auflösung
+- Auto-Reconnect-Status
+- SmartSizing
+- Zwischenablage
+- Admin-Sitzung
+- Benutzername/Domäne
+- keine Passwortspeicherung
+- Remote Alt+Tab, Start und Task-Manager
+- Multi-Monitor über `UseMultimon`
+
+### Gezielte Monitorwahl
+
+Für einzelne lokale RDP-Monitore kann pro Ziel gespeichert werden:
+
+```json
+"rdpSelectedMonitors": "0,1"
+```
+
+Die lokalen IDs werden mit
+
+```text
+mstsc.exe /l
+```
+
+angezeigt. Im UI steht dafür **IDs anzeigen** bereit.
+
+Ist `rdpSelectedMonitors` gesetzt, erzeugt `IRdpConnectionFileService` eine minimale `.rdp`-Datei mit:
+
+```text
+use multimon:i:1
+selectedmonitors:s:0,1
+```
+
+und startet den Windows-RDP-Client damit. Ohne ID-Liste bleibt der normale eingebettete Viewer aktiv.
+
+Die Dateien liegen unter:
+
+```text
+%AppData%\NetSupportRemoteAdmin\rdp\
+```
+
+Sie enthalten keine Passwörter oder Credentials.
+
+Microsoft dokumentiert `SelectedMonitors` inzwischen zusätzlich als benannte Eigenschaft von `IMsRdpExtendedSettings`. Für die aktuelle Phase wird trotzdem der transparente `.rdp`-Pfad verwendet, weil die bestehende AxHost-Kapselung bewusst ohne generierte MSTSCLib-Interop-Assemblies arbeitet. Eine spätere typisierte Extended-Settings-Anbindung kann die Auswahl auch im eingebetteten Viewer ermöglichen.
+
+Details: [`RDP_SELECTED_MONITORS.md`](RDP_SELECTED_MONITORS.md) und [`RDP_SESSION.md`](RDP_SESSION.md).
+
+---
+
+## Persistente Dateien
+
+### Bedienkonfiguration
+
+```text
+%AppData%\NetSupportRemoteAdmin\settings.json
+```
+
+Enthält unter anderem:
+
+- gespeicherte Ziele
+- Favoriten/Gruppen
+- bevorzugte Provider
+- nicht geheime RDP-Präferenzen
+- `rdpSelectedMonitors`
+- gespeicherte Ansichten
+
+### Startverlauf
+
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+### Generierte RDP-Verbindungsdateien
+
+```text
+%AppData%\NetSupportRemoteAdmin\rdp\
+```
+
+Nicht gespeichert werden RDP-Passwörter oder andere Credentials.
 
 ---
 
@@ -251,8 +274,10 @@ MainWindow
    |               |       +--> EmbeddedRdpSessionLauncher
    |               |               +--> RdpSessionWindow
    |               |                       +--> RdpActiveXControl
-   |               |                               +--> MsTscAx.dll
-   |               +--> mstsc.exe fallback
+   |               |
+   |               +--> IRdpConnectionFileService
+   |                       +--> RdpConnectionFileService
+   |                               +--> .rdp + mstsc.exe
    |
    +--> ITargetDiscoveryService
    |       +--> DomainComputerDiscoveryService
@@ -262,86 +287,25 @@ MainWindow
    |
    +--> ISessionHistoryService
    |       +--> JsonSessionHistoryService
-   |               +--> session-history.json
    |
    +--> HostAvailabilityService
-   |
    +--> ConfigService
-           +--> settings.json
 ```
 
 Erweiterungspunkte:
 
-- `IRemoteProvider` – weitere Remote-Technologien
-- `ITargetDiscoveryService` – weitere Rechnerquellen
-- `ITargetDetailsService` – weitere Inventar-/Detailquellen
-- `IRdpSessionLauncher` – alternatives RDP-Session-Hosting
-- `ISessionHistoryService` – später andere Verlauf-/Audit-Backends
-
----
-
-## Konfiguration
-
-Pfad:
-
 ```text
-%AppData%\NetSupportRemoteAdmin\settings.json
+IRemoteProvider
+ITargetDiscoveryService
+ITargetDetailsService
+ISessionHistoryService
+IRdpSessionLauncher
+IRdpConnectionFileService
 ```
-
-Beispiel:
-
-```json
-{
-  "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE",
-  "startMinimized": false,
-  "useEmbeddedRdp": true,
-  "useFullScreenRdp": false,
-  "targets": [
-    {
-      "name": "PC-001",
-      "host": "PC-001",
-      "description": "Büro-PC",
-      "isFavorite": true,
-      "group": "Büro",
-      "preferredProviderId": "netsupport",
-      "rdpUserName": "max.mustermann",
-      "rdpDomain": "CONTOSO",
-      "rdpRedirectClipboard": true,
-      "rdpAdminSession": false,
-      "rdpUseMultiMonitor": false
-    }
-  ],
-  "savedViews": [
-    {
-      "name": "Büro-Favoriten",
-      "searchText": null,
-      "group": "Büro",
-      "favoritesOnly": true
-    }
-  ]
-}
-```
-
-Separater Verlauf:
-
-```text
-%AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-Nicht gespeichert werden unter anderem:
-
-- Passwörter
-- RDP-Credentials
-- aktueller Online-/Offline-Status
-- aktuelle IP-Adressen
-- aktuell angemeldeter Benutzer
-- Laufzeit-Windowsinformationen
 
 ---
 
 ## Build und Test
-
-Lokaler Build:
 
 ```powershell
 dotnet restore NetSupport.sln
@@ -356,36 +320,22 @@ NetSupport.RemoteAdmin-win-x64
 
 hoch.
 
-Die praktische Testcheckliste liegt in [`TESTING.md`](TESTING.md).
+Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
 ---
 
 ## Nächste sinnvolle Ausbaustufen
 
-- gezielte Monitor-ID-Auswahl über einen dokumentierten externen RDP-Pfad
-- weitere Tastatur-/Sondertasten-Werkzeuge
+- optional `IMsRdpExtendedSettings.SelectedMonitors` typisiert für eingebettetes RDP anbinden
+- weitere RDP-Redirects wie Laufwerke/Audio
+- weitere Tastatur-/Sondertastenfunktionen
 - detailliertere RDP-Fehlertexte
-- weitere Redirects wie Laufwerke oder Audio
-- optionaler Export des Startverlaufs
+- optionaler Export/Filter des Startverlaufs
 - weitere Discovery-, Details-, History- und Remote-Provider
 
 ---
 
-## Entwicklungsprinzipien
-
-- Bedienung zuerst
-- wenig Klicks für häufige Aufgaben
-- explizites Speichern dauerhafter Organisationsänderungen
-- keine Speicherung von Passwörtern
-- flüchtige Inventardaten nicht unnötig persistieren
-- History getrennt von der Zielkonfiguration halten
-- klare Trennung der Verantwortlichkeiten
-- dokumentierte APIs vor undokumentierten COM-Tricks bevorzugen
-- neue Funktionen so integrieren, dass Backends später austauschbar bleiben
-
----
-
-## Entwicklungsbranch und Pull Request
+## Entwicklungsbranch
 
 ```text
 feature/extensible-remote-admin
