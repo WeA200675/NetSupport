@@ -29,8 +29,19 @@ public sealed class RemoteTarget
     /// </summary>
     public bool RdpAdminSession { get; set; }
 
+    /// <summary>
+    /// Requests a multi-monitor RDP session. The setting is applied on the next connection.
+    /// </summary>
+    public bool RdpUseMultiMonitor { get; set; }
+
     [JsonIgnore]
     public HostStatus Status { get; set; } = HostStatus.Unknown;
+
+    [JsonIgnore]
+    public DateTimeOffset? LastStatusCheck { get; set; }
+
+    [JsonIgnore]
+    public RemoteTargetDetails? Details { get; set; }
 
     [JsonIgnore]
     public string StatusText => Status switch
