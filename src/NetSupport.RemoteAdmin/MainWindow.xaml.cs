@@ -308,10 +308,14 @@ public partial class MainWindow : Window
         if (target is null)
             return;
 
-        if (SelectedTarget is not null)
-            ApplyTargetEditor(target);
+        var provider = PreferredProviderComboBox.SelectedItem as IRemoteProvider;
+        if (provider is null ||
+            !provider.IsAvailable ||
+            !provider.SupportedActions.Contains(RemoteAction.Control))
+        {
+            provider = ResolvePreferredControlProvider(target);
+        }
 
-        var provider = ResolvePreferredControlProvider(target);
         if (provider is null)
         {
             StatusTextBlock.Text = "Kein Provider für eine Standardverbindung verfügbar.";
@@ -511,8 +515,6 @@ public partial class MainWindow : Window
             return;
 
         HostTextBox.Text = target.Host;
-        ApplyTargetEditor(target);
-
         var provider = ResolvePreferredControlProvider(target);
         if (provider is null)
         {
