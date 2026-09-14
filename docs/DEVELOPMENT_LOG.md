@@ -21,13 +21,14 @@ Grundentscheidungen:
 
 ## Architekturgrundlage
 
-Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert. Rechnerquellen verwenden `ITargetDiscoveryService`. Später kamen `IRdpSessionLauncher` für eingebettetes RDP und `ITargetDetailsService` für flüchtige Rechnerinformationen hinzu.
+Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert. Rechnerquellen verwenden `ITargetDiscoveryService`. Später kamen `IRdpSessionLauncher` für eingebettetes RDP, `ITargetDetailsService` für flüchtige Rechnerinformationen und `ISessionHistoryService` für den lokalen Startverlauf hinzu.
 
 ```text
 MainWindow
    +--> IRemoteProvider
    +--> ITargetDiscoveryService
    +--> ITargetDetailsService
+   +--> ISessionHistoryService
    +--> HostAvailabilityService
 ```
 
@@ -116,6 +117,8 @@ Multi-Monitor wurde als weitere RDP-Präferenz ergänzt.
 - der externe Fallback verwendet `mstsc.exe /multimon`
 - Admin + Multi-Monitor können gemeinsam als `/admin /multimon` verwendet werden
 
+Bei der Prüfung der aktuellen Microsoft-Dokumentation wurde bewusst **keine** undokumentierte ActiveX-Eigenschaft für einzelne Monitor-IDs verwendet. Das eingebettete Control dokumentiert `UseMultimon`; die gezielte Auswahl einzelner Monitore ist als RDP-Eigenschaft `selectedmonitors` für RDP-Dateien bzw. den externen Client dokumentiert. Ein späterer Ausbau soll deshalb den dokumentierten externen Pfad nutzen.
+
 ---
 
 ## Rechnerdetails – Phase 1
@@ -186,6 +189,54 @@ Die Detailbeschreibung liegt in `docs/TARGET_ORGANIZATION.md`.
 
 ---
 
+## Gespeicherte Ansichten
+
+Für wiederkehrende Arbeitsabläufe wurde `SavedTargetView` ergänzt.
+
+Eine Ansicht speichert:
+
+- Namen
+- Textsuche
+- Gruppenfilter
+- Favoritenfilter
+
+Die Ansichten werden als `savedViews` in `settings.json` abgelegt. Ein vorhandener Name wird beim erneuten Speichern aktualisiert.
+
+Die UI enthält ein editierbares Ansichtenfeld sowie **Ansicht speichern** und **Ansicht löschen**. Auswahl einer vorhandenen Ansicht wendet die gespeicherten Filter sofort an.
+
+---
+
+## Lokaler Session-/Startverlauf
+
+Für zuletzt verwendete Remote-Ziele wurde eine eigene Verlaufsschicht eingeführt:
+
+```text
+ISessionHistoryService
+   +--> JsonSessionHistoryService
+           +--> session-history.json
+```
+
+Der Verlauf wird absichtlich nicht in `settings.json` gespeichert.
+
+Pro Remote-Aktion werden protokolliert:
+
+- Zeitpunkt
+- Zielrechner
+- Provider
+- Aktion
+- Start erfolgreich / fehlgeschlagen
+- Fehlertext bei einem fehlgeschlagenen Start
+
+Der Verlauf ist auf 100 Einträge begrenzt. Fehler beim Schreiben des Verlaufs dürfen eine Remote-Aktion nicht verhindern. Eine beschädigte History-Datei darf den Programmstart nicht blockieren.
+
+Im Hauptfenster zeigt **Zuletzt verwendet** die jüngsten Einträge. Ein Doppelklick übernimmt nur das Ziel und startet absichtlich keine neue Verbindung. Die Rechnerkarte zeigt zusätzlich den jüngsten bekannten Start des ausgewählten Hosts.
+
+Wichtig: Bei NetSupport und anderen externen Programmen kann das Frontend nur den Providerstart sicher protokollieren. Die Funktion ist deshalb kein revisionssicheres Session-Audit.
+
+Details: `docs/SAVED_VIEWS_AND_HISTORY.md`.
+
+---
+
 ## CI / Build-Prüfung
 
 GitHub Actions führt unter Windows aus:
@@ -197,17 +248,18 @@ GitHub Actions führt unter Windows aus:
 
 CI hat im Verlauf unter anderem WPF/WinForms-Namenskonflikte, fehlende Imports und weitere Compilerprobleme gefunden, die direkt im Entwicklungsbranch behoben wurden.
 
+Der erste Saved-Views-/History-Code hat den Release-Compiler erfolgreich passiert, bevor die Dokumentation auf denselben Stand nachgezogen wurde.
+
 ---
 
 ## Nächste technische Schritte
 
-- Auswahl bestimmter Monitor-IDs statt nur aller Monitore
+- gezielte Monitor-ID-Auswahl über einen dokumentierten externen RDP-Pfad
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere RDP-Fehlertexte
-- Session-Historie / letzte Verbindung
 - weitere Redirects wie Laufwerke oder Audio
-- optional gespeicherte Ansichten/Filter
-- weitere Discovery-, Details- und Remote-Provider
+- optionaler Export bzw. Filter des Startverlaufs
+- weitere Discovery-, Details-, History- und Remote-Provider
 
 ---
 
@@ -220,6 +272,7 @@ docs/PROJECT_OVERVIEW.md
 docs/DEVELOPMENT_LOG.md
 docs/RDP_SESSION.md
 docs/TARGET_ORGANIZATION.md
+docs/SAVED_VIEWS_AND_HISTORY.md
 docs/TESTING.md
 ```
 
