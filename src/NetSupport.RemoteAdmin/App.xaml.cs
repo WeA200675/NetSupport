@@ -10,12 +10,26 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(e);
 
+        IDiagnosticLogService? diagnosticLog = null;
         try
         {
             var configService = new ConfigService();
             var config = await configService.LoadAsync();
+            diagnosticLog = new DiagnosticLogService(
+                configService.ConfigDirectory,
+                () => config.DiagnosticLoggingEnabled);
+            var autoStartService = new WindowsAutoStartService();
             var rdpSessionLauncher = new EmbeddedRdpSessionLauncher(config, configService);
             var rdpConnectionFileService = new RdpConnectionFileService(configService.ConfigDirectory);
+
+            DispatcherUnhandledException += (_, args) =>
+                diagnosticLog.Error("Unbehandelte UI-Ausnahme.", args.Exception);
+            AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+                diagnosticLog.Error("Unbehandelte AppDomain-Ausnahme.", args.ExceptionObject as Exception);
+            TaskScheduler.UnobservedTaskException += (_, args) =>
+                diagnosticLog.Error("Nicht beobachtete Task-Ausnahme.", args.Exception);
+
+            diagnosticLog.Info("Anwendung gestartet.");
 
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
@@ -35,7 +49,9 @@ public partial class App : System.Windows.Application
                 availability,
                 detailsService,
                 historyService,
-                rdpConnectionFileService);
+                rdpConnectionFileService,
+                autoStartService,
+                diagnosticLog);
             MainWindow = window;
 
             if (!config.StartMinimized)
@@ -43,6 +59,7 @@ public partial class App : System.Windows.Application
         }
         catch (Exception ex)
         {
+            diagnosticLog?.Error("Anwendungsstart fehlgeschlagen.", ex);
             System.Windows.MessageBox.Show(ex.Message, "NetSupport Remote Admin", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
