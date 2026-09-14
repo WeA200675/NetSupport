@@ -23,6 +23,8 @@ public partial class RdpSessionWindow : Window
 
         UserNameTextBox.Text = target.RdpUserName ?? string.Empty;
         DomainTextBox.Text = target.RdpDomain ?? string.Empty;
+        ClipboardCheckBox.IsChecked = target.RdpRedirectClipboard;
+        AdminSessionCheckBox.IsChecked = target.RdpAdminSession;
 
         _rdpControl.Connecting += (_, _) => SetStatus($"Verbinde mit {_target.Host} …");
         _rdpControl.Connected += (_, _) => SetStatus($"Transport zu {_target.Host} hergestellt – Anmeldung läuft …");
@@ -47,11 +49,22 @@ public partial class RdpSessionWindow : Window
             var width = Math.Max(800, (int)Math.Round(RdpHost.ActualWidth));
             var height = Math.Max(600, (int)Math.Round(RdpHost.ActualHeight));
             var (userName, domain) = ResolveIdentity();
+            var redirectClipboard = ClipboardCheckBox.IsChecked == true;
+            var adminSession = AdminSessionCheckBox.IsChecked == true;
 
             _target.RdpUserName = string.IsNullOrWhiteSpace(userName) ? null : userName;
             _target.RdpDomain = string.IsNullOrWhiteSpace(domain) ? null : domain;
+            _target.RdpRedirectClipboard = redirectClipboard;
+            _target.RdpAdminSession = adminSession;
 
-            _rdpControl.ConnectTo(_target.Host, width, height, userName, domain);
+            _rdpControl.ConnectTo(
+                _target.Host,
+                width,
+                height,
+                userName,
+                domain,
+                redirectClipboard,
+                adminSession);
             _rdpControl.SetSmartSizing(SmartSizingCheckBox.IsChecked == true);
         }
         catch (Exception ex)
@@ -113,6 +126,19 @@ public partial class RdpSessionWindow : Window
         _ = Dispatcher.InvokeAsync(() => StatusTextBlock.Text = text);
     }
 
+    private void RunRemoteAction(RdpRemoteAction action, string successText)
+    {
+        try
+        {
+            _rdpControl.SendRemoteAction(action);
+            SetStatus(successText);
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Remote-Aktion nicht verfügbar: {ex.Message}");
+        }
+    }
+
     private void ReconnectButton_OnClick(object sender, RoutedEventArgs e)
     {
         _disconnectRequestedByUser = true;
@@ -131,6 +157,15 @@ public partial class RdpSessionWindow : Window
     {
         _rdpControl.SetSmartSizing(SmartSizingCheckBox.IsChecked == true);
     }
+
+    private void AppSwitchButton_OnClick(object sender, RoutedEventArgs e) =>
+        RunRemoteAction(RdpRemoteAction.AppSwitch, "Alt+Tab an Remotesitzung gesendet");
+
+    private void StartScreenButton_OnClick(object sender, RoutedEventArgs e) =>
+        RunRemoteAction(RdpRemoteAction.StartScreen, "Start-Aktion an Remotesitzung gesendet");
+
+    private void TaskManagerButton_OnClick(object sender, RoutedEventArgs e) =>
+        RunRemoteAction(RdpRemoteAction.TaskManager, "Task-Manager-Aktion an Remotesitzung gesendet");
 
     private void FullscreenButton_OnClick(object sender, RoutedEventArgs e)
     {
