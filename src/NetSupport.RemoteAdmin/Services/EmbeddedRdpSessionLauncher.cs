@@ -36,6 +36,7 @@ public sealed class EmbeddedRdpSessionLauncher(
                 savedTarget.RdpDomain = target.RdpDomain;
                 savedTarget.RdpRedirectClipboard = target.RdpRedirectClipboard;
                 savedTarget.RdpAdminSession = target.RdpAdminSession;
+                savedTarget.RdpUseMultiMonitor = target.RdpUseMultiMonitor;
 
                 try
                 {
