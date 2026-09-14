@@ -362,7 +362,9 @@ public partial class MainWindow : Window
             Host = target.Host,
             Description = target.Description,
             RdpUserName = target.RdpUserName,
-            RdpDomain = target.RdpDomain
+            RdpDomain = target.RdpDomain,
+            RdpRedirectClipboard = target.RdpRedirectClipboard,
+            RdpAdminSession = target.RdpAdminSession
         });
 
         if (!_targets.Any(t => string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
