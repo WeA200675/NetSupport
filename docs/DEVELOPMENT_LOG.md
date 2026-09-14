@@ -30,9 +30,11 @@ ITargetDetailsService
 ISessionHistoryService
 IRdpSessionLauncher
 IRdpConnectionFileService
+IAutoStartService
+IDiagnosticLogService
 ```
 
-Dadurch bleiben Hauptfenster, Remote-Technologien, Discovery, Inventardaten, Verlauf und RDP-Dateierzeugung voneinander getrennt.
+Dadurch bleiben Hauptfenster, Remote-Technologien, Discovery, Inventardaten, Verlauf, RDP-Dateierzeugung, Autostart und Diagnose voneinander getrennt.
 
 ---
 
@@ -248,6 +250,94 @@ Details: `docs/RDP_SELECTED_MONITORS.md`.
 
 ---
 
+## Betriebsphase: Einstellungen, Autostart, Diagnose und Export
+
+Nach den Remote-Funktionen wurde ein eigener Betriebsblock ergänzt, damit die Anwendung auf Admin-PCs ohne manuelle JSON-Pflege nutzbar ist.
+
+### Einstellungsfenster
+
+Neue WPF-Ansicht:
+
+```text
+Views/SettingsWindow.xaml
+```
+
+Dort können geändert werden:
+
+- Windows-Autostart
+- Start minimiert
+- Diagnoseprotokoll
+- Embedded RDP
+- externer RDP-Vollbildmodus
+- Pfad zu `PCICTLUI.EXE`
+
+Nach einer Änderung des NetSupport-Pfads wird die Providerliste im Hauptfenster sofort neu ausgewertet.
+
+### Windows-Autostart
+
+Neue Schicht:
+
+```text
+IAutoStartService
+   +--> WindowsAutoStartService
+```
+
+Verwendet wird ausschließlich:
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+Es werden keine maschinenweiten Einstellungen und keine GPOs verändert.
+
+### Diagnoseprotokoll
+
+Neue Schicht:
+
+```text
+IDiagnosticLogService
+   +--> DiagnosticLogService
+```
+
+Pfad:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
+```
+
+Das Log rotiert bei ungefähr 2 MB nach `application.log.1`.
+
+Erfasst werden betriebliche Ereignisse und Fehler. Credentials, Passwörter und Sitzungsinhalte dürfen nicht an den Logger übergeben werden. Logging-Fehler werden intern verworfen, damit Diagnose niemals die Remoteverwaltung blockiert.
+
+Zusätzlich werden unbehandelte WPF-/AppDomain-/Task-Ausnahmen best-effort protokolliert.
+
+### CSV-Export des Startverlaufs
+
+`ISessionHistoryService` erhielt `ExportCsvAsync(...)`.
+
+Der Export verwendet:
+
+- Semikolon als Trennzeichen
+- UTF-8 mit BOM
+- Escaping für Sonderzeichen
+- lokalen Zeitstempel
+
+Damit lässt sich der Verlauf auf deutschsprachigen Windows-/Excel-Systemen direkt auswerten.
+
+Details: `docs/OPERATIONS.md`.
+
+### CI-Korrekturen
+
+Der erste Build dieser Phase fand drei rein technische Compilerprobleme:
+
+- `OpenFileDialog` mehrdeutig zwischen WinForms und WPF
+- `SaveFileDialog` mehrdeutig zwischen WinForms und WPF
+- fehlender `System.IO`-Import für `Path`
+
+Die Dialogtypen wurden explizit auf `Microsoft.Win32` aliasiert und der fehlende Import ergänzt.
+
+---
+
 ## CI / Testbuild
 
 GitHub Actions führt auf Windows aus:
@@ -273,6 +363,7 @@ docs/RDP_SESSION.md
 docs/RDP_SELECTED_MONITORS.md
 docs/TARGET_ORGANIZATION.md
 docs/SAVED_VIEWS_AND_HISTORY.md
+docs/OPERATIONS.md
 docs/TESTING.md
 ```
 
@@ -284,5 +375,6 @@ docs/TESTING.md
 - weitere RDP-Redirects (Audio/Laufwerke)
 - weitere Tastatur-/Sondertastenaktionen
 - detailliertere Fehlertexte
-- Export/Filter des Startverlaufs
+- Filter/Zeitraum für History-Export
+- optionales Diagnosepaket für Supportfälle
 - weitere Discovery-, Details-, History- und Remote-Provider
