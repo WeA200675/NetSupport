@@ -3,7 +3,6 @@ using System.Drawing;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
-using Microsoft.Win32;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Providers;
 using NetSupport.RemoteAdmin.Services;
@@ -12,6 +11,7 @@ using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
 using WpfMouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
+using WpfSaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace NetSupport.RemoteAdmin;
 
@@ -648,7 +648,7 @@ public partial class MainWindow : Window
 
     private async void ExportHistoryButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new SaveFileDialog
+        var dialog = new WpfSaveFileDialog
         {
             Title = "Verbindungsverlauf als CSV exportieren",
             Filter = "CSV-Datei (*.csv)|*.csv|Alle Dateien (*.*)|*.*",
