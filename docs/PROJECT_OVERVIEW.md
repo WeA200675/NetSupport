@@ -74,7 +74,10 @@ Der eingebettete Session-Baustein bietet aktuell:
 - optionalen Benutzernamen und Windows-/AD-Domäne
 - normalen Windows-Credential-Prompt für das Kennwort
 - keine Passwortspeicherung durch die Anwendung
-- Speicherung von Benutzername und Domäne für bereits gespeicherte Zielrechner
+- optionale Zwischenablageumleitung pro Zielrechner
+- optionale administrative RDP-Sitzung pro Zielrechner
+- Remote-Aktionen für App-Switch/Alt+Tab, Start und Task-Manager, soweit unterstützt
+- Speicherung der nicht geheimen RDP-Präferenzen für gespeicherte Zielrechner
 - isolierte ActiveX-Kapselung hinter `IRdpSessionLauncher`
 
 Die ausführliche RDP-Dokumentation liegt in [`docs/RDP_SESSION.md`](RDP_SESSION.md).
@@ -164,7 +167,9 @@ Beispiel:
       "host": "PC-001",
       "description": "Büro",
       "rdpUserName": "max.mustermann",
-      "rdpDomain": "CONTOSO"
+      "rdpDomain": "CONTOSO",
+      "rdpRedirectClipboard": true,
+      "rdpAdminSession": false
     }
   ]
 }
@@ -172,7 +177,7 @@ Beispiel:
 
 `useEmbeddedRdp` aktiviert standardmäßig den eingebetteten RDP-Viewer. Wird die Option auf `false` gesetzt, nutzt der Provider `mstsc.exe`.
 
-`rdpUserName` und `rdpDomain` sind optional. RDP-Passwörter werden bewusst **nicht** in `settings.json` gespeichert.
+RDP-Passwörter werden bewusst **nicht** in `settings.json` gespeichert. Benutzername, Domäne, Zwischenablage- und Admin-Sitzungspräferenz sind dagegen nicht geheim und können pro gespeichertem Ziel erhalten bleiben.
 
 ---
 
@@ -190,6 +195,7 @@ NetSupport/
 │       │   └── RdpActiveXControl.cs
 │       ├── Models/
 │       │   ├── RemoteTarget.cs
+│       │   ├── RdpRemoteAction.cs
 │       │   └── RdpSessionEvents.cs
 │       ├── Providers/
 │       ├── Services/
@@ -237,7 +243,7 @@ Das Repository enthält einen GitHub-Actions-Workflow für Windows.
 
 Bei jedem Push bzw. Pull Request werden Restore und Release-Build ausgeführt. Compilerfehler werden dadurch früh erkannt und direkt im Entwicklungsbranch korrigiert.
 
-Der letzte vollständig geprüfte Stand vor RDP Phase 2 wurde erfolgreich gebaut. Phase 2 wird nach jeder Änderung erneut über denselben Windows-Build validiert.
+Der eingebettete RDP-Stand aus Phase 1 wurde erfolgreich unter Windows/.NET 8 gebaut. Phase 2 und Phase 3 werden über denselben Workflow fortlaufend revalidiert.
 
 Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlende `System.IO`-Imports und ungültige Ausdruckszeilen durch CI erkannt und behoben.
 
@@ -245,16 +251,15 @@ Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlend
 
 ## Nächste Ausbaustufen
 
-### RDP Phase 3
+### RDP Phase 4
 
 Als nächste RDP-Schritte sind vorgesehen:
 
 - Multi-Monitor-Unterstützung
-- Clipboard-Einstellungen
 - Auto-Reconnect sauber auswerten und anzeigen
-- optionale administrative RDP-Sitzung
-- Sondertasten-/Keyboard-Werkzeuge
+- weitere Tastatur-/Sondertasten-Werkzeuge
 - noch verständlichere Fehlertexte
+- optionale weitere Redirects wie Laufwerke oder Audio
 - Session-Historie bzw. letzte Verbindung
 
 ### Rechnerdetails
