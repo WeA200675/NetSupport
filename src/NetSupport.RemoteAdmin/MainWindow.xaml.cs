@@ -7,6 +7,7 @@ using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Providers;
 using NetSupport.RemoteAdmin.Services;
 using Forms = System.Windows.Forms;
+using WpfButton = System.Windows.Controls.Button;
 using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
 using WpfMouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
 
@@ -159,7 +160,7 @@ public partial class MainWindow : Window
 
     private async void QuickActionButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string tag })
+        if (sender is not WpfButton { Tag: string tag })
             return;
 
         var parts = tag.Split('|', 2, StringSplitOptions.TrimEntries);
