@@ -68,6 +68,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
@@ -76,15 +77,18 @@
                     <CheckBox x:Name="AdminSessionCheckBox" Grid.Column="1" Content="Admin-Sitzung"
                               VerticalAlignment="Center" Margin="18,0,0,0"
                               ToolTip="Administrative RDP-Sitzung; wird bei der nächsten Verbindung angewendet."/>
+                    <CheckBox x:Name="MultiMonitorCheckBox" Grid.Column="2" Content="Mehrere Monitore"
+                              VerticalAlignment="Center" Margin="18,0,0,0"
+                              ToolTip="Verwendet alle lokalen Monitore; wird bei der nächsten Verbindung angewendet."/>
 
-                    <Button Grid.Column="2" Content="Alt+Tab remote" Padding="12,5" Margin="22,0,0,0"
+                    <Button Grid.Column="3" Content="Alt+Tab remote" Padding="12,5" Margin="22,0,0,0"
                             Click="AppSwitchButton_OnClick"/>
-                    <Button Grid.Column="3" Content="Start remote" Padding="12,5" Margin="8,0,0,0"
+                    <Button Grid.Column="4" Content="Start remote" Padding="12,5" Margin="8,0,0,0"
                             Click="StartScreenButton_OnClick"/>
-                    <Button Grid.Column="4" Content="Task-Manager" Padding="12,5" Margin="8,0,0,0"
+                    <Button Grid.Column="5" Content="Task-Manager" Padding="12,5" Margin="8,0,0,0"
                             Click="TaskManagerButton_OnClick"/>
 
-                    <TextBlock Grid.Column="5" Text="Zwischenablage/Admin werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung."
+                    <TextBlock Grid.Column="6" Text="Zwischenablage/Admin/Mehrere Monitore werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung."
                                VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
                 </Grid>
             </Grid>
