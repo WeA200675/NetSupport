@@ -55,21 +55,7 @@ Beim normalen Schließen wird das Fenster ausgeblendet und die Anwendung läuft 
 
 ## Bedienoberfläche – Schnellaktionen
 
-Die Bedienung wurde auf einen rechnerbezogenen Ablauf umgestellt:
-
-```text
-Rechner auswählen
-        |
-        +--> Steuern
-        +--> Nur ansehen
-        +--> RDP
-        +--> CMD
-        +--> Dateien
-        +--> Inventar
-        +--> Chat
-```
-
-Ein Doppelklick startet NetSupport Control direkt. Die allgemeine Provider-/Aktionsauswahl bleibt unter **Erweitert** erhalten.
+Die Bedienung wurde auf einen rechnerbezogenen Ablauf umgestellt. Direkte Aktionen für NetSupport Control/View, RDP, CMD, Dateien, Inventar und Chat bleiben jederzeit sichtbar. Die allgemeine Provider-/Aktionsauswahl bleibt zusätzlich unter **Erweitert** erhalten.
 
 ---
 
@@ -88,19 +74,9 @@ Phase 1 brachte:
 
 ## Eingebettetes RDP – Phase 2
 
-Ergänzt wurden:
+Ergänzt wurden Session-Ereignisse, Disconnect-Informationen, SmartSizing, Benutzername/Domäne und der normale Windows-Credential-Prompt.
 
-- `OnConnecting`
-- `OnConnected`
-- `OnLoginComplete`
-- `OnDisconnected`
-- `OnFatalError`
-- `OnRemoteDesktopSizeChange`
-- SmartSizing
-- Benutzername und Domäne
-- Windows-Credential-Prompt
-
-RDP-Passwörter werden nicht gespeichert. Nur nicht geheime Werte wie Benutzername und Domäne dürfen in der lokalen Konfiguration erhalten bleiben.
+RDP-Passwörter werden nicht gespeichert.
 
 ---
 
@@ -132,23 +108,17 @@ Die Oberfläche zeigt Versuchszähler, Netzverfügbarkeit und erfolgreiche Wiede
 
 ## Eingebettetes RDP – Phase 4: Multi-Monitor
 
-Multi-Monitor wurde als nächste RDP-Präferenz ergänzt.
-
-Technik:
+Multi-Monitor wurde als weitere RDP-Präferenz ergänzt.
 
 - eingebettetes RDP setzt `UseMultimon` vor `Connect()`
 - `SmartSizing` wird bei Multi-Monitor nicht parallel erzwungen
-- Einstellung wird pro gespeichertem Ziel als `rdpUseMultiMonitor` erhalten
+- Einstellung wird als `rdpUseMultiMonitor` erhalten
 - der externe Fallback verwendet `mstsc.exe /multimon`
-- Admin + Multi-Monitor können im Fallback gemeinsam als `/admin /multimon` verwendet werden
-
-Die Implementierung bleibt defensiv: Falls das lokale ActiveX-Control `UseMultimon` nicht bereitstellt, bleibt eine normale Einzelmonitor-Sitzung möglich.
+- Admin + Multi-Monitor können gemeinsam als `/admin /multimon` verwendet werden
 
 ---
 
 ## Rechnerdetails – Phase 1
-
-Die bisherige Rechnerkarte zeigte nur Name, Host und Erreichbarkeit. Für die tägliche Administration wurden zusätzliche Laufzeitinformationen ergänzt.
 
 Neue Abstraktion:
 
@@ -157,23 +127,62 @@ ITargetDetailsService
    +--> PowerShellTargetDetailsService
 ```
 
-Die erste Implementierung kombiniert:
-
-- lokale DNS-Auflösung für IP-Adressen
-- `Get-CimInstance Win32_ComputerSystem`
-- `Get-CimInstance Win32_OperatingSystem`
+Die erste Implementierung kombiniert lokale DNS-Auflösung mit Remote-CIM über `Get-CimInstance`.
 
 Angezeigt werden:
 
 - IP-Adresse(n)
-- aktuell von Windows gemeldeter interaktiver Benutzer
+- angemeldeter Windows-Benutzer
 - Windows-Edition und Version
 - Hersteller und Modell
 - letzter Status-/Detailprüfzeitpunkt
 
-Die Remote-CIM-Abfrage verwendet die aktuelle Windows-Identität und WSMan. Das UI setzt ein Zeitlimit von 12 Sekunden. Ist CIM durch Firewall oder Richtlinie blockiert, bleibt der Fehler lokal auf die Detailanzeige begrenzt; NetSupport, RDP, Ping und DNS funktionieren unabhängig weiter.
+Die Daten werden bewusst nicht gespeichert, weil sie veralten können. Ein Zeitlimit und partielle Fehlerbehandlung sorgen dafür, dass blockiertes CIM/WSMan die übrige Fernwartung nicht beeinträchtigt.
 
-Die Daten werden bewusst nicht gespeichert, weil sie veralten können.
+---
+
+## Rechnerorganisation – Favoriten, Gruppen und Standardverbindung
+
+Für einen Bestand von ungefähr 40 Rechnern wurde die Rechnerliste um eine lokale Organisationsschicht ergänzt.
+
+Neue persistente Zielattribute:
+
+```json
+{
+  "isFavorite": true,
+  "group": "Büro",
+  "preferredProviderId": "netsupport"
+}
+```
+
+### Favoriten
+
+- Favoriten erhalten einen `★`.
+- Favoriten werden vor normalen Rechnern sortiert.
+- **Nur Favoriten** kann die Liste entsprechend reduzieren.
+
+### Gruppen
+
+- Gruppen sind frei benennbar.
+- Textsuche berücksichtigt Gruppen.
+- Ein eigener Gruppenfilter wurde ergänzt.
+- Neue Gruppen erscheinen nach dem Speichern automatisch im Filter.
+
+### Standardverbindung
+
+- Jeder gespeicherte Rechner kann einen bevorzugten Control-Provider erhalten.
+- **Standardverbindung starten** verwendet die aktuelle Provider-Auswahl des Zielrechners.
+- Doppelklick verwendet den gespeicherten bevorzugten Provider.
+- Ist dieser nicht verfügbar, wird auf NetSupport bzw. einen anderen verfügbaren Control-Provider zurückgefallen.
+- Direkte NetSupport-/RDP-Schnellaktionen bleiben erhalten.
+
+### Explizites Speichern
+
+Die frühere **Speichern**-Aktion wurde zu **Speichern / Aktualisieren** erweitert. Bestehende Ziele können damit direkt geändert werden.
+
+Favorit, Gruppe und bevorzugter Provider werden erst durch diese explizite Aktion dauerhaft in die Konfiguration übernommen. Eine reine Verbindung soll diese Organisationswerte nicht nebenbei speichern.
+
+Die Detailbeschreibung liegt in `docs/TARGET_ORGANIZATION.md`.
 
 ---
 
@@ -186,7 +195,7 @@ GitHub Actions führt unter Windows aus:
 3. self-contained Publish für Windows x64
 4. Upload des Testartefakts `NetSupport.RemoteAdmin-win-x64`
 
-CI hat im Verlauf unter anderem WPF/WinForms-Namenskonflikte und verschiedene Compilerprobleme gefunden, die direkt im Entwicklungsbranch behoben wurden.
+CI hat im Verlauf unter anderem WPF/WinForms-Namenskonflikte, fehlende Imports und weitere Compilerprobleme gefunden, die direkt im Entwicklungsbranch behoben wurden.
 
 ---
 
@@ -197,8 +206,7 @@ CI hat im Verlauf unter anderem WPF/WinForms-Namenskonflikte und verschiedene Co
 - detailliertere RDP-Fehlertexte
 - Session-Historie / letzte Verbindung
 - weitere Redirects wie Laufwerke oder Audio
-- Favoriten und Rechnergruppen
-- bevorzugter Remote-Provider pro Rechner
+- optional gespeicherte Ansichten/Filter
 - weitere Discovery-, Details- und Remote-Provider
 
 ---
@@ -211,6 +219,7 @@ Die Dateien
 docs/PROJECT_OVERVIEW.md
 docs/DEVELOPMENT_LOG.md
 docs/RDP_SESSION.md
+docs/TARGET_ORGANIZATION.md
 docs/TESTING.md
 ```
 
