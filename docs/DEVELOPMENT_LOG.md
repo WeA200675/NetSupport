@@ -104,7 +104,7 @@ Durch CI wurden während der Entwicklung mehrere Probleme gefunden und korrigier
 - fehlende `System.IO`-Imports
 - ungültige Null-Coalescing-Ausdrucksstatements bei `Process.Start`
 
-Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut. Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
+Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut. Phase 3 wurde ebenfalls erfolgreich im Windows-CI gebaut. Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
 
 ---
 
@@ -232,12 +232,33 @@ Passwörter bleiben weiterhin vollständig außerhalb der Anwendungskonfiguratio
 
 ---
 
+## Eingebettetes RDP – Phase 4: Auto-Reconnect-Status
+
+Für kurzzeitige Netzwerkunterbrechungen verwendet das Tool jetzt die bereits im Microsoft-RDP-Control vorhandene automatische Wiederverbindung, statt selbst eine zweite Reconnect-Schleife zu implementieren.
+
+Verwendete `IMsTscAxEvents`-Ereignisse:
+
+- `OnAutoReconnecting2` (`DISPID 34`)
+- `OnAutoReconnected` (`DISPID 33`)
+
+Während der Wiederverbindung zeigt das Session-Fenster:
+
+- aktuellen Versuch
+- maximale Versuchszahl, sofern vom Control gemeldet
+- Netzverfügbarkeit
+- numerischen Disconnect-Grund
+
+Nach erfolgreicher Wiederverbindung wird der Status auf **Automatisch wieder verbunden** gesetzt.
+
+Dafür wurde `RdpSessionEvents.cs` um `RdpAutoReconnectingEventArgs` erweitert und `RdpActiveXControl` kapselt die zusätzlichen COM-Events weiterhin außerhalb des WPF-Hauptfensters.
+
+---
+
 ## Nächste technische Schritte
 
 Als nächste RDP-Ausbaustufe sind insbesondere vorgesehen:
 
 - Multi-Monitor-Unterstützung
-- Auto-Reconnect-Ereignisse
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere Fehlertexte
 - Session-Historie / letzte Verbindung
