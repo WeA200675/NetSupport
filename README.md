@@ -52,6 +52,7 @@ The embedded session currently provides:
 - Windows credential prompting without storing passwords in this application
 - persisted non-secret RDP preferences for saved targets
 - detailed disconnect reason where the Microsoft control can provide one
+- automatic reconnect status including attempt count and network availability
 - optional clipboard redirection
 - optional administrative RDP session
 - remote Alt+Tab / app-switch action
