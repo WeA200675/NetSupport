@@ -124,8 +124,27 @@ Die ActiveX-Ereignisse werden über `IMsTscAxEvents` abgegriffen und als .NET-Er
 | `OnDisconnected` | Trennungsgrund und Extended Disconnect Reason werden ausgewertet |
 | `OnFatalError` | RDP-Fehlercode wird angezeigt |
 | `OnRemoteDesktopSizeChange` | aktuelle Remote-Auflösung wird im Status angezeigt |
+| `OnAutoReconnecting2` | Versuchszähler, Netzverfügbarkeit und Trennungsgrund werden angezeigt |
+| `OnAutoReconnected` | erfolgreiche automatische Wiederverbindung wird angezeigt |
 
 Für Disconnects versucht die Anwendung zusätzlich über `GetErrorDescription` eine verständliche Meldung vom Microsoft-Control zu erhalten. Falls das nicht möglich ist, werden die numerischen Reason-Codes angezeigt.
+
+---
+
+## Automatische Wiederverbindung
+
+Windows RDP besitzt eine eigene Auto-Reconnect-Funktion. Die Anwendung startet deshalb **keine eigene parallele Reconnect-Schleife**, sondern beobachtet die vom Microsoft-Control gemeldeten Ereignisse.
+
+Während einer automatischen Wiederverbindung zeigt die Statuszeile unter anderem:
+
+- aktuellen Wiederverbindungsversuch
+- maximale Anzahl der Versuche, sofern gemeldet
+- ob das Netzwerk laut RDP-Control verfügbar ist
+- den numerischen Grund der ursprünglichen Unterbrechung
+
+Nach erfolgreicher automatischer Wiederverbindung wird der Sessionstatus entsprechend aktualisiert.
+
+Technisch werden dafür die `IMsTscAxEvents`-Ereignisse `OnAutoReconnecting2` und `OnAutoReconnected` verwendet.
 
 ---
 
@@ -233,6 +252,12 @@ src/NetSupport.RemoteAdmin/
 - Remote-Start-Aktion
 - Remote-Task-Manager-Aktion, sofern unterstützt
 
+### Phase 4 – begonnen
+
+- Auto-Reconnect-Ereignisse des Microsoft-RDP-Controls
+- Anzeige von Wiederverbindungsversuch und Netzverfügbarkeit
+- Statusmeldung nach erfolgreichem Auto-Reconnect
+
 ---
 
 ## Nächste Ausbauschritte
@@ -240,7 +265,6 @@ src/NetSupport.RemoteAdmin/
 Geplant sind insbesondere:
 
 - Multi-Monitor-Unterstützung
-- bessere Behandlung von Auto-Reconnect
 - detailliertere RDP-Fehlertexte
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - Session-Historie bzw. letzte Verbindung
