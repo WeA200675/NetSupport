@@ -20,3 +20,15 @@ public sealed class RdpDesktopSizeChangedEventArgs(int width, int height) : Even
     public int Width { get; } = width;
     public int Height { get; } = height;
 }
+
+public sealed class RdpAutoReconnectingEventArgs(
+    int disconnectReason,
+    bool networkAvailable,
+    int attemptCount,
+    int maxAttemptCount) : EventArgs
+{
+    public int DisconnectReason { get; } = disconnectReason;
+    public bool NetworkAvailable { get; } = networkAvailable;
+    public int AttemptCount { get; } = attemptCount;
+    public int MaxAttemptCount { get; } = maxAttemptCount;
+}
