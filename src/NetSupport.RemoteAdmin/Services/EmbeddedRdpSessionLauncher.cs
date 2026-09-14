@@ -34,6 +34,8 @@ public sealed class EmbeddedRdpSessionLauncher(
 
                 savedTarget.RdpUserName = target.RdpUserName;
                 savedTarget.RdpDomain = target.RdpDomain;
+                savedTarget.RdpRedirectClipboard = target.RdpRedirectClipboard;
+                savedTarget.RdpAdminSession = target.RdpAdminSession;
 
                 try
                 {
@@ -42,7 +44,7 @@ public sealed class EmbeddedRdpSessionLauncher(
                 catch
                 {
                     // Session shutdown must not be blocked by a configuration write failure.
-                    // The next explicit config save can persist the identity values.
+                    // The next explicit config save can persist the RDP preference values.
                 }
             };
 
