@@ -8,75 +8,57 @@ Diese Datei dokumentiert die wesentlichen Entwicklungsschritte, technischen Ents
 
 Ausgangslage war der Wunsch, die Bedienung von NetSupport bei rund 40 Domänenrechnern deutlich zu vereinfachen. Die NetSupport-Oberfläche und deren benutzer-/domänenabhängige Einstellungen sollten nicht mehr die tägliche Bedienung bestimmen.
 
-Entscheidung:
+Grundentscheidungen:
 
-- eigene Windows-Oberfläche
-- .NET 8 + WPF
-- NetSupport nicht ersetzen, sondern als Backend verwenden
-- Windows RDP zusätzlich als alternatives Backend bereitstellen
-- Anwendung soll im Hintergrund im Windows-Infobereich laufen können
-- Erweiterbarkeit von Beginn an berücksichtigen
+- eigene Windows-Oberfläche mit .NET 8 + WPF
+- NetSupport als Backend statt Neuimplementierung des Remote-Protokolls
+- Windows RDP als alternatives Backend
+- Tray-Betrieb
+- Erweiterbarkeit von Beginn an
+- eigene Konfiguration unabhängig von NetSupport-/GPO-UI-Profilen
 
 ---
 
 ## Architekturgrundlage
 
-Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert. Dadurch ist das Hauptfenster nicht direkt an NetSupport oder RDP gekoppelt.
+Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert. Rechnerquellen verwenden `ITargetDiscoveryService`. Später kamen `IRdpSessionLauncher` für eingebettetes RDP und `ITargetDetailsService` für flüchtige Rechnerinformationen hinzu.
 
-Erste Provider:
-
-- `NetSupportProvider`
-- `RdpProvider`
-
-NetSupport wird über `PCICTLUI.EXE` gestartet und unterstützt Control, View, Chat, Inventory, Remote Command Prompt und File Transfer. Windows RDP wurde zunächst über `mstsc.exe` integriert.
+```text
+MainWindow
+   +--> IRemoteProvider
+   +--> ITargetDiscoveryService
+   +--> ITargetDetailsService
+   +--> HostAvailabilityService
+```
 
 ---
 
-## Konfiguration
+## Konfiguration und Tray-Betrieb
 
-Die Anwendung verwendet bewusst eine eigene Konfiguration außerhalb von NetSupport-/GPO-Profilen:
+Die Anwendungskonfiguration liegt unter:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Damit werden die für die eigene Oberfläche relevanten Einstellungen nicht davon abhängig gemacht, ob NetSupport-Benutzereinstellungen zuverlässig über die Domäne übernommen werden.
+Beim normalen Schließen wird das Fenster ausgeblendet und die Anwendung läuft im Infobereich weiter.
 
 ---
 
-## Tray-Betrieb
+## Active Directory und Statusprüfung
 
-Beim normalen Schließen wird das Hauptfenster ausgeblendet und die Anwendung bleibt im Infobereich aktiv. Über das Tray-Menü kann die Oberfläche wieder geöffnet oder die Anwendung vollständig beendet werden.
+`DomainComputerDiscoveryService` verwendet `Get-ADComputer` und benötigt deshalb RSAT / das ActiveDirectory-PowerShell-Modul.
 
----
-
-## Active Directory
-
-Für die Rechnerauswahl wurde `ITargetDiscoveryService` eingeführt. Die erste Implementierung `DomainComputerDiscoveryService` verwendet aktuell:
-
-```powershell
-Get-ADComputer
-```
-
-Voraussetzung ist deshalb das ActiveDirectory-PowerShell-Modul aus RSAT. Die Abstraktion ermöglicht zukünftig weitere Rechnerquellen wie CSV, SCCM/MECM, Intune oder eigene Inventardienste.
-
----
-
-## Online-/Offline-Prüfung
-
-Mit `HostAvailabilityService` wurde eine Erreichbarkeitsprüfung ergänzt. Die Statusprüfung läuft parallel mit begrenzter Parallelität, damit auch eine größere Anzahl von Rechnern zügig geprüft wird. Der Status wird nicht dauerhaft gespeichert, sondern nur als Laufzeitinformation verwendet.
+`HostAvailabilityService` prüft Rechner parallel per Ping mit begrenzter Parallelität. Der Online-/Offline-Status bleibt Laufzeitinformation.
 
 ---
 
 ## Bedienoberfläche – Schnellaktionen
 
-Die Bedienung wurde von einer technischen Provider-/Aktionsauswahl auf eine rechnerbezogene Arbeitsweise umgestellt:
+Die Bedienung wurde auf einen rechnerbezogenen Ablauf umgestellt:
 
 ```text
 Rechner auswählen
-        |
-        v
-Aktionskarte
         |
         +--> Steuern
         +--> Nur ansehen
@@ -87,74 +69,26 @@ Aktionskarte
         +--> Chat
 ```
 
-Die allgemeine Provider-/Aktionsauswahl bleibt unter „Erweitert“ erhalten. Ein Doppelklick auf einen Zielrechner startet direkt die NetSupport-Steuerung.
-
----
-
-## CI / Build-Prüfung
-
-Ein Windows-GitHub-Actions-Workflow führt Restore und Release-Build aus.
-
-Durch CI wurden während der Entwicklung mehrere Probleme gefunden und korrigiert:
-
-- Mehrdeutigkeit zwischen WPF- und WinForms-`Application`
-- Mehrdeutigkeit von `KeyEventArgs`
-- Mehrdeutigkeit von `MessageBox`
-- Mehrdeutigkeit von `Button`
-- fehlende `System.IO`-Imports
-- ungültige Null-Coalescing-Ausdrucksstatements bei `Process.Start`
-
-Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut. Phase 3 wurde ebenfalls erfolgreich im Windows-CI gebaut. Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
+Ein Doppelklick startet NetSupport Control direkt. Die allgemeine Provider-/Aktionsauswahl bleibt unter **Erweitert** erhalten.
 
 ---
 
 ## Eingebettetes RDP – Phase 1
 
-Der ursprüngliche RDP-Provider startete nur `mstsc.exe` als separates Fenster. Danach wurde ein eigener eingebetteter RDP-Session-Baustein ergänzt.
-
-Technische Grundlage ist Microsofts **Remote Desktop ActiveX Control** in der nicht scriptbaren Variante für Desktop-/Managed-Code-Anwendungen.
-
-Verwendeter Control-Typ:
-
-```text
-MsRdpClient12NotSafeForScripting
-```
-
-CLSID:
-
-```text
-3F859AA3-C2D4-4FAA-B0E4-FD0C9C4E5E3A
-```
-
-Neue Bausteine:
-
-```text
-Controls/RdpActiveXControl.cs
-Views/RdpSessionWindow.xaml
-Views/RdpSessionWindow.xaml.cs
-Services/IRdpSessionLauncher.cs
-Services/EmbeddedRdpSessionLauncher.cs
-```
+Der ursprüngliche RDP-Provider startete nur `mstsc.exe`. Danach wurde `MsRdpClient12NotSafeForScripting` in einem eigenen WPF/WinForms-Host gekapselt.
 
 Phase 1 brachte:
 
 - eingebettete RDP-Darstellung
-- Verbinden / Neu verbinden
-- Trennen
-- Vollbild des Session-Fensters
-- automatischen Fallback auf `mstsc.exe`
-
-Die Einstellung `useEmbeddedRdp` aktiviert standardmäßig den eingebetteten Weg.
+- Verbinden / Neu verbinden / Trennen
+- Vollbild
+- `mstsc.exe`-Fallback
 
 ---
 
 ## Eingebettetes RDP – Phase 2
 
-Phase 2 erweiterte den Viewer von einem reinen ActiveX-Host zu einer beobachtbaren und besser bedienbaren Session.
-
-### Session-Ereignisse
-
-`RdpActiveXControl` bindet ausgewählte Ereignisse aus `IMsTscAxEvents` an .NET-Ereignisse:
+Ergänzt wurden:
 
 - `OnConnecting`
 - `OnConnected`
@@ -162,115 +96,110 @@ Phase 2 erweiterte den Viewer von einem reinen ActiveX-Host zu einer beobachtbar
 - `OnDisconnected`
 - `OnFatalError`
 - `OnRemoteDesktopSizeChange`
+- SmartSizing
+- Benutzername und Domäne
+- Windows-Credential-Prompt
 
-Bei einer Trennung werden zusätzlich `ExtendedDisconnectReason` und – soweit möglich – `GetErrorDescription` ausgewertet.
-
-### Skalierung
-
-`SmartSizing` wurde gekapselt und kann über **An Fenster anpassen** während einer laufenden Verbindung ein- oder ausgeschaltet werden.
-
-### Benutzername und Domäne
-
-Das Session-Fenster enthält optionale Felder für Benutzername und Windows-/AD-Domäne. Auch `DOMÄNE\Benutzer` wird unterstützt und bei leerem Domänenfeld automatisch aufgeteilt.
-
-### Passwort- und Credential-Entscheidung
-
-RDP-Passwörter werden **nicht** in der Anwendung gespeichert. Das Microsoft-RDP-Control darf den normalen Windows-Credential-Dialog anzeigen; das interne Credential-Saving des eingebetteten Controls ist deaktiviert.
-
-Nicht geheime Werte wie `rdpUserName` und `rdpDomain` können bei gespeicherten Zielrechnern erhalten bleiben.
+RDP-Passwörter werden nicht gespeichert. Nur nicht geheime Werte wie Benutzername und Domäne dürfen in der lokalen Konfiguration erhalten bleiben.
 
 ---
 
 ## Eingebettetes RDP – Phase 3
 
-Phase 3 ergänzt Komfortfunktionen, die in der täglichen Administration häufig benötigt werden.
+Ergänzt wurden:
 
-### Zwischenablage
-
-Pro Zielrechner gibt es jetzt die Einstellung:
-
-```json
-"rdpRedirectClipboard": true
-```
-
-Sie steuert `RedirectClipboard` des RDP-Clients. Änderungen werden beim nächsten Verbindungsaufbau bzw. nach **Neu verbinden** angewendet.
-
-### Administrative Sitzung
-
-Pro Zielrechner kann eine administrative RDP-Sitzung angefordert werden:
-
-```json
-"rdpAdminSession": false
-```
-
-Technisch wird dafür `ConnectToAdministerServer` gesetzt. Auch diese Einstellung wird vor dem Verbindungsaufbau angewendet und für gespeicherte Ziele erhalten.
-
-### Remote-Aktionen
-
-Über `IMsRdpClient8.SendRemoteAction` stehen nun definierte Remote-Aktionen zur Verfügung:
-
+- Zwischenablageumleitung (`RedirectClipboard`)
+- administrative Sitzung (`ConnectToAdministerServer`)
 - Remote-App-Switch / Alt+Tab
 - Remote-Start-Aktion
-- Remote-Task-Manager-Aktion, sofern vom verwendeten RDP-Client/Server unterstützt
-
-Die Werte sind in `Models/RdpRemoteAction.cs` typisiert gekapselt. Nicht unterstützte Aktionen führen nicht zum Absturz der Sitzung, sondern werden im Sessionstatus gemeldet.
-
-### Persistenz
-
-Für gespeicherte Rechner werden nun folgende nicht geheimen RDP-Präferenzen erhalten:
-
-- `rdpUserName`
-- `rdpDomain`
-- `rdpRedirectClipboard`
-- `rdpAdminSession`
-
-Passwörter bleiben weiterhin vollständig außerhalb der Anwendungskonfiguration.
-
-### Dokumentation
-
-`docs/RDP_SESSION.md` wurde um Phase 3, Clipboard, Admin-Sitzung und Remote-Aktionen erweitert.
+- Remote-Task-Manager-Aktion
+- Persistenz der nicht geheimen RDP-Präferenzen
 
 ---
 
-## Eingebettetes RDP – Phase 4: Auto-Reconnect-Status
+## Eingebettetes RDP – Phase 4: Auto-Reconnect
 
-Für kurzzeitige Netzwerkunterbrechungen verwendet das Tool jetzt die bereits im Microsoft-RDP-Control vorhandene automatische Wiederverbindung, statt selbst eine zweite Reconnect-Schleife zu implementieren.
+Die Anwendung verwendet die Auto-Reconnect-Logik des Microsoft-RDP-Controls statt einer eigenen parallelen Wiederverbindungsschleife.
 
-Verwendete `IMsTscAxEvents`-Ereignisse:
+Verwendete Ereignisse:
 
 - `OnAutoReconnecting2` (`DISPID 34`)
 - `OnAutoReconnected` (`DISPID 33`)
 
-Während der Wiederverbindung zeigt das Session-Fenster:
+Die Oberfläche zeigt Versuchszähler, Netzverfügbarkeit und erfolgreiche Wiederverbindung an.
 
-- aktuellen Versuch
-- maximale Versuchszahl, sofern vom Control gemeldet
-- Netzverfügbarkeit
-- numerischen Disconnect-Grund
+---
 
-Nach erfolgreicher Wiederverbindung wird der Status auf **Automatisch wieder verbunden** gesetzt.
+## Eingebettetes RDP – Phase 4: Multi-Monitor
 
-Dafür wurde `RdpSessionEvents.cs` um `RdpAutoReconnectingEventArgs` erweitert und `RdpActiveXControl` kapselt die zusätzlichen COM-Events weiterhin außerhalb des WPF-Hauptfensters.
+Multi-Monitor wurde als nächste RDP-Präferenz ergänzt.
+
+Technik:
+
+- eingebettetes RDP setzt `UseMultimon` vor `Connect()`
+- `SmartSizing` wird bei Multi-Monitor nicht parallel erzwungen
+- Einstellung wird pro gespeichertem Ziel als `rdpUseMultiMonitor` erhalten
+- der externe Fallback verwendet `mstsc.exe /multimon`
+- Admin + Multi-Monitor können im Fallback gemeinsam als `/admin /multimon` verwendet werden
+
+Die Implementierung bleibt defensiv: Falls das lokale ActiveX-Control `UseMultimon` nicht bereitstellt, bleibt eine normale Einzelmonitor-Sitzung möglich.
+
+---
+
+## Rechnerdetails – Phase 1
+
+Die bisherige Rechnerkarte zeigte nur Name, Host und Erreichbarkeit. Für die tägliche Administration wurden zusätzliche Laufzeitinformationen ergänzt.
+
+Neue Abstraktion:
+
+```text
+ITargetDetailsService
+   +--> PowerShellTargetDetailsService
+```
+
+Die erste Implementierung kombiniert:
+
+- lokale DNS-Auflösung für IP-Adressen
+- `Get-CimInstance Win32_ComputerSystem`
+- `Get-CimInstance Win32_OperatingSystem`
+
+Angezeigt werden:
+
+- IP-Adresse(n)
+- aktuell von Windows gemeldeter interaktiver Benutzer
+- Windows-Edition und Version
+- Hersteller und Modell
+- letzter Status-/Detailprüfzeitpunkt
+
+Die Remote-CIM-Abfrage verwendet die aktuelle Windows-Identität und WSMan. Das UI setzt ein Zeitlimit von 12 Sekunden. Ist CIM durch Firewall oder Richtlinie blockiert, bleibt der Fehler lokal auf die Detailanzeige begrenzt; NetSupport, RDP, Ping und DNS funktionieren unabhängig weiter.
+
+Die Daten werden bewusst nicht gespeichert, weil sie veralten können.
+
+---
+
+## CI / Build-Prüfung
+
+GitHub Actions führt unter Windows aus:
+
+1. Restore
+2. Release-Build
+3. self-contained Publish für Windows x64
+4. Upload des Testartefakts `NetSupport.RemoteAdmin-win-x64`
+
+CI hat im Verlauf unter anderem WPF/WinForms-Namenskonflikte und verschiedene Compilerprobleme gefunden, die direkt im Entwicklungsbranch behoben wurden.
 
 ---
 
 ## Nächste technische Schritte
 
-Als nächste RDP-Ausbaustufe sind insbesondere vorgesehen:
-
-- Multi-Monitor-Unterstützung
+- Auswahl bestimmter Monitor-IDs statt nur aller Monitore
 - weitere Tastatur-/Sondertasten-Werkzeuge
-- detailliertere Fehlertexte
+- detailliertere RDP-Fehlertexte
 - Session-Historie / letzte Verbindung
-- optionale weitere Redirects wie Laufwerke oder Audio
-
-Zusätzlich geplant:
-
-- angemeldeten Benutzer eines Rechners anzeigen
-- IP-Adresse und Betriebssysteminformationen ergänzen
-- Favoriten / Gruppen
-- bevorzugten Remote-Provider pro Rechner speichern
-- weitere Discovery- und Remote-Provider
+- weitere Redirects wie Laufwerke oder Audio
+- Favoriten und Rechnergruppen
+- bevorzugter Remote-Provider pro Rechner
+- weitere Discovery-, Details- und Remote-Provider
 
 ---
 
@@ -282,6 +211,7 @@ Die Dateien
 docs/PROJECT_OVERVIEW.md
 docs/DEVELOPMENT_LOG.md
 docs/RDP_SESSION.md
+docs/TESTING.md
 ```
 
 werden bei weiteren Entwicklungsschritten mit aktualisiert, damit die im Entwicklungsverlauf besprochenen Informationen direkt im Repository nachvollziehbar bleiben.
