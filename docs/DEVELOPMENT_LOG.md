@@ -21,35 +21,20 @@ Entscheidung:
 
 ## Architekturgrundlage
 
-Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert.
-
-Dadurch ist das Hauptfenster nicht direkt an NetSupport oder RDP gekoppelt.
+Die Fernsteuerung wurde hinter `IRemoteProvider` abstrahiert. Dadurch ist das Hauptfenster nicht direkt an NetSupport oder RDP gekoppelt.
 
 Erste Provider:
 
 - `NetSupportProvider`
 - `RdpProvider`
 
-NetSupport wird über `PCICTLUI.EXE` gestartet.
-
-Unterstützte NetSupport-Aktionen:
-
-- Control / Steuern
-- View / Nur ansehen
-- Chat
-- Inventory
-- Remote Command Prompt
-- File Transfer
-
-Windows RDP wurde zunächst über `mstsc.exe` integriert.
+NetSupport wird über `PCICTLUI.EXE` gestartet und unterstützt Control, View, Chat, Inventory, Remote Command Prompt und File Transfer. Windows RDP wurde zunächst über `mstsc.exe` integriert.
 
 ---
 
 ## Konfiguration
 
-Die Anwendung verwendet bewusst eine eigene Konfiguration außerhalb von NetSupport-/GPO-Profilen.
-
-Pfad:
+Die Anwendung verwendet bewusst eine eigene Konfiguration außerhalb von NetSupport-/GPO-Profilen:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
@@ -61,47 +46,31 @@ Damit werden die für die eigene Oberfläche relevanten Einstellungen nicht davo
 
 ## Tray-Betrieb
 
-Die Anwendung wurde so aufgebaut, dass sie im Hintergrund weiterlaufen kann.
-
-Beim normalen Schließen wird das Hauptfenster ausgeblendet und die Anwendung bleibt im Infobereich aktiv.
-
-Über das Tray-Menü kann die Oberfläche wieder geöffnet oder die Anwendung vollständig beendet werden.
+Beim normalen Schließen wird das Hauptfenster ausgeblendet und die Anwendung bleibt im Infobereich aktiv. Über das Tray-Menü kann die Oberfläche wieder geöffnet oder die Anwendung vollständig beendet werden.
 
 ---
 
 ## Active Directory
 
-Für die Rechnerauswahl wurde `ITargetDiscoveryService` eingeführt.
-
-Die erste Implementierung ist `DomainComputerDiscoveryService`.
-
-Sie verwendet aktuell:
+Für die Rechnerauswahl wurde `ITargetDiscoveryService` eingeführt. Die erste Implementierung `DomainComputerDiscoveryService` verwendet aktuell:
 
 ```powershell
 Get-ADComputer
 ```
 
-Voraussetzung ist deshalb das ActiveDirectory-PowerShell-Modul aus RSAT.
-
-Die Abstraktion ermöglicht zukünftig weitere Rechnerquellen wie CSV, SCCM/MECM, Intune oder eigene Inventardienste.
+Voraussetzung ist deshalb das ActiveDirectory-PowerShell-Modul aus RSAT. Die Abstraktion ermöglicht zukünftig weitere Rechnerquellen wie CSV, SCCM/MECM, Intune oder eigene Inventardienste.
 
 ---
 
 ## Online-/Offline-Prüfung
 
-Mit `HostAvailabilityService` wurde eine Erreichbarkeitsprüfung ergänzt.
-
-Die Statusprüfung läuft parallel mit begrenzter Parallelität, damit auch eine größere Anzahl von Rechnern zügig geprüft wird.
-
-Der Status wird nicht dauerhaft gespeichert, sondern nur als Laufzeitinformation verwendet.
+Mit `HostAvailabilityService` wurde eine Erreichbarkeitsprüfung ergänzt. Die Statusprüfung läuft parallel mit begrenzter Parallelität, damit auch eine größere Anzahl von Rechnern zügig geprüft wird. Der Status wird nicht dauerhaft gespeichert, sondern nur als Laufzeitinformation verwendet.
 
 ---
 
 ## Bedienoberfläche – Schnellaktionen
 
-Die Bedienung wurde von einer technischen Provider-/Aktionsauswahl auf eine rechnerbezogene Arbeitsweise umgestellt.
-
-Aktueller Ablauf:
+Die Bedienung wurde von einer technischen Provider-/Aktionsauswahl auf eine rechnerbezogene Arbeitsweise umgestellt:
 
 ```text
 Rechner auswählen
@@ -118,9 +87,7 @@ Aktionskarte
         +--> Chat
 ```
 
-Die allgemeine Provider-/Aktionsauswahl bleibt unter „Erweitert“ erhalten.
-
-Ein Doppelklick auf einen Zielrechner startet direkt die NetSupport-Steuerung.
+Die allgemeine Provider-/Aktionsauswahl bleibt unter „Erweitert“ erhalten. Ein Doppelklick auf einen Zielrechner startet direkt die NetSupport-Steuerung.
 
 ---
 
@@ -137,17 +104,13 @@ Durch CI wurden während der Entwicklung mehrere Probleme gefunden und korrigier
 - fehlende `System.IO`-Imports
 - ungültige Null-Coalescing-Ausdrucksstatements bei `Process.Start`
 
-Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut.
-
-Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
+Der Stand mit eingebettetem RDP Phase 1 wurde anschließend erfolgreich unter Windows/.NET 8 gebaut. Die CI-Prüfung bleibt Bestandteil jedes weiteren Entwicklungsschritts.
 
 ---
 
 ## Eingebettetes RDP – Phase 1
 
-Der ursprüngliche RDP-Provider startete nur `mstsc.exe` als separates Fenster.
-
-Als nächster Schritt wurde ein eigener eingebetteter RDP-Session-Baustein ergänzt.
+Der ursprüngliche RDP-Provider startete nur `mstsc.exe` als separates Fenster. Danach wurde ein eigener eingebetteter RDP-Session-Baustein ergänzt.
 
 Technische Grundlage ist Microsofts **Remote Desktop ActiveX Control** in der nicht scriptbaren Variante für Desktop-/Managed-Code-Anwendungen.
 
@@ -173,34 +136,25 @@ Services/IRdpSessionLauncher.cs
 Services/EmbeddedRdpSessionLauncher.cs
 ```
 
-Die ActiveX-Integration ist bewusst gekapselt und verwendet keine generierten `AxInterop.MSTSCLib`-Projektabhängigkeiten.
-
-Das Session-Fenster bietet in Phase 1:
+Phase 1 brachte:
 
 - eingebettete RDP-Darstellung
-- Verbinden
-- Neu verbinden
+- Verbinden / Neu verbinden
 - Trennen
 - Vollbild des Session-Fensters
-- automatischen Fallback auf `mstsc.exe`, falls der eingebettete Weg nicht verwendet werden kann
+- automatischen Fallback auf `mstsc.exe`
 
-Die Einstellung:
-
-```json
-"useEmbeddedRdp": true
-```
-
-aktiviert standardmäßig den eingebetteten RDP-Weg.
+Die Einstellung `useEmbeddedRdp` aktiviert standardmäßig den eingebetteten Weg.
 
 ---
 
 ## Eingebettetes RDP – Phase 2
 
-Phase 2 erweitert den Viewer von einem reinen ActiveX-Host zu einer deutlich besser beobachtbaren und bedienbaren Session.
+Phase 2 erweiterte den Viewer von einem reinen ActiveX-Host zu einer beobachtbaren und besser bedienbaren Session.
 
 ### Session-Ereignisse
 
-`RdpActiveXControl` bindet jetzt ausgewählte Ereignisse aus `IMsTscAxEvents` an .NET-Ereignisse:
+`RdpActiveXControl` bindet ausgewählte Ereignisse aus `IMsTscAxEvents` an .NET-Ereignisse:
 
 - `OnConnecting`
 - `OnConnected`
@@ -209,65 +163,85 @@ Phase 2 erweitert den Viewer von einem reinen ActiveX-Host zu einer deutlich bes
 - `OnFatalError`
 - `OnRemoteDesktopSizeChange`
 
-Dadurch zeigt das Session-Fenster echte Zustände statt nur einen statischen „gestartet“-Text.
-
 Bei einer Trennung werden zusätzlich `ExtendedDisconnectReason` und – soweit möglich – `GetErrorDescription` ausgewertet.
 
 ### Skalierung
 
 `SmartSizing` wurde gekapselt und kann über **An Fenster anpassen** während einer laufenden Verbindung ein- oder ausgeschaltet werden.
 
-Das Remote-Bild wird damit an den verfügbaren Sessionbereich skaliert, ohne dass die Hauptanwendung RDP-spezifische Details kennen muss.
-
 ### Benutzername und Domäne
 
-Das Session-Fenster enthält jetzt optionale Felder für:
-
-- Benutzername
-- Windows-/AD-Domäne
-
-Auch die Schreibweise
-
-```text
-DOMÄNE\Benutzer
-```
-
-wird unterstützt und bei leerem separaten Domänenfeld automatisch aufgeteilt.
-
-Für gespeicherte Zielrechner können `rdpUserName` und `rdpDomain` in der Anwendungskonfiguration erhalten bleiben.
+Das Session-Fenster enthält optionale Felder für Benutzername und Windows-/AD-Domäne. Auch `DOMÄNE\Benutzer` wird unterstützt und bei leerem Domänenfeld automatisch aufgeteilt.
 
 ### Passwort- und Credential-Entscheidung
 
-RDP-Passwörter werden **nicht** in der Anwendung gespeichert.
+RDP-Passwörter werden **nicht** in der Anwendung gespeichert. Das Microsoft-RDP-Control darf den normalen Windows-Credential-Dialog anzeigen; das interne Credential-Saving des eingebetteten Controls ist deaktiviert.
 
-Stattdessen darf das Microsoft-RDP-Control den normalen Windows-Credential-Dialog anzeigen. Das interne Credential-Saving des eingebetteten Controls wird deaktiviert.
+Nicht geheime Werte wie `rdpUserName` und `rdpDomain` können bei gespeicherten Zielrechnern erhalten bleiben.
 
-Diese Entscheidung hält `settings.json` frei von RDP-Passwörtern und reduziert die Menge sensitiver Daten, die das Tool selbst verwalten müsste.
+---
 
-### Neue Dateien / Modelle
+## Eingebettetes RDP – Phase 3
 
-Ergänzt wurden unter anderem:
+Phase 3 ergänzt Komfortfunktionen, die in der täglichen Administration häufig benötigt werden.
 
-```text
-Models/RdpSessionEvents.cs
-docs/RDP_SESSION.md
+### Zwischenablage
+
+Pro Zielrechner gibt es jetzt die Einstellung:
+
+```json
+"rdpRedirectClipboard": true
 ```
 
-`docs/RDP_SESSION.md` dokumentiert die RDP-Architektur, Bedienung, Sicherheitsentscheidung und den aktuellen Funktionsumfang ausführlich.
+Sie steuert `RedirectClipboard` des RDP-Clients. Änderungen werden beim nächsten Verbindungsaufbau bzw. nach **Neu verbinden** angewendet.
+
+### Administrative Sitzung
+
+Pro Zielrechner kann eine administrative RDP-Sitzung angefordert werden:
+
+```json
+"rdpAdminSession": false
+```
+
+Technisch wird dafür `ConnectToAdministerServer` gesetzt. Auch diese Einstellung wird vor dem Verbindungsaufbau angewendet und für gespeicherte Ziele erhalten.
+
+### Remote-Aktionen
+
+Über `IMsRdpClient8.SendRemoteAction` stehen nun definierte Remote-Aktionen zur Verfügung:
+
+- Remote-App-Switch / Alt+Tab
+- Remote-Start-Aktion
+- Remote-Task-Manager-Aktion, sofern vom verwendeten RDP-Client/Server unterstützt
+
+Die Werte sind in `Models/RdpRemoteAction.cs` typisiert gekapselt. Nicht unterstützte Aktionen führen nicht zum Absturz der Sitzung, sondern werden im Sessionstatus gemeldet.
+
+### Persistenz
+
+Für gespeicherte Rechner werden nun folgende nicht geheimen RDP-Präferenzen erhalten:
+
+- `rdpUserName`
+- `rdpDomain`
+- `rdpRedirectClipboard`
+- `rdpAdminSession`
+
+Passwörter bleiben weiterhin vollständig außerhalb der Anwendungskonfiguration.
+
+### Dokumentation
+
+`docs/RDP_SESSION.md` wurde um Phase 3, Clipboard, Admin-Sitzung und Remote-Aktionen erweitert.
 
 ---
 
 ## Nächste technische Schritte
 
-Für RDP Phase 3 sind insbesondere vorgesehen:
+Als nächste RDP-Ausbaustufe sind insbesondere vorgesehen:
 
 - Multi-Monitor-Unterstützung
-- Zwischenablageoptionen
 - Auto-Reconnect-Ereignisse
-- optionale administrative Sitzung
-- Sondertasten-/Keyboard-Werkzeuge
+- weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere Fehlertexte
 - Session-Historie / letzte Verbindung
+- optionale weitere Redirects wie Laufwerke oder Audio
 
 Zusätzlich geplant:
 
