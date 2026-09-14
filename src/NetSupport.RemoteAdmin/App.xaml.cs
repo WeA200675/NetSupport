@@ -24,7 +24,14 @@ public partial class App : System.Windows.Application
 
             var discovery = new DomainComputerDiscoveryService();
             var availability = new HostAvailabilityService();
-            var window = new MainWindow(config, configService, registry, discovery, availability);
+            var detailsService = new PowerShellTargetDetailsService();
+            var window = new MainWindow(
+                config,
+                configService,
+                registry,
+                discovery,
+                availability,
+                detailsService);
             MainWindow = window;
 
             if (!config.StartMinimized)
