@@ -164,6 +164,20 @@ Prüfen:
 - **Verlauf löschen** löscht nur den Verlauf.
 - Datei bleibt auf maximal 100 Einträge begrenzt.
 
+### CSV-Export
+
+1. Mehrere Verlaufszeilen erzeugen.
+2. **CSV exportieren** anklicken.
+3. Datei speichern und in Excel/LibreOffice/Texteditor öffnen.
+
+Prüfen:
+
+- Spalten `Zeitpunkt`, `Rechner`, `Name`, `Provider`, `Provider-ID`, `Aktion`, `Erfolg`, `Fehler` sind vorhanden.
+- Datei ist semikolongetrennt.
+- Umlaute werden korrekt dargestellt.
+- Fehlermeldungen mit Sonderzeichen beschädigen die Spalten nicht.
+- Export enthält keine Passwörter oder RDP-Credentials.
+
 ---
 
 ## 8. Eingebettetes RDP
@@ -319,6 +333,74 @@ Prüfen:
 
 ---
 
+## 15. Einstellungsfenster
+
+**Erweitert → Einstellungen** öffnen.
+
+Prüfen:
+
+- aktueller NetSupport-Pfad wird angezeigt.
+- **Durchsuchen…** kann `PCICTLUI.EXE` auswählen.
+- ungültiger/nicht vorhandener Pfad erzeugt eine Warnung.
+- **Eingebetteten RDP-Viewer bevorzugen** wird in `settings.json` gespeichert.
+- **Externes RDP standardmäßig im Vollbild starten** wird gespeichert.
+- **Beim Start minimiert** wird gespeichert.
+- **Diagnoseprotokoll schreiben** wird gespeichert.
+- nach Änderung des NetSupport-Pfads aktualisiert sich die Providerliste ohne Programmneustart.
+
+---
+
+## 16. Windows-Autostart
+
+In **Einstellungen** → **Mit Windows starten** aktivieren.
+
+Prüfen:
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+muss einen Wert `NetSupportRemoteAdmin` enthalten.
+
+Danach deaktivieren und prüfen, dass genau dieser Wert entfernt wird.
+
+Optional mit einem Testlogin prüfen:
+
+- Autostart aktiviert → Anwendung startet beim Login.
+- **Beim Start minimiert** zusätzlich aktiviert → Anwendung landet direkt im Tray.
+
+Es dürfen keine HKLM-/maschinenweiten Autostartwerte angelegt werden.
+
+---
+
+## 17. Diagnoseprotokoll
+
+Diagnose in den Einstellungen aktivieren und einige Aktionen ausführen.
+
+Pfad:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
+```
+
+Prüfen:
+
+- Programmstart wird protokolliert.
+- Remote-Aktionsstart erscheint mit Provider/Aktion/Zielhost.
+- AD-/Statusfehler erscheinen bei absichtlichem Fehlerfall.
+- **Diagnoseordner öffnen** öffnet den richtigen Ordner.
+- kein Passwort/Credential steht im Log.
+- keine Bildschirm-/Zwischenablageinhalte stehen im Log.
+
+Rotation testen, wenn praktikabel:
+
+- Log über ungefähr 2 MB wachsen lassen oder Testdatei entsprechend vorbereiten.
+- beim nächsten Schreibvorgang entsteht `application.log.1` und ein neues `application.log`.
+
+Diagnose deaktivieren und prüfen, dass neue normale Logeinträge ausbleiben.
+
+---
+
 ## Lokale Dateien
 
 Konfiguration:
@@ -331,6 +413,12 @@ Startverlauf:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+Diagnose:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
 Generierte gezielte RDP-Verbindungen:
@@ -353,6 +441,7 @@ Hilfreich sind:
 - eingebettetes oder externes RDP
 - bei Monitorproblemen Ausgabe von `mstsc /l` ohne vertrauliche Daten
 - gewünschte Monitor-ID-Liste
+- relevanter Ausschnitt aus `application.log`, nachdem interne Hostnamen bei Bedarf anonymisiert wurden
 - zugehöriger GitHub-Actions-Build/Commit
 
 Keine Kennwörter oder Zugangsdaten in Issues, Screenshots oder Logs aufnehmen.
