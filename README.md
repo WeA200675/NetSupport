@@ -10,6 +10,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/RDP_SELECTED_MONITORS.md`](docs/RDP_SELECTED_MONITORS.md) – gezielte Auswahl bestimmter RDP-Monitore
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
 - [`docs/TESTING.md`](docs/TESTING.md) – Testbuild und praktische Prüfschritte
 
 ## Aktueller Funktionsumfang
@@ -27,6 +28,10 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - parallele Online-/Offline-Prüfung
 - Rechnerdetails über DNS + CIM/WSMan
 - lokaler Verlauf der zuletzt gestarteten Remote-Aktionen
+- CSV-Export des Verlaufs
+- eigene Einstellungsseite
+- optionaler Windows-Autostart pro Benutzer
+- optionales lokales Diagnoseprotokoll
 
 ### NetSupport Manager
 
@@ -38,6 +43,8 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - Inventar
 - Remote CMD
 - Dateiübertragung
+
+Der Pfad zu `PCICTLUI.EXE` kann inzwischen direkt in **Erweitert → Einstellungen** geändert werden. Die Providerliste wird danach ohne Neustart aktualisiert.
 
 ### Windows Remote Desktop
 
@@ -64,6 +71,35 @@ Für eine **gezielte Auswahl einzelner lokaler Monitore** gibt es zusätzlich ei
 
 Ohne eingetragene Monitor-IDs bleibt das bisherige eingebettete RDP-Verhalten erhalten.
 
+## Einstellungen und Betrieb
+
+Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
+
+- Mit Windows starten
+- beim Start minimiert im Infobereich öffnen
+- Diagnoseprotokoll aktivieren/deaktivieren
+- eingebetteten RDP-Viewer bevorzugen
+- externes RDP standardmäßig im Vollbild starten
+- NetSupport-Executable auswählen
+
+Windows-Autostart wird ausschließlich im Benutzerprofil über
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+verwaltet.
+
+Das optionale Diagnoseprotokoll liegt unter:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
+```
+
+Es rotiert bei ungefähr 2 MB nach `application.log.1`. Passwörter, RDP-Credentials und Sitzungsinhalte werden nicht protokolliert.
+
+Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+
 ## Persistente Dateien
 
 Konfiguration:
@@ -76,6 +112,12 @@ Lokaler Startverlauf:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+Diagnose:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
 Generierte RDP-Dateien für gezielte Monitorwahl:
@@ -95,9 +137,11 @@ ITargetDetailsService
 ISessionHistoryService
 IRdpSessionLauncher
 IRdpConnectionFileService
+IAutoStartService
+IDiagnosticLogService
 ```
 
-Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf und RDP-Verbindungsdateien voneinander getrennt.
+Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf, RDP-Verbindungsdateien, Autostart und Diagnose voneinander getrennt.
 
 ## Build
 
