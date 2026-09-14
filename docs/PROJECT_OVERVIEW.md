@@ -8,9 +8,7 @@
 
 NetSupport Remote Admin ist eine kompakte Windows-Anwendung, die die tägliche Fernwartung deutlich einfacher machen soll als die klassische NetSupport-Oberfläche.
 
-Das Ziel ist nicht, das komplette Remote-Protokoll neu zu entwickeln. Stattdessen dient die Anwendung als eigene, übersichtliche Steuerzentrale und verwendet vorhandene Remote-Techniken wie NetSupport Manager und Windows Remote Desktop als austauschbare Backends.
-
-Die Anwendung soll dauerhaft im Hintergrund laufen können, schnell erreichbar sein und typische Aktionen mit möglichst wenigen Klicks ausführen.
+Die Anwendung dient als eigene Steuerzentrale und verwendet vorhandene Remote-Techniken wie NetSupport Manager und Windows Remote Desktop als austauschbare Backends. Sie soll dauerhaft im Hintergrund laufen können, schnell erreichbar sein und typische Aktionen mit möglichst wenigen Klicks ausführen.
 
 ---
 
@@ -21,7 +19,7 @@ Die Anwendung soll dauerhaft im Hintergrund laufen können, schnell erreichbar s
 3. Optional den Online-/Offline-Status der Rechner prüfen.
 4. Rechner in der Liste auswählen.
 5. Rechts erscheint die Aktionskarte des ausgewählten Rechners.
-6. Gewünschte Aktion direkt starten, zum Beispiel **Steuern**, **Nur ansehen**, **RDP**, **CMD**, **Dateien**, **Inventar** oder **Chat**.
+6. Aktion direkt starten: **Steuern**, **Nur ansehen**, **RDP**, **CMD**, **Dateien**, **Inventar** oder **Chat**.
 7. Häufig benötigte Rechner können dauerhaft gespeichert werden.
 
 Ein Doppelklick auf einen Rechner startet direkt die NetSupport-Steuerung.
@@ -57,9 +55,19 @@ Der Pfad zu `PCICTLUI.EXE` wird automatisch in den üblichen `Program Files`-Ver
 
 ### Windows Remote Desktop
 
-Windows RDP ist als zweiter Remote-Provider vorhanden.
+RDP ist als zweiter Remote-Provider vorhanden und unterstützt jetzt zwei Betriebsarten:
 
-Aktuell wird dafür noch `mstsc.exe` gestartet. Der nächste größere Ausbauschritt ist ein eigener Session-Baustein, damit RDP später direkt innerhalb der Anwendung angezeigt werden kann.
+**Eingebettet:** Das Microsoft Remote Desktop ActiveX Control wird in einem eigenen Session-Fenster innerhalb der Anwendung gehostet.
+
+**Fallback:** Falls der eingebettete Weg deaktiviert oder nicht verfügbar ist, wird weiterhin `mstsc.exe` verwendet.
+
+Der eingebettete Session-Baustein bietet aktuell:
+
+- eingebettete RDP-Darstellung
+- Verbinden / Neu verbinden
+- Trennen
+- Vollbild des Session-Fensters
+- isolierte ActiveX-Kapselung hinter `IRdpSessionLauncher`
 
 ### Active Directory
 
@@ -71,9 +79,7 @@ Die AD-Anbindung ist bewusst hinter `ITargetDiscoveryService` abstrahiert. Damit
 
 ### Online-/Offline-Status
 
-Rechner können parallel per Ping geprüft werden.
-
-Die Prüfung arbeitet mit begrenzter Parallelität, damit auch eine größere Anzahl von Rechnern zügig geprüft wird, ohne unnötig viele gleichzeitige Netzwerkzugriffe zu erzeugen.
+Rechner können parallel per Ping geprüft werden. Die Prüfung arbeitet mit begrenzter Parallelität, damit auch eine größere Anzahl von Rechnern zügig geprüft wird.
 
 Der Status ist nur Laufzeitinformation und wird nicht dauerhaft in der Konfigurationsdatei gespeichert.
 
@@ -87,8 +93,18 @@ MainWindow
    +--> RemoteProviderRegistry
    |       |
    |       +--> NetSupportProvider --> PCICTLUI.EXE
-   |       +--> RdpProvider --------> mstsc.exe
-   |       +--> zukünftige Provider
+   |       |
+   |       +--> RdpProvider
+   |               |
+   |               +--> IRdpSessionLauncher
+   |               |       |
+   |               |       +--> EmbeddedRdpSessionLauncher
+   |               |               |
+   |               |               +--> RdpSessionWindow
+   |               |                       |
+   |               |                       +--> RdpActiveXControl
+   |               |
+   |               +--> mstsc.exe Fallback
    |
    +--> ITargetDiscoveryService
    |       |
@@ -104,34 +120,13 @@ MainWindow
 
 ### Erweiterungspunkte
 
-Remote-Technologien implementieren:
+Remote-Technologien implementieren `IRemoteProvider`.
 
-```csharp
-public interface IRemoteProvider
-{
-    string Id { get; }
-    string DisplayName { get; }
-    IReadOnlyCollection<RemoteAction> SupportedActions { get; }
-    bool IsAvailable { get; }
-    Task ConnectAsync(
-        RemoteTarget target,
-        RemoteAction action,
-        CancellationToken cancellationToken = default);
-}
-```
+Rechnerquellen implementieren `ITargetDiscoveryService`.
 
-Rechnerquellen implementieren:
+Eingebettete RDP-Sessions werden über `IRdpSessionLauncher` gestartet.
 
-```csharp
-public interface ITargetDiscoveryService
-{
-    string DisplayName { get; }
-    Task<IReadOnlyList<RemoteTarget>> DiscoverAsync(
-        CancellationToken cancellationToken = default);
-}
-```
-
-Dadurch bleiben Oberfläche, Rechnerquellen und Fernsteuerungs-Technologien voneinander getrennt.
+Dadurch bleiben Oberfläche, Rechnerquellen, Remote-Provider und Session-Hosting voneinander getrennt.
 
 ---
 
@@ -149,6 +144,7 @@ Beispiel:
 {
   "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE",
   "startMinimized": false,
+  "useEmbeddedRdp": true,
   "useFullScreenRdp": false,
   "targets": [
     {
@@ -160,6 +156,8 @@ Beispiel:
 }
 ```
 
+`useEmbeddedRdp` aktiviert standardmäßig den eingebetteten RDP-Viewer. Wird die Option auf `false` gesetzt, nutzt der Provider `mstsc.exe`.
+
 ---
 
 ## Projektstruktur
@@ -167,12 +165,18 @@ Beispiel:
 ```text
 NetSupport/
 ├── docs/
-│   └── PROJECT_OVERVIEW.md
+│   ├── PROJECT_OVERVIEW.md
+│   └── DEVELOPMENT_LOG.md
 ├── src/
 │   └── NetSupport.RemoteAdmin/
+│       ├── Controls/
+│       │   └── RdpActiveXControl.cs
 │       ├── Models/
 │       ├── Providers/
 │       ├── Services/
+│       ├── Views/
+│       │   ├── RdpSessionWindow.xaml
+│       │   └── RdpSessionWindow.xaml.cs
 │       ├── App.xaml
 │       ├── MainWindow.xaml
 │       └── NetSupport.RemoteAdmin.csproj
@@ -220,42 +224,27 @@ Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlend
 
 ## Nächste Ausbaustufen
 
-### 1. Eingebettete RDP-Session
+### RDP-Session Phase 2
 
-Ziel ist, RDP nicht mehr ausschließlich in einem separaten `mstsc.exe`-Fenster zu starten, sondern eine eigene Session-Oberfläche innerhalb der Anwendung bereitzustellen.
+Geplant sind:
 
-Geplante Session-Funktionen:
+- Connection-/Disconnect-Ereignisse sauber auswerten
+- automatische Größenanpassung / Smart Sizing
+- Benutzername- und Credential-Handling
+- Zwischenablageoptionen
+- Multi-Monitor-Unterstützung
+- verständliche RDP-Fehleranzeige
+- erweiterte Session-Toolbar
 
-- Verbinden / Trennen
-- Vollbild
-- Auf Fenstergröße skalieren
-- Zwischenablage
-- Multi-Monitor-Vorbereitung
-- Sessionstatus
-- zentrale Toolbar
+### Rechnerdetails
 
-### 2. Rechnerdetails
+Geplant sind zusätzliche Informationen wie angemeldeter Benutzer, Betriebssystem, IP-Adresse, letzte Erreichbarkeit, Beschreibung/Standort und bevorzugte Verbindungsart.
 
-Geplant sind zusätzliche Informationen wie:
+### Weitere Discovery-Quellen
 
-- angemeldeter Benutzer
-- Betriebssystem
-- IP-Adresse
-- letzte Erreichbarkeit
-- Beschreibung / Standort
-- bevorzugte Verbindungsart
+Durch `ITargetDiscoveryService` können später unter anderem CSV/JSON, SCCM/MECM, Intune, eigene Inventardienste oder statische Rechnergruppen ergänzt werden.
 
-### 3. Weitere Discovery-Quellen
-
-Durch `ITargetDiscoveryService` können später weitere Quellen ergänzt werden, zum Beispiel:
-
-- CSV / JSON
-- SCCM / MECM
-- Intune
-- eigener Inventardienst
-- statische Rechnergruppen
-
-### 4. Weitere Remote-Provider
+### Weitere Remote-Provider
 
 Durch `IRemoteProvider` können weitere Fernsteuerungssysteme ergänzt werden, ohne das Hauptfenster umzubauen.
 
@@ -269,7 +258,7 @@ Durch `IRemoteProvider` können weitere Fernsteuerungssysteme ergänzt werden, o
 - klare Trennung zwischen UI, Discovery und Remote-Backends
 - möglichst wenige externe Abhängigkeiten
 - Konfiguration verständlich und transparent halten
-- neue Funktionen nur so integrieren, dass sie später austauschbar bleiben
+- neue Funktionen so integrieren, dass sie später austauschbar bleiben
 
 ---
 
