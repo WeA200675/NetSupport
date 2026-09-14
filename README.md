@@ -8,7 +8,7 @@ The maintained project documentation lives in:
 
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – current architecture, functions, configuration, build and roadmap
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
-- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling and credential handling
+- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling, security and session controls
 
 ## Goals
 
@@ -50,8 +50,13 @@ The embedded session currently provides:
 - SmartSizing that can be toggled while connected
 - optional user name and Windows/AD domain
 - Windows credential prompting without storing passwords in this application
-- persisted user/domain values for already saved targets
+- persisted non-secret RDP preferences for saved targets
 - detailed disconnect reason where the Microsoft control can provide one
+- optional clipboard redirection
+- optional administrative RDP session
+- remote Alt+Tab / app-switch action
+- remote Start action
+- remote Task Manager action where supported by the local RDP client/server combination
 - fallback to `mstsc.exe`
 
 Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop client.
@@ -84,7 +89,9 @@ Example:
       "host": "PC-001",
       "description": "Office",
       "rdpUserName": "max.mustermann",
-      "rdpDomain": "CONTOSO"
+      "rdpDomain": "CONTOSO",
+      "rdpRedirectClipboard": true,
+      "rdpAdminSession": false
     }
   ]
 }
