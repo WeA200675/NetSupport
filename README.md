@@ -17,17 +17,19 @@ The maintained project documentation lives in:
 - select a computer once and launch common remote actions with one click
 - launch NetSupport sessions directly by computer name or IP address
 - discover domain computers without persisting every discovered machine
+- show useful runtime computer information without creating a second inventory database
 - keep application configuration independent from NetSupport profiles/GPO behavior
-- allow additional remote backends without changing the UI
+- allow additional remote backends and information sources without changing the UI
 - provide Windows RDP as an alternative connection method
 
 ## User workflow
 
 1. Enter a computer name/IP address or load computers from Active Directory.
 2. Select the target in the computer list.
-3. Use the action card on the right for Control, View, RDP, Remote CMD, File Transfer, Inventory or Chat.
-4. Double-clicking a target starts NetSupport control directly.
-5. The generic provider/action selection remains available under **Advanced** for less common or future providers.
+3. Optionally load runtime details such as IP address, Windows version, logged-on user and model.
+4. Use the action card on the right for Control, View, RDP, Remote CMD, File Transfer, Inventory or Chat.
+5. Double-clicking a target starts NetSupport control directly.
+6. The generic provider/action selection remains available under **Advanced** for less common or future providers.
 
 The application can be closed to the notification area and reopened from the tray icon.
 
@@ -49,6 +51,7 @@ The embedded session currently provides:
 - real Connecting / Connected / Login / Disconnect status
 - Remote Desktop resolution status
 - SmartSizing that can be toggled while connected
+- multi-monitor sessions through `UseMultimon`
 - optional user name and Windows/AD domain
 - Windows credential prompting without storing passwords in this application
 - persisted non-secret RDP preferences for saved targets
@@ -59,7 +62,7 @@ The embedded session currently provides:
 - remote Alt+Tab / app-switch action
 - remote Start action
 - remote Task Manager action where supported by the local RDP client/server combination
-- fallback to `mstsc.exe`
+- fallback to `mstsc.exe`, including `/admin` and `/multimon` where configured
 
 Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop client.
 
@@ -68,6 +71,20 @@ Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop cli
 Domain discovery is implemented behind `ITargetDiscoveryService`. The initial `DomainComputerDiscoveryService` invokes `Get-ADComputer`, therefore the admin workstation needs the Microsoft ActiveDirectory PowerShell module (RSAT).
 
 Discovered computers are transient until they are explicitly saved. Availability checks are performed in parallel with bounded concurrency and update transient Online/Offline state only.
+
+## Runtime computer details
+
+Computer information is isolated behind `ITargetDetailsService`. The initial `PowerShellTargetDetailsService` resolves IP addresses locally and uses `Get-CimInstance` for remote Windows information.
+
+The selected-computer card can show:
+
+- IP address(es)
+- logged-on Windows user
+- Windows edition/version
+- manufacturer/model
+- last status/details check time
+
+The CIM query uses the current Windows identity and normal WSMan policy. If remote CIM is blocked by firewall or policy, the rest of the application continues to work and the UI reports that management data is only partially available. Runtime details are not persisted because they can become stale.
 
 ## Configuration
 
@@ -93,7 +110,8 @@ Example:
       "rdpUserName": "max.mustermann",
       "rdpDomain": "CONTOSO",
       "rdpRedirectClipboard": true,
-      "rdpAdminSession": false
+      "rdpAdminSession": false,
+      "rdpUseMultiMonitor": false
     }
   ]
 }
@@ -103,7 +121,7 @@ RDP passwords are intentionally never stored in `settings.json`.
 
 ## Extending the application
 
-Remote backends implement `IRemoteProvider`. Embedded RDP session hosts are accessed through `IRdpSessionLauncher`. Target sources implement `ITargetDiscoveryService`.
+Remote backends implement `IRemoteProvider`. Embedded RDP session hosts are accessed through `IRdpSessionLauncher`. Target sources implement `ITargetDiscoveryService`. Runtime computer information is provided through `ITargetDetailsService`.
 
 This keeps the main UI independent from NetSupport, RDP ActiveX hosting, future VNC providers, Active Directory and other inventory sources.
 
@@ -114,6 +132,7 @@ Requirements:
 - Windows 10/11
 - .NET 8 SDK
 - optional: RSAT ActiveDirectory PowerShell module for domain discovery
+- optional: remote CIM/WSMan access for computer details
 - NetSupport Manager Control for NetSupport actions
 
 ```powershell
@@ -142,7 +161,7 @@ It can be downloaded from the successful **Build** workflow run and tested witho
 ```text
 MainWindow
     |
-    +-- selected target action card
+    +-- selected target action/details card
     |
     +--> RemoteProviderRegistry
     |        |
@@ -158,6 +177,9 @@ MainWindow
     |
     +--> ITargetDiscoveryService
     |        +--> DomainComputerDiscoveryService --> Get-ADComputer
+    |
+    +--> ITargetDetailsService
+    |        +--> PowerShellTargetDetailsService --> DNS + Get-CimInstance
     |
     +--> HostAvailabilityService
 
