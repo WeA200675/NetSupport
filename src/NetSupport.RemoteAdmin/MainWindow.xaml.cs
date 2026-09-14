@@ -15,16 +15,21 @@ namespace NetSupport.RemoteAdmin;
 
 public partial class MainWindow : Window
 {
+    private const string AllGroupsLabel = "Alle Gruppen";
+
     private readonly AppConfig _config;
     private readonly ConfigService _configService;
     private readonly RemoteProviderRegistry _providers;
     private readonly ITargetDiscoveryService _discovery;
     private readonly HostAvailabilityService _availability;
     private readonly ITargetDetailsService _detailsService;
+    private readonly List<IRemoteProvider> _availableProviders;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly List<RemoteTarget> _targets = new();
     private CancellationTokenSource? _statusCancellation;
     private bool _allowExit;
+    private bool _uiReady;
+    private bool _updatingGroupFilter;
 
     public MainWindow(
         AppConfig config,
@@ -43,13 +48,19 @@ public partial class MainWindow : Window
         _availability = availability;
         _detailsService = detailsService;
         _targets.AddRange(_config.Targets);
+        _availableProviders = _providers.All.Where(provider => provider.IsAvailable).ToList();
 
-        ProviderComboBox.ItemsSource = _providers.All.Where(p => p.IsAvailable).ToList();
+        ProviderComboBox.ItemsSource = _availableProviders;
         ProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
         ProviderComboBox.SelectedIndex = ProviderComboBox.Items.Count > 0 ? 0 : -1;
 
+        PreferredProviderComboBox.ItemsSource = _availableProviders;
+        PreferredProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
+
+        RefreshGroupFilterOptions();
         RefreshTargets();
         UpdateSelectedTargetCard(null);
+        _uiReady = true;
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Öffnen", null, (_, _) => ShowFromTray());
@@ -97,6 +108,8 @@ public partial class MainWindow : Window
     {
         var selectedHost = SelectedTarget?.Host;
         var filter = FilterTextBox?.Text?.Trim() ?? string.Empty;
+        var selectedGroup = GroupFilterComboBox?.SelectedItem as string;
+        var favoritesOnly = FavoritesOnlyCheckBox?.IsChecked == true;
         var query = _targets.AsEnumerable();
 
         if (!string.IsNullOrWhiteSpace(filter))
@@ -104,24 +117,89 @@ public partial class MainWindow : Window
             query = query.Where(t =>
                 t.Name.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
                 t.Host.Contains(filter, StringComparison.OrdinalIgnoreCase) ||
-                (t.Description?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false));
+                (t.Description?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                (t.Group?.Contains(filter, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (favoritesOnly)
+            query = query.Where(target => target.IsFavorite);
+
+        if (!string.IsNullOrWhiteSpace(selectedGroup) &&
+            !string.Equals(selectedGroup, AllGroupsLabel, StringComparison.Ordinal))
+        {
+            query = query.Where(target =>
+                string.Equals(target.Group?.Trim(), selectedGroup, StringComparison.OrdinalIgnoreCase));
         }
 
         var items = query
-            .OrderBy(t => string.IsNullOrWhiteSpace(t.Name) ? t.Host : t.Name)
+            .OrderByDescending(target => target.IsFavorite)
+            .ThenBy(target => string.IsNullOrWhiteSpace(target.Group) ? 1 : 0)
+            .ThenBy(target => target.Group, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(target => string.IsNullOrWhiteSpace(target.Name) ? target.Host : target.Name, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
         TargetsListBox.ItemsSource = null;
         TargetsListBox.ItemsSource = items;
 
         if (!string.IsNullOrWhiteSpace(selectedHost))
+            SelectTargetByHost(selectedHost);
+    }
+
+    private void RefreshGroupFilterOptions()
+    {
+        _updatingGroupFilter = true;
+        try
         {
-            TargetsListBox.SelectedItem = items.FirstOrDefault(t =>
-                string.Equals(t.Host, selectedHost, StringComparison.OrdinalIgnoreCase));
+            var selected = GroupFilterComboBox.SelectedItem as string;
+            var groups = _targets
+                .Select(target => target.Group?.Trim())
+                .Where(group => !string.IsNullOrWhiteSpace(group))
+                .Select(group => group!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(group => group, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var items = new List<string> { AllGroupsLabel };
+            items.AddRange(groups);
+            GroupFilterComboBox.ItemsSource = items;
+
+            GroupFilterComboBox.SelectedItem = !string.IsNullOrWhiteSpace(selected) &&
+                                                items.Contains(selected, StringComparer.OrdinalIgnoreCase)
+                ? items.First(item => string.Equals(item, selected, StringComparison.OrdinalIgnoreCase))
+                : AllGroupsLabel;
+        }
+        finally
+        {
+            _updatingGroupFilter = false;
         }
     }
 
-    private void FilterTextBox_OnTextChanged(object sender, TextChangedEventArgs e) => RefreshTargets();
+    private void SelectTargetByHost(string host)
+    {
+        if (TargetsListBox.ItemsSource is not IEnumerable<RemoteTarget> items)
+            return;
+
+        TargetsListBox.SelectedItem = items.FirstOrDefault(target =>
+            string.Equals(target.Host, host, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void FilterTextBox_OnTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_uiReady)
+            RefreshTargets();
+    }
+
+    private void GroupFilterComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_uiReady && !_updatingGroupFilter)
+            RefreshTargets();
+    }
+
+    private void FavoritesOnlyCheckBox_OnChanged(object sender, RoutedEventArgs e)
+    {
+        if (_uiReady)
+            RefreshTargets();
+    }
 
     private void ProviderComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -148,13 +226,21 @@ public partial class MainWindow : Window
 
     private void UpdateSelectedTargetCard(RemoteTarget? target)
     {
-        RefreshDetailsButton.IsEnabled = target is not null;
+        var hasTarget = target is not null;
+        RefreshDetailsButton.IsEnabled = hasTarget;
+        StandardConnectButton.IsEnabled = hasTarget;
+        FavoriteCheckBox.IsEnabled = hasTarget;
+        TargetGroupTextBox.IsEnabled = hasTarget;
+        PreferredProviderComboBox.IsEnabled = hasTarget;
 
         if (target is null)
         {
             SelectedTargetNameTextBlock.Text = "Kein Rechner ausgewählt";
             SelectedTargetHostTextBlock.Text = string.Empty;
             SelectedTargetStatusTextBlock.Text = "Rechner auswählen oder oben einen Namen eingeben.";
+            FavoriteCheckBox.IsChecked = false;
+            TargetGroupTextBox.Text = string.Empty;
+            PreferredProviderComboBox.SelectedItem = null;
             SelectedTargetIpTextBlock.Text = "–";
             SelectedTargetUserTextBlock.Text = "–";
             SelectedTargetOsTextBlock.Text = "–";
@@ -167,6 +253,9 @@ public partial class MainWindow : Window
         SelectedTargetNameTextBlock.Text = string.IsNullOrWhiteSpace(target.Name) ? target.Host : target.Name;
         SelectedTargetHostTextBlock.Text = target.Host;
         SelectedTargetStatusTextBlock.Text = target.StatusText;
+        FavoriteCheckBox.IsChecked = target.IsFavorite;
+        TargetGroupTextBox.Text = target.Group ?? string.Empty;
+        PreferredProviderComboBox.SelectedItem = ResolvePreferredControlProvider(target);
 
         var details = target.Details;
         SelectedTargetIpTextBlock.Text = details?.IpAddresses ?? "–";
@@ -182,6 +271,54 @@ public partial class MainWindow : Window
         SelectedTargetDetailsErrorTextBlock.Text = string.IsNullOrWhiteSpace(details?.ManagementError)
             ? string.Empty
             : $"Verwaltungsdaten nicht vollständig: {details.ManagementError}";
+    }
+
+    private IRemoteProvider? ResolvePreferredControlProvider(RemoteTarget target)
+    {
+        var configured = _availableProviders.FirstOrDefault(provider =>
+            provider.SupportedActions.Contains(RemoteAction.Control) &&
+            string.Equals(provider.Id, target.PreferredProviderId, StringComparison.OrdinalIgnoreCase));
+        if (configured is not null)
+            return configured;
+
+        var netSupport = _availableProviders.FirstOrDefault(provider =>
+            provider.SupportedActions.Contains(RemoteAction.Control) &&
+            string.Equals(provider.Id, "netsupport", StringComparison.OrdinalIgnoreCase));
+
+        return netSupport ?? _availableProviders.FirstOrDefault(provider =>
+            provider.SupportedActions.Contains(RemoteAction.Control));
+    }
+
+    private void ApplyTargetEditor(RemoteTarget target)
+    {
+        target.IsFavorite = FavoriteCheckBox.IsChecked == true;
+        target.Group = NullIfWhiteSpace(TargetGroupTextBox.Text);
+        target.PreferredProviderId = (PreferredProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
+    }
+
+    private static string? NullIfWhiteSpace(string? value)
+    {
+        var trimmed = value?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private async void StandardConnectButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var target = CurrentTarget;
+        if (target is null)
+            return;
+
+        if (SelectedTarget is not null)
+            ApplyTargetEditor(target);
+
+        var provider = ResolvePreferredControlProvider(target);
+        if (provider is null)
+        {
+            StatusTextBlock.Text = "Kein Provider für eine Standardverbindung verfügbar.";
+            return;
+        }
+
+        await LaunchProviderActionAsync(provider.Id, RemoteAction.Control);
     }
 
     private async void RefreshDetailsButton_OnClick(object sender, RoutedEventArgs e)
@@ -374,7 +511,16 @@ public partial class MainWindow : Window
             return;
 
         HostTextBox.Text = target.Host;
-        await LaunchProviderActionAsync("netsupport", RemoteAction.Control);
+        ApplyTargetEditor(target);
+
+        var provider = ResolvePreferredControlProvider(target);
+        if (provider is null)
+        {
+            StatusTextBlock.Text = "Kein Provider für eine Standardverbindung verfügbar.";
+            return;
+        }
+
+        await LaunchProviderActionAsync(provider.Id, RemoteAction.Control);
     }
 
     private async Task ConnectAsync()
@@ -418,30 +564,56 @@ public partial class MainWindow : Window
         if (target is null)
             return;
 
-        if (_config.Targets.Any(t => string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
+        if (SelectedTarget is not null)
+            ApplyTargetEditor(target);
+
+        var existing = _config.Targets.FirstOrDefault(saved =>
+            string.Equals(saved.Host, target.Host, StringComparison.OrdinalIgnoreCase));
+        var wasExisting = existing is not null;
+
+        if (existing is null)
         {
-            StatusTextBlock.Text = $"{target.Host} ist bereits gespeichert.";
-            return;
+            existing = CreatePersistentTarget(target);
+            _config.Targets.Add(existing);
+
+            if (!_targets.Any(item => string.Equals(item.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
+                _targets.Add(existing);
+        }
+        else
+        {
+            CopyPersistentTargetValues(target, existing);
         }
 
-        _config.Targets.Add(new RemoteTarget
-        {
-            Name = target.Name,
-            Host = target.Host,
-            Description = target.Description,
-            RdpUserName = target.RdpUserName,
-            RdpDomain = target.RdpDomain,
-            RdpRedirectClipboard = target.RdpRedirectClipboard,
-            RdpAdminSession = target.RdpAdminSession,
-            RdpUseMultiMonitor = target.RdpUseMultiMonitor
-        });
-
-        if (!_targets.Any(t => string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
-            _targets.Add(target);
-
         await _configService.SaveAsync(_config);
+        RefreshGroupFilterOptions();
         RefreshTargets();
-        StatusTextBlock.Text = $"{target.Host} gespeichert.";
+        SelectTargetByHost(target.Host);
+
+        StatusTextBlock.Text = wasExisting
+            ? $"{target.Host} aktualisiert."
+            : $"{target.Host} gespeichert.";
+    }
+
+    private static RemoteTarget CreatePersistentTarget(RemoteTarget source)
+    {
+        var target = new RemoteTarget();
+        CopyPersistentTargetValues(source, target);
+        return target;
+    }
+
+    private static void CopyPersistentTargetValues(RemoteTarget source, RemoteTarget destination)
+    {
+        destination.Name = source.Name;
+        destination.Host = source.Host;
+        destination.Description = source.Description;
+        destination.IsFavorite = source.IsFavorite;
+        destination.Group = source.Group;
+        destination.PreferredProviderId = source.PreferredProviderId;
+        destination.RdpUserName = source.RdpUserName;
+        destination.RdpDomain = source.RdpDomain;
+        destination.RdpRedirectClipboard = source.RdpRedirectClipboard;
+        destination.RdpAdminSession = source.RdpAdminSession;
+        destination.RdpUseMultiMonitor = source.RdpUseMultiMonitor;
     }
 
     private void OpenConfigButton_OnClick(object sender, RoutedEventArgs e)
