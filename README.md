@@ -9,6 +9,7 @@ The maintained project documentation lives in:
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – current architecture, functions, configuration, build and roadmap
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
 - [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling, security and session controls
+- [`docs/TESTING.md`](docs/TESTING.md) – how to download and validate the CI-generated Windows test build
 
 ## Goals
 
@@ -125,6 +126,16 @@ Run from Visual Studio or:
 ```powershell
 dotnet run --project .\src\NetSupport.RemoteAdmin\NetSupport.RemoteAdmin.csproj
 ```
+
+## CI test build
+
+A successful GitHub Actions run also publishes a self-contained Windows x64 artifact named:
+
+```text
+NetSupport.RemoteAdmin-win-x64
+```
+
+It can be downloaded from the successful **Build** workflow run and tested without installing the .NET 8 runtime separately. See [`docs/TESTING.md`](docs/TESTING.md) for the validation checklist.
 
 ## Architecture
 
