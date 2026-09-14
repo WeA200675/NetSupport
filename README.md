@@ -1,251 +1,125 @@
 # NetSupport Remote Admin
 
-A small, extensible Windows frontend for launching remote administration sessions without relying on every NetSupport UI setting being replicated through the domain.
+Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Windows-/Domänenrechnern. NetSupport Manager bleibt als bewährtes Backend erhalten, bekommt aber eine kompaktere Bedienoberfläche; Windows RDP steht zusätzlich als alternativer Provider zur Verfügung.
 
-## Documentation
+## Dokumentation
 
-The maintained project documentation lives in:
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
+- [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
+- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – eingebettetes RDP, Events, Sicherheit und Multi-Monitor
+- [`docs/RDP_SELECTED_MONITORS.md`](docs/RDP_SELECTED_MONITORS.md) – gezielte Auswahl bestimmter RDP-Monitore
+- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
+- [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
+- [`docs/TESTING.md`](docs/TESTING.md) – Testbuild und praktische Prüfschritte
 
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – current architecture, functions, configuration, build and roadmap
-- [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
-- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling, security and session controls
-- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – favorites, groups, preferred providers and list behavior
-- [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – reusable filters and local connection-launch history
-- [`docs/TESTING.md`](docs/TESTING.md) – how to download and validate the CI-generated Windows test build
+## Aktueller Funktionsumfang
 
-## Goals
+### Hauptoberfläche
 
-- compact UI that can remain in the Windows tray
-- select a computer once and launch common remote actions with one click
-- organize a larger computer fleet with favorites and user-defined groups
-- save recurring filter views for common admin workflows
-- choose a preferred remote provider per target
-- keep a small local history of recent remote-session launch attempts
-- launch NetSupport sessions directly by computer name or IP address
-- discover domain computers without persisting every discovered machine
-- show useful runtime computer information without creating a second inventory database
-- keep application configuration independent from NetSupport profiles/GPO behavior
-- allow additional remote backends and information sources without changing the UI
-- provide Windows RDP as an alternative connection method
-
-## User workflow
-
-1. Enter a computer name/IP address or load computers from Active Directory.
-2. Filter by text, group and/or favorites, or select a previously saved view.
-3. Select the target in the computer list.
-4. Optionally load runtime details such as IP address, Windows version, logged-on user and model.
-5. Set favorite/group/preferred provider and persist changes with **Speichern / Aktualisieren**.
-6. Start the target's preferred control provider through **Standardverbindung starten** or double-click the target.
-7. Direct NetSupport/RDP quick actions remain available independently from the preferred provider.
-8. Recent launches remain visible under **Zuletzt verwendet** and can be used to focus the same target again.
-
-The application can be closed to the notification area and reopened from the tray icon.
-
-## Target organization
-
-Persisted targets support:
-
-- `isFavorite` – favorite marker and favorite-only filtering
-- `group` – free-form grouping such as Office, Workshop or Servers
-- `preferredProviderId` – provider used by the standard/double-click connection
-
-Favorites are sorted first. The text filter also searches group names, and a separate group selector can narrow the list further. If a saved preferred provider is unavailable, the application falls back to NetSupport when available and otherwise to another provider supporting `Control`.
-
-See [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) for the full behavior.
-
-## Saved views
-
-Recurring list states can be stored in `settings.json`. A saved view contains:
-
-- a user-defined name
-- text search
-- group filter
-- favorite-only state
-
-Selecting a saved view reapplies those filters immediately. Saving again under the same name updates the view.
-
-See [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md).
-
-## Local session-launch history
-
-Remote launch attempts are written to a separate local file:
-
-```text
-%AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-The history records target, provider, action, time and whether the provider launch succeeded. It is capped at 100 entries and can be cleared from the UI.
-
-It intentionally does **not** contain passwords, RDP credentials, screen contents or runtime CIM inventory. For external tools such as NetSupport it is a launch history, not a compliance-grade session audit.
-
-## Current providers
+- Tray-/Infobereich-Betrieb
+- direkte Verbindung per Rechnername/IP
+- Active-Directory-Rechnersuche über `Get-ADComputer`
+- Text-, Gruppen- und Favoritenfilter
+- gespeicherte Filteransichten
+- Favoriten und frei benennbare Rechnergruppen
+- bevorzugter Remote-Provider pro Ziel
+- Standardverbindung per Button oder Doppelklick
+- parallele Online-/Offline-Prüfung
+- Rechnerdetails über DNS + CIM/WSMan
+- lokaler Verlauf der zuletzt gestarteten Remote-Aktionen
 
 ### NetSupport Manager
 
-The application looks for `PCICTLUI.EXE` in the usual 32-bit and 64-bit Program Files locations and supports Control, View, Chat, Inventory, Remote Command Prompt and File Transfer.
+`PCICTLUI.EXE` wird als Backend verwendet. Unterstützt werden aktuell:
+
+- Steuern
+- Nur ansehen
+- Chat
+- Inventar
+- Remote CMD
+- Dateiübertragung
 
 ### Windows Remote Desktop
 
-RDP supports an embedded session window based on Microsoft's nonscriptable Remote Desktop ActiveX control. The ActiveX host is isolated from the main UI behind `IRdpSessionLauncher`.
+Normalerweise kann RDP in einem eigenen Fenster der Anwendung eingebettet werden. Aktuell vorhanden:
 
-The embedded session currently provides:
+- Connect / Reconnect / Disconnect
+- Vollbild
+- Connecting-/Connected-/Login-/Disconnect-Ereignisse
+- verständlichere Disconnect-Informationen
+- Auto-Reconnect-Anzeige
+- SmartSizing
+- Zwischenablage
+- Admin-Sitzung
+- Benutzername/Domäne ohne Passwortspeicherung
+- Remote Alt+Tab, Start und Task-Manager
+- Multi-Monitor über `UseMultimon`
 
-- embedded RDP display
-- connect / reconnect / disconnect
-- fullscreen session window
-- real Connecting / Connected / Login / Disconnect status
-- Remote Desktop resolution status
-- SmartSizing that can be toggled while connected
-- multi-monitor sessions through `UseMultimon`
-- optional user name and Windows/AD domain
-- Windows credential prompting without storing passwords in this application
-- persisted non-secret RDP preferences for saved targets
-- detailed disconnect reason where the Microsoft control can provide one
-- automatic reconnect status including attempt count and network availability
-- optional clipboard redirection
-- optional administrative RDP session
-- remote Alt+Tab / app-switch action
-- remote Start action
-- remote Task Manager action where supported by the local RDP client/server combination
-- fallback to `mstsc.exe`, including `/admin` and `/multimon` where configured
+Für eine **gezielte Auswahl einzelner lokaler Monitore** gibt es zusätzlich einen dokumentierten externen RDP-Pfad:
 
-Set `useEmbeddedRdp` to `false` to force the external Windows Remote Desktop client.
+1. **IDs anzeigen** startet `mstsc.exe /l`.
+2. Gewünschte IDs, z. B. `0,1`, unter **Erweitert → Gezielte RDP-Monitore** eintragen.
+3. **Speichern / Aktualisieren**.
+4. Beim nächsten RDP-Start erzeugt das Tool eine minimale `.rdp`-Datei mit `selectedmonitors` und startet den Windows-RDP-Client.
 
-The embedded ActiveX API exposes all-monitor multi-monitor mode through `UseMultimon`. Selection of specific monitor IDs is therefore intentionally not implemented through an undocumented COM property; a future implementation can use the documented RDP `selectedmonitors` property through the external RDP path.
+Ohne eingetragene Monitor-IDs bleibt das bisherige eingebettete RDP-Verhalten erhalten.
 
-## Active Directory discovery
+## Persistente Dateien
 
-Domain discovery is implemented behind `ITargetDiscoveryService`. The initial `DomainComputerDiscoveryService` invokes `Get-ADComputer`, therefore the admin workstation needs the Microsoft ActiveDirectory PowerShell module (RSAT).
-
-Discovered computers are transient until they are explicitly saved. Availability checks are performed in parallel with bounded concurrency and update transient Online/Offline state only.
-
-## Runtime computer details
-
-Computer information is isolated behind `ITargetDetailsService`. The initial `PowerShellTargetDetailsService` resolves IP addresses locally and uses `Get-CimInstance` for remote Windows information.
-
-The selected-computer card can show:
-
-- IP address(es)
-- logged-on Windows user
-- Windows edition/version
-- manufacturer/model
-- last status/details check time
-- most recent recorded remote launch for the selected host
-
-The CIM query uses the current Windows identity and normal WSMan policy. If remote CIM is blocked by firewall or policy, the rest of the application continues to work and the UI reports that management data is only partially available. Runtime details are not persisted because they can become stale.
-
-## Configuration
-
-Configuration is stored per user at:
+Konfiguration:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Example:
+Lokaler Startverlauf:
 
-```json
-{
-  "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE",
-  "startMinimized": false,
-  "useEmbeddedRdp": true,
-  "useFullScreenRdp": false,
-  "targets": [
-    {
-      "name": "PC-001",
-      "host": "PC-001",
-      "description": "Office",
-      "isFavorite": true,
-      "group": "Office",
-      "preferredProviderId": "netsupport",
-      "rdpUserName": "max.mustermann",
-      "rdpDomain": "CONTOSO",
-      "rdpRedirectClipboard": true,
-      "rdpAdminSession": false,
-      "rdpUseMultiMonitor": false
-    }
-  ],
-  "savedViews": [
-    {
-      "name": "Office favorites",
-      "searchText": null,
-      "group": "Office",
-      "favoritesOnly": true
-    }
-  ]
-}
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
-RDP passwords are intentionally never stored in `settings.json`.
+Generierte RDP-Dateien für gezielte Monitorwahl:
 
-## Extending the application
+```text
+%AppData%\NetSupportRemoteAdmin\rdp\
+```
 
-Remote backends implement `IRemoteProvider`. Embedded RDP session hosts are accessed through `IRdpSessionLauncher`. Target sources implement `ITargetDiscoveryService`. Runtime computer information is provided through `ITargetDetailsService`. Session launch history is accessed through `ISessionHistoryService`.
+RDP-Passwörter oder andere Credentials werden von der Anwendung nicht gespeichert.
 
-This keeps the main UI independent from NetSupport, RDP ActiveX hosting, future VNC providers, Active Directory, inventory sources and future history/audit backends.
+## Erweiterungspunkte
+
+```text
+IRemoteProvider
+ITargetDiscoveryService
+ITargetDetailsService
+ISessionHistoryService
+IRdpSessionLauncher
+IRdpConnectionFileService
+```
+
+Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf und RDP-Verbindungsdateien voneinander getrennt.
 
 ## Build
 
-Requirements:
+Voraussetzungen:
 
 - Windows 10/11
 - .NET 8 SDK
-- optional: RSAT ActiveDirectory PowerShell module for domain discovery
-- optional: remote CIM/WSMan access for computer details
-- NetSupport Manager Control for NetSupport actions
+- optional: RSAT ActiveDirectory PowerShell für Domänensuche
+- optional: CIM/WSMan-Zugriff für Rechnerdetails
+- NetSupport Manager Control für NetSupport-Aktionen
 
 ```powershell
 dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
 ```
 
-Run from Visual Studio or:
+## CI-Testbuild
 
-```powershell
-dotnet run --project .\src\NetSupport.RemoteAdmin\NetSupport.RemoteAdmin.csproj
-```
-
-## CI test build
-
-A successful GitHub Actions run also publishes a self-contained Windows x64 artifact named:
+Erfolgreiche GitHub-Actions-Läufe veröffentlichen zusätzlich einen self-contained Windows-x64-Build:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
 ```
 
-It can be downloaded from the successful **Build** workflow run and tested without installing the .NET 8 runtime separately. See [`docs/TESTING.md`](docs/TESTING.md) for the validation checklist.
-
-## Architecture
-
-```text
-MainWindow
-    |
-    +-- selected target action/details/organization card
-    +-- saved filter views
-    +-- recent launch history
-    |
-    +--> RemoteProviderRegistry
-    |        |
-    |        +-- NetSupportProvider --> PCICTLUI.EXE
-    |        +-- RdpProvider
-    |               |
-    |               +--> IRdpSessionLauncher
-    |               |       +--> EmbeddedRdpSessionLauncher
-    |               |               +--> RdpSessionWindow
-    |               |                       +--> RdpActiveXControl
-    |               |
-    |               +--> mstsc.exe fallback
-    |
-    +--> ITargetDiscoveryService
-    |        +--> DomainComputerDiscoveryService --> Get-ADComputer
-    |
-    +--> ITargetDetailsService
-    |        +--> PowerShellTargetDetailsService --> DNS + Get-CimInstance
-    |
-    +--> ISessionHistoryService
-    |        +--> JsonSessionHistoryService --> session-history.json
-    |
-    +--> HostAvailabilityService
-
-ConfigService --> %AppData%\NetSupportRemoteAdmin\settings.json
-```
+Damit kann der aktuelle Stand auf einem Windows-x64-Admin-PC ohne separat installierte .NET-8-Laufzeit getestet werden.
