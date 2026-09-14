@@ -9,12 +9,15 @@ The maintained project documentation lives in:
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – current architecture, functions, configuration, build and roadmap
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronological development decisions and progress
 - [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – embedded RDP architecture, session events, scaling, security and session controls
+- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – favorites, groups, preferred providers and list behavior
 - [`docs/TESTING.md`](docs/TESTING.md) – how to download and validate the CI-generated Windows test build
 
 ## Goals
 
 - compact UI that can remain in the Windows tray
 - select a computer once and launch common remote actions with one click
+- organize a larger computer fleet with favorites and user-defined groups
+- choose a preferred remote provider per target
 - launch NetSupport sessions directly by computer name or IP address
 - discover domain computers without persisting every discovered machine
 - show useful runtime computer information without creating a second inventory database
@@ -25,13 +28,26 @@ The maintained project documentation lives in:
 ## User workflow
 
 1. Enter a computer name/IP address or load computers from Active Directory.
-2. Select the target in the computer list.
-3. Optionally load runtime details such as IP address, Windows version, logged-on user and model.
-4. Use the action card on the right for Control, View, RDP, Remote CMD, File Transfer, Inventory or Chat.
-5. Double-clicking a target starts NetSupport control directly.
-6. The generic provider/action selection remains available under **Advanced** for less common or future providers.
+2. Filter by text, group and/or favorites.
+3. Select the target in the computer list.
+4. Optionally load runtime details such as IP address, Windows version, logged-on user and model.
+5. Set favorite/group/preferred provider and persist changes with **Speichern / Aktualisieren**.
+6. Start the target's preferred control provider through **Standardverbindung starten** or double-click the target.
+7. Direct NetSupport/RDP quick actions remain available independently from the preferred provider.
 
 The application can be closed to the notification area and reopened from the tray icon.
+
+## Target organization
+
+Persisted targets support:
+
+- `isFavorite` – favorite marker and favorite-only filtering
+- `group` – free-form grouping such as Office, Workshop or Servers
+- `preferredProviderId` – provider used by the standard/double-click connection
+
+Favorites are sorted first. The text filter also searches group names, and a separate group selector can narrow the list further. If a saved preferred provider is unavailable, the application falls back to NetSupport when available and otherwise to another provider supporting `Control`.
+
+See [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) for the full behavior.
 
 ## Current providers
 
@@ -107,6 +123,9 @@ Example:
       "name": "PC-001",
       "host": "PC-001",
       "description": "Office",
+      "isFavorite": true,
+      "group": "Office",
+      "preferredProviderId": "netsupport",
       "rdpUserName": "max.mustermann",
       "rdpDomain": "CONTOSO",
       "rdpRedirectClipboard": true,
@@ -161,7 +180,7 @@ It can be downloaded from the successful **Build** workflow run and tested witho
 ```text
 MainWindow
     |
-    +-- selected target action/details card
+    +-- selected target action/details/organization card
     |
     +--> RemoteProviderRegistry
     |        |
