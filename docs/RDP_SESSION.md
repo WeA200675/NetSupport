@@ -28,38 +28,30 @@ CLSID:
 
 Das Control wird über `AxHost` eingebettet. Die Anwendung greift dynamisch auf die COM-Schnittstellen zu und benötigt deshalb keine generierten `AxInterop.MSTSCLib`-Assemblies im Repository.
 
-Architektur:
-
 ```text
 RdpProvider
    |
    +--> IRdpSessionLauncher
-           |
            +--> EmbeddedRdpSessionLauncher
-                   |
                    +--> RdpSessionWindow
-                           |
                            +--> RdpActiveXControl
-                                   |
                                    +--> Microsoft MsTscAx.dll
 ```
 
-Falls der eingebettete Client deaktiviert oder nicht verfügbar ist, kann weiterhin `mstsc.exe` als Fallback gestartet werden.
+Falls der eingebettete Client deaktiviert oder nicht verfügbar ist, wird `mstsc.exe` als Fallback gestartet.
 
 ---
 
 ## Bedienung
 
-Eine RDP-Session wird über die Schnellaktion **RDP** am ausgewählten Rechner gestartet.
-
 Das Session-Fenster enthält aktuell:
 
-- Zielrechner und aktuellen Sessionstatus
-- optionalen Benutzernamen
-- optionale Windows-/AD-Domäne
+- Zielrechner und Sessionstatus
+- optionalen Benutzernamen und Domäne
 - **An Fenster anpassen**
 - **Zwischenablage**
 - **Admin-Sitzung**
+- **Mehrere Monitore**
 - **Alt+Tab remote**
 - **Start remote**
 - **Task-Manager**
@@ -67,15 +59,7 @@ Das Session-Fenster enthält aktuell:
 - **Vollbild / Fenstermodus**
 - **Trennen**
 
-Der Benutzername kann auch in der Form
-
-```text
-DOMÄNE\Benutzer
-```
-
-eingegeben werden. Wenn das separate Domänenfeld leer ist, trennt die Anwendung diesen Wert automatisch in Domäne und Benutzername auf.
-
-Zwischenablage und Admin-Sitzung werden beim nächsten Verbindungsaufbau bzw. über **Neu verbinden** angewendet.
+Benutzername kann auch als `DOMÄNE\Benutzer` eingegeben werden. Änderungen an Zwischenablage, Admin-Sitzung und Multi-Monitor werden beim nächsten Verbinden beziehungsweise über **Neu verbinden** angewendet.
 
 ---
 
@@ -83,19 +67,18 @@ Zwischenablage und Admin-Sitzung werden beim nächsten Verbindungsaufbau bzw. ü
 
 Die Anwendung speichert **keine RDP-Passwörter**.
 
-Vor einer Verbindung werden nur folgende nicht geheimen Werte bzw. Einstellungen an das Microsoft-RDP-Control übergeben:
+Vor einer Verbindung werden nur nicht geheime Werte und Präferenzen an das Microsoft-RDP-Control übergeben:
 
 - Zielrechner
 - optionaler Benutzername
 - optionale Domäne
-- Zwischenablageumleitung an/aus
-- Admin-Sitzung an/aus
+- Zwischenablageumleitung
+- Admin-Sitzung
+- Multi-Monitor an/aus
 
-Das Passwort wird vom normalen Windows-/RDP-Credential-Dialog angefordert. `AllowPromptingForCredentials` bleibt aktiviert.
+Das Passwort wird vom normalen Windows-/RDP-Credential-Dialog angefordert. `AllowPromptingForCredentials` bleibt aktiviert; `AllowCredentialSaving` ist deaktiviert.
 
-Das Speichern von Credentials durch das eingebettete Control wird mit `AllowCredentialSaving = false` deaktiviert.
-
-Für dauerhaft gespeicherte Zielrechner dürfen nicht geheime RDP-Einstellungen in `settings.json` gespeichert werden:
+Beispiel eines gespeicherten Ziels:
 
 ```json
 {
@@ -104,119 +87,97 @@ Für dauerhaft gespeicherte Zielrechner dürfen nicht geheime RDP-Einstellungen 
   "rdpUserName": "max.mustermann",
   "rdpDomain": "CONTOSO",
   "rdpRedirectClipboard": true,
-  "rdpAdminSession": false
+  "rdpAdminSession": false,
+  "rdpUseMultiMonitor": false
 }
 ```
-
-Kennwörter gehören ausdrücklich **nicht** in diese Datei.
 
 ---
 
 ## Sessionstatus und Ereignisse
 
-Die ActiveX-Ereignisse werden über `IMsTscAxEvents` abgegriffen und als .NET-Ereignisse aus `RdpActiveXControl` bereitgestellt.
+Die ActiveX-Ereignisse werden über `IMsTscAxEvents` abgegriffen und als .NET-Ereignisse bereitgestellt.
 
 | RDP-Ereignis | Anzeige / Verwendung |
 |---|---|
 | `OnConnecting` | Verbindungsaufbau läuft |
-| `OnConnected` | Transport ist hergestellt, Anmeldung läuft |
-| `OnLoginComplete` | Sitzung ist erfolgreich angemeldet |
-| `OnDisconnected` | Trennungsgrund und Extended Disconnect Reason werden ausgewertet |
-| `OnFatalError` | RDP-Fehlercode wird angezeigt |
-| `OnRemoteDesktopSizeChange` | aktuelle Remote-Auflösung wird im Status angezeigt |
-| `OnAutoReconnecting2` | Versuchszähler, Netzverfügbarkeit und Trennungsgrund werden angezeigt |
-| `OnAutoReconnected` | erfolgreiche automatische Wiederverbindung wird angezeigt |
+| `OnConnected` | Transport hergestellt, Anmeldung läuft |
+| `OnLoginComplete` | Sitzung erfolgreich angemeldet |
+| `OnDisconnected` | Trennungsgrund und Extended Disconnect Reason |
+| `OnFatalError` | RDP-Fehlercode |
+| `OnRemoteDesktopSizeChange` | aktuelle Remote-Auflösung |
+| `OnAutoReconnecting2` | Versuchszähler, Netzstatus und Trennungsgrund |
+| `OnAutoReconnected` | erfolgreiche automatische Wiederverbindung |
 
-Für Disconnects versucht die Anwendung zusätzlich über `GetErrorDescription` eine verständliche Meldung vom Microsoft-Control zu erhalten. Falls das nicht möglich ist, werden die numerischen Reason-Codes angezeigt.
+Für Disconnects versucht die Anwendung zusätzlich über `GetErrorDescription` einen verständlichen Text zu erhalten.
 
 ---
 
 ## Automatische Wiederverbindung
 
-Windows RDP besitzt eine eigene Auto-Reconnect-Funktion. Die Anwendung startet deshalb **keine eigene parallele Reconnect-Schleife**, sondern beobachtet die vom Microsoft-Control gemeldeten Ereignisse.
-
-Während einer automatischen Wiederverbindung zeigt die Statuszeile unter anderem:
-
-- aktuellen Wiederverbindungsversuch
-- maximale Anzahl der Versuche, sofern gemeldet
-- ob das Netzwerk laut RDP-Control verfügbar ist
-- den numerischen Grund der ursprünglichen Unterbrechung
-
-Nach erfolgreicher automatischer Wiederverbindung wird der Sessionstatus entsprechend aktualisiert.
-
-Technisch werden dafür die `IMsTscAxEvents`-Ereignisse `OnAutoReconnecting2` und `OnAutoReconnected` verwendet.
+Windows RDP besitzt eine eigene Auto-Reconnect-Funktion. Das Tool startet deshalb keine parallele Reconnect-Schleife, sondern zeigt die vom Microsoft-Control gemeldeten Versuche und die erfolgreiche Wiederverbindung an.
 
 ---
 
 ## Skalierung
 
-Die Option **An Fenster anpassen** verwendet die RDP-Eigenschaft `SmartSizing`.
+**An Fenster anpassen** verwendet `SmartSizing`. Bei einer Multi-Monitor-Sitzung wird SmartSizing nicht zusätzlich erzwungen, weil dann die native Monitoranordnung des RDP-Clients verwendet werden soll.
 
-Damit wird der Remote-Desktop auf den verfügbaren Clientbereich skaliert. Die Einstellung kann auch während einer aktiven Sitzung geändert werden.
+---
 
-Die ursprüngliche Desktopgröße wird beim Verbindungsaufbau aus der verfügbaren Größe des Session-Fensters ermittelt. Das ActiveX-Control selbst füllt den `WindowsFormsHost` vollständig aus.
+## Multi-Monitor
+
+Die Option **Mehrere Monitore** setzt vor `Connect()` die RDP-Eigenschaft `UseMultimon` des `MsRdpClient12NotSafeForScripting`-Controls.
+
+Verhalten:
+
+- die Einstellung wird pro gespeichertem Ziel als `rdpUseMultiMonitor` erhalten
+- sie gilt ab dem nächsten Verbindungsaufbau
+- der eingebettete Client verwendet die lokalen Monitore nach den Regeln des Windows-RDP-Clients
+- `SmartSizing` wird in diesem Modus nicht parallel aktiviert
+- falls die lokale ActiveX-Registrierung `UseMultimon` nicht bereitstellt, fällt die Sitzung defensiv auf Einzelmonitor zurück
+
+Beim externen Fallback wird dieselbe Präferenz als
+
+```text
+mstsc.exe /multimon
+```
+
+weitergegeben. Eine gleichzeitig konfigurierte Admin-Sitzung nutzt zusätzlich `/admin`.
+
+Aktuell unterstützt das Tool „alle verfügbaren Monitore“. Eine Auswahl einzelner Monitor-IDs ist eine spätere Erweiterung.
 
 ---
 
 ## Zwischenablage
 
-Die Option **Zwischenablage** steuert die RDP-Eigenschaft `RedirectClipboard`.
-
-Ist sie aktiviert, kann die lokale Zwischenablage in die Remotesitzung umgeleitet werden. Die Einstellung wird vor dem Verbindungsaufbau gesetzt und deshalb bei einer bestehenden Sitzung über **Neu verbinden** übernommen.
-
-Für gespeicherte Rechner bleibt die Auswahl als `rdpRedirectClipboard` erhalten.
+Die Option **Zwischenablage** steuert `RedirectClipboard`. Änderungen werden beim nächsten Verbindungsaufbau wirksam und für gespeicherte Rechner als `rdpRedirectClipboard` erhalten.
 
 ---
 
 ## Administrative Sitzung
 
-Die Option **Admin-Sitzung** verwendet `ConnectToAdministerServer`.
-
-Damit fordert der RDP-Client eine administrative Sitzung an, vergleichbar mit der administrativen RDP-Verbindungsoption des Windows-Clients. Die Einstellung wird beim Verbindungsaufbau gesetzt und für gespeicherte Rechner als `rdpAdminSession` erhalten.
+**Admin-Sitzung** verwendet `ConnectToAdministerServer` und wird als `rdpAdminSession` gespeichert. Im `mstsc.exe`-Fallback wird `/admin` verwendet.
 
 ---
 
 ## Remote-Aktionen
 
-Für bestimmte Bedienaktionen nutzt die Anwendung `IMsRdpClient8.SendRemoteAction`.
-
-Aktuell stehen zur Verfügung:
+Über `IMsRdpClient8.SendRemoteAction` stehen aktuell zur Verfügung:
 
 | Schaltfläche | RDP-Aktion |
 |---|---|
 | **Alt+Tab remote** | Remote-App-Switch |
-| **Start remote** | Remote-Startscreen-/Start-Aktion |
-| **Task-Manager** | Remote-Task-Manager-Aktion, sofern vom Client/Server unterstützt |
+| **Start remote** | Remote-Start-Aktion |
+| **Task-Manager** | Remote-Task-Manager, sofern unterstützt |
 
-Diese Aktionen benötigen eine bereits aktive RDP-Sitzung. Nicht unterstützte Aktionen werden abgefangen und als Statusmeldung angezeigt.
+Nicht unterstützte Aktionen werden als Statusmeldung angezeigt und beenden die Session nicht.
 
 ---
 
 ## Authentifizierung
 
-Für die RDP-Verbindung wird CredSSP aktiviert, sofern das lokale Microsoft-Control die entsprechende Advanced-Settings-Schnittstelle bereitstellt.
-
-Die Konfiguration ist bewusst defensiv implementiert: Fehlt eine optionale Advanced-Settings-Eigenschaft auf einem System, bleibt die Basisverbindung weiterhin verwendbar.
-
----
-
-## Dateien im Projekt
-
-```text
-src/NetSupport.RemoteAdmin/
-├── Controls/
-│   └── RdpActiveXControl.cs
-├── Models/
-│   ├── RemoteTarget.cs
-│   ├── RdpRemoteAction.cs
-│   └── RdpSessionEvents.cs
-├── Services/
-│   ├── IRdpSessionLauncher.cs
-│   └── EmbeddedRdpSessionLauncher.cs
-└── Views/
-    ├── RdpSessionWindow.xaml
-    └── RdpSessionWindow.xaml.cs
-```
+CredSSP wird aktiviert, sofern die lokale Advanced-Settings-Schnittstelle verfügbar ist. Optionale ActiveX-Eigenschaften sind defensiv gekapselt, damit die Basisverbindung auf abweichenden Windows-Versionen weiterhin funktioniert.
 
 ---
 
@@ -225,55 +186,45 @@ src/NetSupport.RemoteAdmin/
 ### Phase 1
 
 - eingebettetes RDP-Control
-- eigenes Session-Fenster
-- Verbinden / Neu verbinden
-- Trennen
+- Session-Fenster
+- Verbinden / Neu verbinden / Trennen
 - Vollbild
 - `mstsc.exe`-Fallback
 
 ### Phase 2
 
-- echte Connecting-/Connected-/Login-/Disconnect-Ereignisse
-- verständlichere Disconnect-Informationen
-- Fatal-Error-Anzeige
-- Remote-Auflösungsanzeige
-- SmartSizing während der Sitzung
-- Benutzername und Domäne
+- Session-Ereignisse und Disconnect-Informationen
+- SmartSizing
+- Benutzername/Domäne
 - Windows-Credential-Prompt
 - keine Passwortspeicherung
-- Speicherung von Benutzername/Domäne für bereits gespeicherte Zielrechner
 
 ### Phase 3
 
-- Zwischenablageumleitung pro Zielrechner
-- optionale administrative RDP-Sitzung
-- Speicherung der nicht geheimen RDP-Präferenzen
-- Remote-App-Switch / Alt+Tab
-- Remote-Start-Aktion
-- Remote-Task-Manager-Aktion, sofern unterstützt
+- Zwischenablage
+- Admin-Sitzung
+- Remote-Aktionen
+- persistente nicht geheime RDP-Präferenzen
 
-### Phase 4 – begonnen
+### Phase 4
 
-- Auto-Reconnect-Ereignisse des Microsoft-RDP-Controls
-- Anzeige von Wiederverbindungsversuch und Netzverfügbarkeit
-- Statusmeldung nach erfolgreichem Auto-Reconnect
+- Auto-Reconnect-Status
+- Versuchszähler und Netzverfügbarkeit
+- Multi-Monitor über `UseMultimon`
+- `/multimon`-Fallback für `mstsc.exe`
 
 ---
 
 ## Nächste Ausbauschritte
 
-Geplant sind insbesondere:
-
-- Multi-Monitor-Unterstützung
-- detailliertere RDP-Fehlertexte
+- Auswahl bestimmter Monitor-IDs
 - weitere Tastatur-/Sondertasten-Werkzeuge
-- Session-Historie bzw. letzte Verbindung
-- optionale Anzeige/Änderung weiterer RDP-Redirects wie Laufwerke oder Audio
+- detailliertere RDP-Fehlertexte
+- Session-Historie / letzte Verbindung
+- weitere Redirects wie Laufwerke oder Audio
 
 ---
 
 ## Wichtige Designregel
 
-Die RDP-Implementierung bleibt hinter `IRdpSessionLauncher` und `RdpActiveXControl` gekapselt.
-
-Das Hauptfenster soll weder COM-/ActiveX-Details noch Credential-Handling kennen. Dadurch kann der eingebettete Viewer später ersetzt oder erweitert werden, ohne die allgemeine Remote-Admin-Oberfläche neu zu bauen.
+Die RDP-Implementierung bleibt hinter `IRdpSessionLauncher` und `RdpActiveXControl` gekapselt. Das Hauptfenster kennt keine COM-/ActiveX-Details und keine Passwörter.
