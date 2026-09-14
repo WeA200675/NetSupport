@@ -3,9 +3,11 @@ using System.Drawing;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
+using Microsoft.Win32;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Providers;
 using NetSupport.RemoteAdmin.Services;
+using NetSupport.RemoteAdmin.Views;
 using Forms = System.Windows.Forms;
 using WpfButton = System.Windows.Controls.Button;
 using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -25,6 +27,8 @@ public partial class MainWindow : Window
     private readonly ITargetDetailsService _detailsService;
     private readonly ISessionHistoryService _historyService;
     private readonly IRdpConnectionFileService _rdpConnectionFileService;
+    private readonly IAutoStartService _autoStartService;
+    private readonly IDiagnosticLogService _diagnosticLog;
     private readonly List<IRemoteProvider> _availableProviders;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly List<RemoteTarget> _targets = new();
@@ -43,7 +47,9 @@ public partial class MainWindow : Window
         HostAvailabilityService availability,
         ITargetDetailsService detailsService,
         ISessionHistoryService historyService,
-        IRdpConnectionFileService rdpConnectionFileService)
+        IRdpConnectionFileService rdpConnectionFileService,
+        IAutoStartService autoStartService,
+        IDiagnosticLogService diagnosticLog)
     {
         InitializeComponent();
 
@@ -55,16 +61,12 @@ public partial class MainWindow : Window
         _detailsService = detailsService;
         _historyService = historyService;
         _rdpConnectionFileService = rdpConnectionFileService;
+        _autoStartService = autoStartService;
+        _diagnosticLog = diagnosticLog;
         _targets.AddRange(_config.Targets);
         _availableProviders = _providers.All.Where(provider => provider.IsAvailable).ToList();
 
-        ProviderComboBox.ItemsSource = _availableProviders;
-        ProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
-        ProviderComboBox.SelectedIndex = ProviderComboBox.Items.Count > 0 ? 0 : -1;
-
-        PreferredProviderComboBox.ItemsSource = _availableProviders;
-        PreferredProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
-
+        RefreshProviderAvailability();
         RefreshGroupFilterOptions();
         RefreshSavedViewOptions();
         RefreshTargets();
@@ -95,6 +97,8 @@ public partial class MainWindow : Window
             Hide();
             StatusTextBlock.Text = "Läuft im Infobereich weiter";
         };
+
+        _diagnosticLog.Info("Hauptfenster initialisiert.");
     }
 
     private RemoteTarget? SelectedTarget => TargetsListBox.SelectedItem as RemoteTarget;
@@ -113,6 +117,28 @@ public partial class MainWindow : Window
             return _targets.FirstOrDefault(t => string.Equals(t.Host, host, StringComparison.OrdinalIgnoreCase))
                    ?? new RemoteTarget { Name = host, Host = host };
         }
+    }
+
+    private void RefreshProviderAvailability()
+    {
+        var selectedProviderId = (ProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
+        var preferredProviderId = (PreferredProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
+
+        _availableProviders.Clear();
+        _availableProviders.AddRange(_providers.All.Where(provider => provider.IsAvailable));
+
+        ProviderComboBox.ItemsSource = null;
+        ProviderComboBox.ItemsSource = _availableProviders;
+        ProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
+        ProviderComboBox.SelectedItem = _availableProviders.FirstOrDefault(provider =>
+            string.Equals(provider.Id, selectedProviderId, StringComparison.OrdinalIgnoreCase))
+            ?? _availableProviders.FirstOrDefault();
+
+        PreferredProviderComboBox.ItemsSource = null;
+        PreferredProviderComboBox.ItemsSource = _availableProviders;
+        PreferredProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
+        PreferredProviderComboBox.SelectedItem = _availableProviders.FirstOrDefault(provider =>
+            string.Equals(provider.Id, preferredProviderId, StringComparison.OrdinalIgnoreCase));
     }
 
     private void RefreshTargets()
@@ -303,6 +329,7 @@ public partial class MainWindow : Window
 
         await _configService.SaveAsync(_config);
         RefreshSavedViewOptions(existing.Name);
+        _diagnosticLog.Info($"Gespeicherte Ansicht aktualisiert: {existing.Name}");
         StatusTextBlock.Text = $"Ansicht '{existing.Name}' gespeichert.";
     }
 
@@ -332,6 +359,7 @@ public partial class MainWindow : Window
         RefreshSavedViewOptions();
         SavedViewComboBox.SelectedItem = null;
         SavedViewComboBox.Text = string.Empty;
+        _diagnosticLog.Info($"Gespeicherte Ansicht gelöscht: {existing.Name}");
         StatusTextBlock.Text = $"Ansicht '{existing.Name}' gelöscht.";
     }
 
@@ -500,10 +528,12 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            _diagnosticLog.Info($"Rechnerdetails Zeitlimit: {target.Host}");
             StatusTextBlock.Text = $"Rechnerdetails für {target.Host}: Zeitlimit erreicht.";
         }
         catch (Exception ex)
         {
+            _diagnosticLog.Error($"Rechnerdetails fehlgeschlagen: {target.Host}", ex);
             StatusTextBlock.Text = $"Rechnerdetails konnten nicht geladen werden: {ex.Message}";
         }
         finally
@@ -547,14 +577,17 @@ public partial class MainWindow : Window
             if (!provider.SupportedActions.Contains(action))
                 throw new NotSupportedException($"{provider.DisplayName} unterstützt die Aktion '{action}' nicht.");
 
+            _diagnosticLog.Info($"Remote-Aktion startet: {provider.Id}/{action} -> {target.Host}");
             StatusTextBlock.Text = $"Starte {provider.DisplayName} für {target.Host} …";
             await provider.ConnectAsync(target, action);
             await RecordHistorySafeAsync(target, provider, providerId, action, succeeded: true, error: null);
+            _diagnosticLog.Info($"Remote-Aktion gestartet: {provider.Id}/{action} -> {target.Host}");
             StatusTextBlock.Text = $"{provider.DisplayName} für {target.Host} gestartet.";
         }
         catch (Exception ex)
         {
             await RecordHistorySafeAsync(target, provider, providerId, action, succeeded: false, error: ex.Message);
+            _diagnosticLog.Error($"Remote-Aktion fehlgeschlagen: {providerId}/{action} -> {target.Host}", ex);
             StatusTextBlock.Text = "Aktion konnte nicht gestartet werden.";
             System.Windows.MessageBox.Show(ex.Message, "Remote-Aktion", MessageBoxButton.OK, MessageBoxImage.Error);
         }
@@ -584,9 +617,9 @@ public partial class MainWindow : Window
 
             await RefreshHistoryAsync();
         }
-        catch
+        catch (Exception ex)
         {
-            // Logging must never block or break the requested remote action.
+            _diagnosticLog.Error("Verbindungsverlauf konnte nicht geschrieben werden.", ex);
         }
     }
 
@@ -601,9 +634,9 @@ public partial class MainWindow : Window
             HistoryListBox.ItemsSource = _historyEntries;
             UpdateSelectedTargetCard(SelectedTarget ?? CurrentTarget);
         }
-        catch
+        catch (Exception ex)
         {
-            // History is optional convenience data. Core remote functionality remains available.
+            _diagnosticLog.Error("Verbindungsverlauf konnte nicht gelesen werden.", ex);
         }
     }
 
@@ -611,6 +644,34 @@ public partial class MainWindow : Window
     {
         await RefreshHistoryAsync();
         StatusTextBlock.Text = $"Verlauf aktualisiert: {_historyEntries.Count} Einträge angezeigt.";
+    }
+
+    private async void ExportHistoryButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new SaveFileDialog
+        {
+            Title = "Verbindungsverlauf als CSV exportieren",
+            Filter = "CSV-Datei (*.csv)|*.csv|Alle Dateien (*.*)|*.*",
+            DefaultExt = ".csv",
+            AddExtension = true,
+            FileName = $"NetSupport-RemoteAdmin-Verlauf-{DateTime.Now:yyyyMMdd-HHmm}.csv"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            await _historyService.ExportCsvAsync(dialog.FileName);
+            _diagnosticLog.Info($"Verbindungsverlauf exportiert: {Path.GetFileName(dialog.FileName)}");
+            StatusTextBlock.Text = $"Verlauf exportiert: {dialog.FileName}";
+        }
+        catch (Exception ex)
+        {
+            _diagnosticLog.Error("CSV-Export des Verbindungsverlaufs fehlgeschlagen.", ex);
+            StatusTextBlock.Text = "Verlauf konnte nicht exportiert werden.";
+            System.Windows.MessageBox.Show(ex.Message, "CSV-Export", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private async void ClearHistoryButton_OnClick(object sender, RoutedEventArgs e)
@@ -625,6 +686,7 @@ public partial class MainWindow : Window
 
         await _historyService.ClearAsync();
         await RefreshHistoryAsync();
+        _diagnosticLog.Info("Lokaler Verbindungsverlauf gelöscht.");
         StatusTextBlock.Text = "Lokaler Verbindungsverlauf gelöscht.";
     }
 
@@ -676,10 +738,12 @@ public partial class MainWindow : Window
             }
 
             RefreshTargets();
+            _diagnosticLog.Info($"Active Directory geladen: {discovered.Count} Rechner gefunden.");
             StatusTextBlock.Text = $"{discovered.Count} Domänenrechner gefunden, {_targets.Count} Rechner angezeigt.";
         }
         catch (Exception ex)
         {
+            _diagnosticLog.Error("Active-Directory-Suche fehlgeschlagen.", ex);
             StatusTextBlock.Text = "Domänenrechner konnten nicht geladen werden.";
             System.Windows.MessageBox.Show(ex.Message, "Active Directory", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
@@ -723,6 +787,7 @@ public partial class MainWindow : Window
             UpdateSelectedTargetCard(SelectedTarget);
 
             var online = _targets.Count(t => t.Status == HostStatus.Online);
+            _diagnosticLog.Info($"Statusprüfung beendet: {online}/{_targets.Count} online.");
             StatusTextBlock.Text = $"Status aktualisiert: {online} online, {_targets.Count - online} nicht erreichbar.";
         }
         catch (OperationCanceledException)
@@ -831,6 +896,7 @@ public partial class MainWindow : Window
         RefreshTargets();
         SelectTargetByHost(target.Host);
 
+        _diagnosticLog.Info($"Ziel {(wasExisting ? "aktualisiert" : "gespeichert")}: {target.Host}");
         StatusTextBlock.Text = wasExisting
             ? $"{target.Host} aktualisiert."
             : $"{target.Host} gespeichert.";
@@ -868,8 +934,24 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
+            _diagnosticLog.Error("RDP-Monitor-IDs konnten nicht angezeigt werden.", ex);
             StatusTextBlock.Text = "RDP-Monitor-IDs konnten nicht angezeigt werden.";
             System.Windows.MessageBox.Show(ex.Message, "RDP-Monitorwahl", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void OpenSettingsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var window = new SettingsWindow(_config, _configService, _autoStartService, _diagnosticLog)
+        {
+            Owner = this
+        };
+
+        if (window.ShowDialog() == true)
+        {
+            RefreshProviderAvailability();
+            UpdateSelectedTargetCard(SelectedTarget);
+            StatusTextBlock.Text = "Einstellungen gespeichert.";
         }
     }
 
@@ -895,6 +977,7 @@ public partial class MainWindow : Window
     {
         _statusCancellation?.Cancel();
         _statusCancellation?.Dispose();
+        _diagnosticLog.Info("Anwendung wird beendet.");
         _allowExit = true;
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
