@@ -23,6 +23,8 @@ public sealed class RdpActiveXControl : AxHost
     private readonly Action<int> _onDisconnected;
     private readonly Action<int> _onFatalError;
     private readonly Action<int, int> _onRemoteDesktopSizeChanged;
+    private readonly Action _onAutoReconnected;
+    private readonly Action<int, bool, int, int> _onAutoReconnecting2;
     private bool _eventsAttached;
 
     public RdpActiveXControl() : base(ClassId)
@@ -36,6 +38,15 @@ public sealed class RdpActiveXControl : AxHost
         _onFatalError = errorCode => FatalError?.Invoke(this, new RdpFatalErrorEventArgs(errorCode));
         _onRemoteDesktopSizeChanged = (width, height) =>
             RemoteDesktopSizeChanged?.Invoke(this, new RdpDesktopSizeChangedEventArgs(width, height));
+        _onAutoReconnected = () => AutoReconnected?.Invoke(this, EventArgs.Empty);
+        _onAutoReconnecting2 = (disconnectReason, networkAvailable, attemptCount, maxAttemptCount) =>
+            AutoReconnecting?.Invoke(
+                this,
+                new RdpAutoReconnectingEventArgs(
+                    disconnectReason,
+                    networkAvailable,
+                    attemptCount,
+                    maxAttemptCount));
     }
 
     public event EventHandler? Connecting;
@@ -44,6 +55,8 @@ public sealed class RdpActiveXControl : AxHost
     public event EventHandler<RdpDisconnectedEventArgs>? Disconnected;
     public event EventHandler<RdpFatalErrorEventArgs>? FatalError;
     public event EventHandler<RdpDesktopSizeChangedEventArgs>? RemoteDesktopSizeChanged;
+    public event EventHandler<RdpAutoReconnectingEventArgs>? AutoReconnecting;
+    public event EventHandler? AutoReconnected;
 
     public bool IsConnected
     {
@@ -144,6 +157,8 @@ public sealed class RdpActiveXControl : AxHost
             ComEventsHelper.Combine(client, EventInterfaceId, 4, _onDisconnected);
             ComEventsHelper.Combine(client, EventInterfaceId, 10, _onFatalError);
             ComEventsHelper.Combine(client, EventInterfaceId, 12, _onRemoteDesktopSizeChanged);
+            ComEventsHelper.Combine(client, EventInterfaceId, 33, _onAutoReconnected);
+            ComEventsHelper.Combine(client, EventInterfaceId, 34, _onAutoReconnecting2);
             _eventsAttached = true;
         }
         catch
@@ -165,6 +180,8 @@ public sealed class RdpActiveXControl : AxHost
                 ComEventsHelper.Remove(client, EventInterfaceId, 4, _onDisconnected);
                 ComEventsHelper.Remove(client, EventInterfaceId, 10, _onFatalError);
                 ComEventsHelper.Remove(client, EventInterfaceId, 12, _onRemoteDesktopSizeChanged);
+                ComEventsHelper.Remove(client, EventInterfaceId, 33, _onAutoReconnected);
+                ComEventsHelper.Remove(client, EventInterfaceId, 34, _onAutoReconnecting2);
             }
             catch
             {
