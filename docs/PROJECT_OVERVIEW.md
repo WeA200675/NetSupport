@@ -16,8 +16,10 @@ Wichtige Ziele:
 - dauerhaft im Windows-Infobereich nutzbar
 - keine Abhängigkeit von unzuverlässig verteilten NetSupport-UI-Einstellungen
 - Rechner mit Favoriten und Gruppen organisieren
+- wiederkehrende Listenfilter als benannte Ansichten speichern
 - Standardverbindung pro Rechner festlegen
-- klare Trennung zwischen UI, Discovery, Rechnerdetails und Remote-Backends
+- zuletzt gestartete Remote-Aktionen lokal nachvollziehen
+- klare Trennung zwischen UI, Discovery, Rechnerdetails, Verlauf und Remote-Backends
 - keine Speicherung von Passwörtern
 
 ---
@@ -27,12 +29,13 @@ Wichtige Ziele:
 1. Anwendung starten oder aus dem Tray öffnen.
 2. Rechner direkt per Name/IP eingeben oder aus Active Directory laden.
 3. Optional Online-/Offline-Status prüfen.
-4. Liste über Text, Gruppe und/oder **Nur Favoriten** filtern.
+4. Liste über Text, Gruppe und/oder **Nur Favoriten** filtern oder eine gespeicherte Ansicht laden.
 5. Rechner auswählen.
 6. Optional **Rechnerdetails laden**.
 7. Favorit, Gruppe und Standard-Provider setzen und mit **Speichern / Aktualisieren** übernehmen.
 8. **Standardverbindung starten** oder den Rechner doppelklicken.
 9. Direkte Schnellaktionen für NetSupport/RDP bleiben unabhängig davon verfügbar.
+10. Unter **Zuletzt verwendet** können jüngste Verbindungsstarts eingesehen und Ziele erneut fokussiert werden.
 
 ---
 
@@ -72,6 +75,64 @@ Gruppen sind freie Textwerte wie `Büro`, `Werkstatt`, `Server` oder `Testgerät
 - Ist der gespeicherte Provider nicht verfügbar, wird zunächst NetSupport und danach ein anderer verfügbarer Control-Provider verwendet.
 
 Die vollständige Beschreibung liegt in [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
+
+---
+
+## Gespeicherte Ansichten
+
+Wiederkehrende Kombinationen aus Listenfiltern können benannt gespeichert werden.
+
+Eine Ansicht enthält:
+
+```json
+{
+  "name": "Server",
+  "searchText": null,
+  "group": "Server",
+  "favoritesOnly": false
+}
+```
+
+Gespeichert werden nur:
+
+- Textsuche
+- Gruppenfilter
+- **Nur Favoriten**
+
+Beim Auswählen einer Ansicht werden die Filter unmittelbar wieder angewendet. Speichern unter demselben Namen aktualisiert die bestehende Ansicht.
+
+Die Ansichten liegen in `settings.json`, weil sie Teil der Bedienkonfiguration sind.
+
+Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
+
+---
+
+## Lokaler Verbindungsverlauf
+
+Jeder Start einer NetSupport-/RDP-Aktion wird über `ISessionHistoryService` protokolliert.
+
+Aktuelle Implementierung:
+
+```text
+ISessionHistoryService
+   +--> JsonSessionHistoryService
+           +--> %AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+Gespeichert werden:
+
+- Zeitpunkt
+- Hostname und optional Anzeigename
+- Provider
+- Aktion
+- Erfolg oder Fehler beim Starten
+- Fehlertext, falls der Provider nicht gestartet werden konnte
+
+Nicht gespeichert werden Passwörter, Credentials, Bildschirminhalte oder CIM-Inventardaten.
+
+Der Verlauf ist auf 100 Einträge begrenzt und kann im UI vollständig gelöscht werden.
+
+Wichtig: Bei externen Programmen wie NetSupport handelt es sich um einen **Startverlauf**, nicht um ein revisionssicheres Session-Audit.
 
 ---
 
@@ -119,6 +180,8 @@ Aktuelle Funktionen:
 - persistente nicht geheime RDP-Präferenzen
 
 Beim externen Client werden Multi-Monitor und Admin-Sitzung über `/multimon` bzw. `/admin` weitergegeben.
+
+Die dokumentierte ActiveX-Schnittstelle unterstützt Multi-Monitor als Ein/Aus-Modus über `UseMultimon`. Eine gezielte Auswahl einzelner Monitor-IDs wird deshalb nicht über eine undokumentierte COM-Eigenschaft implementiert. Die dokumentierte RDP-Eigenschaft `selectedmonitors` eignet sich für einen späteren externen-RDP-Ausbau.
 
 Details: [`RDP_SESSION.md`](RDP_SESSION.md).
 
@@ -168,10 +231,11 @@ Angezeigt werden:
 - Windows-Edition und Version
 - Hersteller und Modell
 - letzter Status-/Detailprüfzeitpunkt
+- jüngster bekannter Verbindungsstart des ausgewählten Hosts
 
 Die Remote-CIM-Abfrage verwendet die aktuelle Windows-Identität und die normale WSMan-Konfiguration. Ein UI-Zeitlimit verhindert langes Blockieren. Ist CIM/WSMan nicht verfügbar, bleiben DNS, Ping, NetSupport und RDP unabhängig nutzbar.
 
-Diese Informationen werden bewusst nicht gespeichert, weil sie schnell veralten können.
+Diese Inventarinformationen werden bewusst nicht gespeichert, weil sie schnell veralten können.
 
 ---
 
@@ -196,10 +260,14 @@ MainWindow
    +--> ITargetDetailsService
    |       +--> PowerShellTargetDetailsService
    |
+   +--> ISessionHistoryService
+   |       +--> JsonSessionHistoryService
+   |               +--> session-history.json
+   |
    +--> HostAvailabilityService
    |
    +--> ConfigService
-           +--> %AppData%\NetSupportRemoteAdmin\settings.json
+           +--> settings.json
 ```
 
 Erweiterungspunkte:
@@ -208,6 +276,7 @@ Erweiterungspunkte:
 - `ITargetDiscoveryService` – weitere Rechnerquellen
 - `ITargetDetailsService` – weitere Inventar-/Detailquellen
 - `IRdpSessionLauncher` – alternatives RDP-Session-Hosting
+- `ISessionHistoryService` – später andere Verlauf-/Audit-Backends
 
 ---
 
@@ -241,13 +310,28 @@ Beispiel:
       "rdpAdminSession": false,
       "rdpUseMultiMonitor": false
     }
+  ],
+  "savedViews": [
+    {
+      "name": "Büro-Favoriten",
+      "searchText": null,
+      "group": "Büro",
+      "favoritesOnly": true
+    }
   ]
 }
+```
+
+Separater Verlauf:
+
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
 Nicht gespeichert werden unter anderem:
 
 - Passwörter
+- RDP-Credentials
 - aktueller Online-/Offline-Status
 - aktuelle IP-Adressen
 - aktuell angemeldeter Benutzer
@@ -278,13 +362,12 @@ Die praktische Testcheckliste liegt in [`TESTING.md`](TESTING.md).
 
 ## Nächste sinnvolle Ausbaustufen
 
-- Auswahl bestimmter Monitor-IDs statt nur aller Monitore
+- gezielte Monitor-ID-Auswahl über einen dokumentierten externen RDP-Pfad
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere RDP-Fehlertexte
 - weitere Redirects wie Laufwerke oder Audio
-- Session-Historie / letzte Verbindung
-- optional gespeicherte Ansichten/Filter
-- weitere Discovery-, Details- und Remote-Provider
+- optionaler Export des Startverlaufs
+- weitere Discovery-, Details-, History- und Remote-Provider
 
 ---
 
@@ -295,7 +378,9 @@ Die praktische Testcheckliste liegt in [`TESTING.md`](TESTING.md).
 - explizites Speichern dauerhafter Organisationsänderungen
 - keine Speicherung von Passwörtern
 - flüchtige Inventardaten nicht unnötig persistieren
+- History getrennt von der Zielkonfiguration halten
 - klare Trennung der Verantwortlichkeiten
+- dokumentierte APIs vor undokumentierten COM-Tricks bevorzugen
 - neue Funktionen so integrieren, dass Backends später austauschbar bleiben
 
 ---
