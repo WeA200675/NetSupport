@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.IO;
 using System.Windows;
-using Microsoft.Win32;
 using NetSupport.RemoteAdmin.Services;
+using WpfOpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace NetSupport.RemoteAdmin.Views;
 
@@ -37,7 +37,7 @@ public partial class SettingsWindow : Window
 
     private void BrowseNetSupportButton_OnClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        var dialog = new WpfOpenFileDialog
         {
             Title = "PCICTLUI.EXE auswählen",
             Filter = "NetSupport Control (PCICTLUI.EXE)|PCICTLUI.EXE|Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
