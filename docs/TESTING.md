@@ -6,45 +6,38 @@
 
 ## Automatischer Windows-Testbuild
 
-Der GitHub-Actions-Workflow erzeugt nach einem erfolgreichen Build zusätzlich einen **self-contained Windows-x64-Testbuild**.
-
-Artefaktname:
+Erfolgreiche GitHub-Actions-Läufe erzeugen einen self-contained Windows-x64-Testbuild:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
 ```
 
-Der Build enthält die benötigte .NET-Laufzeit und benötigt deshalb auf dem Testrechner keine separate .NET-8-Installation. Das Artefakt wird aktuell 14 Tage in GitHub Actions aufbewahrt.
+Der Build enthält die benötigte .NET-Laufzeit.
+
+Download:
+
+1. GitHub → **Actions**.
+2. Erfolgreichen Workflow **Build** öffnen.
+3. Unter **Artifacts** `NetSupport.RemoteAdmin-win-x64` herunterladen.
+4. ZIP entpacken.
+5. `NetSupport.RemoteAdmin.exe` starten.
 
 ---
 
-## Testbuild herunterladen
-
-1. Repository in GitHub öffnen.
-2. **Actions** öffnen.
-3. Einen erfolgreichen Lauf des Workflows **Build** auswählen.
-4. Unter **Artifacts** `NetSupport.RemoteAdmin-win-x64` herunterladen.
-5. ZIP-Datei entpacken.
-6. `NetSupport.RemoteAdmin.exe` starten.
-
-Das Artefakt ist ein Entwicklungs-/Testbuild. Für produktive Verteilung ist später ein signierter Installer beziehungsweise Release-Prozess sinnvoll.
-
----
-
-## Voraussetzungen je Funktion
+## Voraussetzungen
 
 ### Grundanwendung
 
-- Windows 10 oder Windows 11, 64 Bit
+- Windows 10/11, 64 Bit
 
-### NetSupport-Aktionen
+### NetSupport
 
-- NetSupport Manager Control muss auf dem Admin-PC installiert sein.
-- `PCICTLUI.EXE` wird automatisch in den üblichen Installationspfaden gesucht.
+- NetSupport Manager Control auf dem Admin-PC
+- `PCICTLUI.EXE` in einem üblichen Installationspfad oder explizit konfiguriert
 
 ### Active Directory
 
-Für **Domäne laden** wird aktuell benötigt:
+Für **Domäne laden**:
 
 ```text
 RSAT / ActiveDirectory PowerShell
@@ -52,119 +45,100 @@ RSAT / ActiveDirectory PowerShell
 
 ### Rechnerdetails
 
-IP-Auflösung funktioniert über DNS. Für Betriebssystem, angemeldeten Benutzer und Modell verwendet das Tool Remote-CIM/WSMan mit der aktuellen Windows-Identität.
-
-Ist WSMan/CIM nicht verfügbar, soll die Anwendung nicht abstürzen. IP/Status und die Remote-Funktionen bleiben unabhängig verwendbar.
-
-### Eingebettetes RDP
-
-Das eingebettete RDP verwendet das mit Windows bereitgestellte Microsoft Remote Desktop ActiveX Control. RDP-Passwörter werden nicht in der Anwendung gespeichert.
+Für vollständige Remote-Details müssen CIM/WSMan und die entsprechenden Berechtigungen/Firewallregeln funktionieren. Ein fehlender CIM-Zugriff darf die übrige Anwendung nicht blockieren.
 
 ---
 
-## Empfohlene Testreihenfolge
-
-### 1. Programmstart
+## 1. Programmstart und Tray
 
 Prüfen:
 
-- Anwendung startet ohne Fehlermeldung.
-- Hauptfenster kann geschlossen und aus dem Tray wieder geöffnet werden.
+- Anwendung startet ohne Fehler.
+- Fenster schließen → Anwendung bleibt im Tray.
+- Tray-Doppelklick öffnet das Fenster.
 - Tray-Menü **Beenden** beendet die Anwendung vollständig.
 
-### 2. Rechnerliste und Filter
+---
+
+## 2. Rechnerliste und Status
 
 Prüfen:
 
-- Rechnername/IP kann direkt eingegeben werden.
-- **Domäne laden** liefert Rechner, wenn RSAT vorhanden ist.
+- Name/IP direkt eingeben.
+- **Domäne laden** funktioniert mit RSAT.
 - Textfilter funktioniert.
-- **Status prüfen** zeigt erreichbare und nicht erreichbare Rechner.
-- Nach der Statusprüfung erscheint ein Prüfzeitpunkt.
+- Gruppenfilter funktioniert.
+- **Nur Favoriten** funktioniert.
+- **Status prüfen** setzt Online/Offline und Prüfzeitpunkt.
 
-### 3. Favoriten, Gruppen und Standardverbindung
+---
 
-Einen Testrechner auswählen und folgende Werte setzen:
+## 3. Favoriten, Gruppen und Standardverbindung
 
-- **Favorit** aktivieren
-- Gruppe, z. B. `Testgruppe`
-- Standard-Provider auswählen
-- **Speichern / Aktualisieren** drücken
+Testziel auswählen:
+
+1. Favorit aktivieren.
+2. Gruppe `Testgruppe` setzen.
+3. Standard-Provider wählen.
+4. **Speichern / Aktualisieren**.
 
 Prüfen:
 
-1. Der Rechner zeigt ein `★`.
-2. Favoriten stehen vor normalen Rechnern.
-3. **Nur Favoriten** blendet normale Rechner aus.
-4. `Testgruppe` erscheint im Gruppenfilter.
-5. Die Textsuche findet den Rechner auch über `Testgruppe`.
-6. Gruppenfilter `Testgruppe` zeigt nur passende Rechner.
-7. Nach Neustart sind Favorit, Gruppe und Standard-Provider noch vorhanden.
-8. **Standardverbindung starten** öffnet den gewählten Provider.
-9. Doppelklick öffnet den gespeicherten Standard-Provider.
-10. Direkte Schnellaktionen **Steuern** bzw. **RDP** funktionieren weiterhin unabhängig vom Standard-Provider.
+- `★` erscheint.
+- Favorit wird zuerst sortiert.
+- Gruppe erscheint im Filter.
+- Suche findet `Testgruppe`.
+- Neustart erhält Werte.
+- **Standardverbindung starten** nutzt den gewählten Provider.
+- Doppelklick nutzt den bevorzugten Provider.
+- direkte **Steuern**-/RDP-Aktionen bleiben unabhängig davon verfügbar.
 
-Explizites Speicherverhalten prüfen:
+Nicht gespeicherte Änderungen dürfen durch einen reinen Verbindungsstart nicht dauerhaft werden.
 
-1. Gruppe/Favorit im Editor ändern.
-2. **Nicht** auf **Speichern / Aktualisieren** klicken.
-3. Eine Standardverbindung starten und wieder schließen.
-4. Anwendung neu starten.
-5. Die nicht gespeicherte Organisationsänderung darf nicht dauerhaft übernommen worden sein.
+---
 
-Fallback prüfen, wenn möglich:
+## 4. Gespeicherte Ansichten
 
-- einen bevorzugten Provider konfigurieren, der auf einem zweiten Test-Admin-PC nicht verfügbar ist
-- die Standardverbindung soll auf einen verfügbaren Control-Provider zurückfallen und nicht abstürzen
+Beispiel:
 
-### 4. Gespeicherte Ansichten
-
-Eine Kombination einstellen, zum Beispiel:
-
-- Textfilter leer
 - Gruppe `Testgruppe`
 - **Nur Favoriten** aktiv
+- Ansichtname `Testansicht`
 
-Dann:
+Dann **Ansicht speichern**.
 
-1. Im Feld **Ansicht** den Namen `Testansicht` eingeben.
-2. **Ansicht speichern** drücken.
-3. Filter verändern.
-4. `Testansicht` wieder auswählen.
+Prüfen:
 
-Erwartet:
+- Filter verändern und `Testansicht` erneut auswählen → Filter werden wiederhergestellt.
+- erneutes Speichern unter gleichem Namen aktualisiert statt zu duplizieren.
+- Neustart erhält die Ansicht.
+- **Ansicht löschen** entfernt nur die Ansicht.
 
-- Textfilter, Gruppe und Favoritenfilter werden wiederhergestellt.
-- Unter demselben Namen erneut speichern aktualisiert die bestehende Ansicht statt eine zweite anzulegen.
-- Nach einem Neustart ist `Testansicht` weiterhin vorhanden.
-- **Ansicht löschen** entfernt nur die Ansicht; Rechner/Favoriten/Gruppen bleiben erhalten.
+---
 
-Optional `settings.json` prüfen. Unter `savedViews` dürfen nur Filterdefinitionen stehen.
+## 5. Rechnerdetails
 
-### 5. Rechnerdetails
+Mit einem erreichbaren Rechner **Rechnerdetails laden**:
 
-Einen erreichbaren Domänenrechner auswählen und **Rechnerdetails laden** drücken.
+Erwartet, soweit CIM/WSMan erlaubt:
 
-Erwartet bei vollständigem CIM/WSMan-Zugriff:
+- IP
+- angemeldeter Benutzer
+- Windows-Edition/-Version
+- Hersteller/Modell
+- Zeitstempel
 
-- IP-Adresse wird angezeigt.
-- angemeldeter Benutzer wird angezeigt, sofern Windows einen interaktiven Benutzer meldet.
-- Windows-Edition/-Version wird angezeigt.
-- Hersteller/Modell wird angezeigt.
-- Zeitstempel wird aktualisiert.
-
-Dann einen Rechner testen, auf dem WSMan/CIM absichtlich nicht erreichbar ist.
-
-Erwartet:
+Mit blockiertem CIM testen:
 
 - Anwendung bleibt bedienbar.
-- Detailabfrage endet spätestens nach ungefähr 12 Sekunden.
-- Statuszeile meldet nur teilweise verfügbare Verwaltungsdaten oder ein Zeitlimit.
-- NetSupport/RDP/Statusprüfung bleiben unabhängig davon verwendbar.
+- Abfrage endet durch Zeitlimit.
+- NetSupport, RDP, DNS und Ping bleiben nutzbar.
 
-### 6. NetSupport
+---
 
-Mit einem Testrechner prüfen:
+## 6. NetSupport-Aktionen
+
+Prüfen:
 
 - Steuern
 - Nur ansehen
@@ -173,95 +147,179 @@ Mit einem Testrechner prüfen:
 - Remote CMD
 - Dateien
 
-### 7. Verbindungsverlauf
+---
 
-Mindestens zwei unterschiedliche Remote-Aktionen starten, zum Beispiel NetSupport **Steuern** und **RDP**.
+## 7. Verbindungsverlauf
 
-Prüfen:
-
-1. Unter **Zuletzt verwendet** erscheinen neue Einträge.
-2. Zeitpunkt, Ziel, Provider und Aktion sind plausibel.
-3. Auf der Rechnerkarte erscheint unter **Letzter Start** der jüngste Eintrag des ausgewählten Hosts.
-4. Doppelklick auf einen Verlaufseintrag übernimmt den Host als aktuelles Ziel, startet aber **keine** Verbindung automatisch.
-5. Ein absichtlich nicht verfügbarer/fehlerhafter Providerstart erscheint als Fehler-Eintrag.
-6. In `%AppData%\NetSupportRemoteAdmin\session-history.json` befinden sich keine Passwörter oder Credentials.
-7. **Verlauf löschen** entfernt die History, aber nicht `settings.json`, gespeicherte Ziele oder Ansichten.
-8. Nach mehr als 100 Starts wächst die Datei nicht unbegrenzt; es sollen höchstens 100 Einträge erhalten bleiben.
-
-Hinweis: Der Verlauf protokolliert den Startversuch eines Providers. Bei externen Programmen wie NetSupport ist er kein revisionssicheres Session-Audit.
-
-### 8. Eingebettetes RDP
+Mehrere Aktionen starten.
 
 Prüfen:
 
-- RDP-Fenster öffnet sich.
-- Credential-Dialog erscheint bei Bedarf.
-- Sessionstatus wechselt durch Connecting / Connected / Login.
-- **An Fenster anpassen** funktioniert.
-- Vollbild/Fenstermodus funktioniert.
-- Trennen und Neu verbinden funktionieren.
-
-### 9. RDP-Präferenzen
-
-Bei einem gespeicherten Ziel prüfen:
-
-- Benutzername/Domäne werden wieder angezeigt.
-- Zwischenablage-Einstellung bleibt erhalten.
-- Admin-Sitzungs-Einstellung bleibt erhalten.
-- Multi-Monitor-Einstellung bleibt erhalten.
-- Es befindet sich **kein Passwort** in `%AppData%\NetSupportRemoteAdmin\settings.json`.
-
-### 10. Multi-Monitor
-
-Voraussetzung: Admin-PC mit mindestens zwei aktiven Monitoren und ein RDP-Ziel, das Multi-Monitor unterstützt.
-
-Prüfen:
-
-1. **Mehrere Monitore** aktivieren.
-2. **Neu verbinden** ausführen.
-3. Prüfen, ob die RDP-Sitzung die lokalen Monitore verwendet.
-4. Multi-Monitor wieder deaktivieren und erneut verbinden.
-5. Prüfen, ob eine normale Einzelmonitor-Sitzung zurückkehrt.
-
-Die eingebettete ActiveX-Integration verwendet aktuell alle vom Windows-RDP-Client vorgesehenen Monitore über `UseMultimon`. Eine Auswahl bestimmter Monitor-IDs wird bewusst noch nicht über eine undokumentierte COM-Eigenschaft umgesetzt.
-
-Für einen späteren gezielten Monitor-Ausbau soll die dokumentierte RDP-Eigenschaft `selectedmonitors` über den externen RDP-Pfad verwendet werden.
-
-Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
-
-### 11. Remote-Aktionen
-
-Während einer aktiven RDP-Sitzung prüfen:
-
-- **Alt+Tab remote**
-- **Start remote**
-- **Task-Manager**
-
-Einzelne Aktionen können abhängig von Client-/Serverversion nicht unterstützt werden. Dann soll nur eine Statusmeldung erscheinen.
-
-### 12. Auto-Reconnect
-
-Auf einem geeigneten Testsystem kurzzeitig die Netzwerkverbindung unterbrechen und wiederherstellen.
-
-Erwartetes Verhalten:
-
-- Sessionstatus zeigt den automatischen Wiederverbindungsversuch.
-- Versuchszähler und Netzverfügbarkeit werden angezeigt, soweit vom Microsoft-Control gemeldet.
-- Nach erfolgreicher Wiederverbindung erscheint eine entsprechende Statusmeldung.
-
-### 13. Externer RDP-Fallback
-
-Optional `useEmbeddedRdp` in `settings.json` auf `false` setzen.
-
-Prüfen:
-
-- RDP startet über `mstsc.exe`.
-- aktivierte Admin-Sitzung wird als `/admin` übernommen.
-- aktivierter Multi-Monitor-Modus wird als `/multimon` übernommen.
+- Einträge erscheinen unter **Zuletzt verwendet**.
+- Zeit, Ziel, Provider und Aktion stimmen.
+- **Letzter Start** in der Rechnerkarte wird aktualisiert.
+- Doppelklick auf History übernimmt nur das Ziel; keine automatische Verbindung.
+- Fehlerhafter Providerstart wird als Fehler protokolliert.
+- `session-history.json` enthält keine Passwörter/Credentials.
+- **Verlauf löschen** löscht nur den Verlauf.
+- Datei bleibt auf maximal 100 Einträge begrenzt.
 
 ---
 
-## Konfigurations- und Verlaufsdateien
+## 8. Eingebettetes RDP
+
+Ohne `rdpSelectedMonitors` prüfen:
+
+- eingebettetes Fenster öffnet sich.
+- Credential-Prompt erscheint bei Bedarf.
+- Connecting / Connected / Login werden angezeigt.
+- SmartSizing funktioniert.
+- Vollbild/Fenstermodus funktioniert.
+- Trennen/Neu verbinden funktioniert.
+
+---
+
+## 9. RDP-Präferenzen
+
+Bei gespeichertem Ziel prüfen:
+
+- Benutzername/Domäne bleiben erhalten.
+- Zwischenablage bleibt erhalten.
+- Admin-Sitzung bleibt erhalten.
+- normaler Multi-Monitor-Schalter bleibt erhalten.
+- `settings.json` enthält kein Passwort.
+
+---
+
+## 10. Multi-Monitor – alle Monitore
+
+Mit mindestens zwei lokalen Monitoren:
+
+1. Im eingebetteten RDP **Mehrere Monitore** aktivieren.
+2. Neu verbinden.
+3. Prüfen, ob Windows RDP die lokale Multi-Monitor-Anordnung verwendet.
+4. Deaktivieren und erneut verbinden.
+
+Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
+
+---
+
+## 11. Gezielte RDP-Monitorwahl
+
+Voraussetzung: mehrere lokale Monitore.
+
+### IDs ermitteln
+
+1. Ziel auswählen.
+2. **Erweitert** öffnen.
+3. Unter **Gezielte RDP-Monitore** auf **IDs anzeigen** klicken.
+4. Windows muss `mstsc.exe /l` öffnen und die lokalen Monitor-IDs anzeigen.
+
+### Auswahl speichern
+
+1. Gültige IDs eintragen, zum Beispiel:
+
+```text
+0,1
+```
+
+2. **Speichern / Aktualisieren**.
+3. `settings.json` prüfen:
+
+```json
+"rdpSelectedMonitors": "0,1"
+```
+
+### RDP starten
+
+RDP für das Ziel starten.
+
+Erwartet:
+
+- der externe Windows-RDP-Client wird verwendet, nicht der eingebettete Viewer
+- unter `%AppData%\NetSupportRemoteAdmin\rdp\` entsteht eine `.rdp`-Datei
+- Datei enthält `use multimon:i:1`
+- Datei enthält `selectedmonitors:s:0,1`
+- Datei enthält **kein Passwort**
+- Zwischenablagepräferenz wird übernommen
+- Admin-Sitzung nutzt weiterhin `/admin`
+
+### Eingabevalidierung
+
+Ungültig testen, zum Beispiel:
+
+```text
+0,a
+```
+
+Erwartet:
+
+- **Speichern / Aktualisieren** zeigt eine verständliche Warnung
+- ungültige Auswahl wird nicht gespeichert
+- Anwendung bleibt stabil
+
+Duplikate testen:
+
+```text
+0, 1, 1
+```
+
+Erwartet gespeichert:
+
+```text
+0,1
+```
+
+### Zurück zum eingebetteten Viewer
+
+1. Monitor-ID-Feld leeren.
+2. **Speichern / Aktualisieren**.
+3. RDP erneut starten.
+
+Bei aktiviertem `useEmbeddedRdp` muss wieder der eingebettete Viewer verwendet werden.
+
+Hinweis: Windows selbst prüft, ob die ausgewählten Displays für `selectedmonitors` passend/zusammenhängend sind. Die Anwendung validiert nur die ID-Syntax.
+
+---
+
+## 12. Remote-Aktionen
+
+In aktiver eingebetteter RDP-Sitzung:
+
+- Alt+Tab remote
+- Start remote
+- Task-Manager
+
+Nicht unterstützte Aktionen dürfen nur eine Statusmeldung erzeugen.
+
+---
+
+## 13. Auto-Reconnect
+
+Netz kurz unterbrechen und wiederherstellen.
+
+Erwartet:
+
+- Auto-Reconnect-Status
+- Versuchszähler
+- Netzverfügbarkeit
+- Meldung nach erfolgreicher Wiederverbindung
+
+---
+
+## 14. Normaler externer RDP-Fallback
+
+`useEmbeddedRdp` optional auf `false` setzen, aber `rdpSelectedMonitors` leer lassen.
+
+Prüfen:
+
+- `mstsc.exe` startet.
+- Admin-Sitzung → `/admin`.
+- normaler Multi-Monitor → `/multimon`.
+
+---
+
+## Lokale Dateien
 
 Konfiguration:
 
@@ -269,32 +327,32 @@ Konfiguration:
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Lokaler Startverlauf:
+Startverlauf:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
-In `settings.json` dürfen nur dauerhafte Ziele und nicht geheime Präferenzen stehen. Dazu gehören Favorit, Gruppe, bevorzugter Provider, gespeicherte Ansichten und RDP-Präferenzen.
+Generierte gezielte RDP-Verbindungen:
 
-Laufzeitdetails wie aktuelle IP, Windows-Version, Benutzer und Online-Status werden bewusst nicht gespeichert. Passwörter und Credentials dürfen in keiner der beiden Dateien auftauchen.
+```text
+%AppData%\NetSupportRemoteAdmin\rdp\
+```
+
+In keiner dieser Dateien dürfen Passwörter oder andere Credentials auftauchen.
 
 ---
 
 ## Fehler melden
 
-Für einen reproduzierbaren Fehler sind besonders hilfreich:
+Hilfreich sind:
 
-- betroffene Funktion
-- genaue sichtbare Fehlermeldung
+- Funktion und sichtbare Fehlermeldung
 - Windows-Version des Admin-PCs
-- bei Organisationsproblemen: betroffene Gruppe und Provider-ID ohne vertrauliche Daten
-- bei Ansichten: Name der Ansicht und erwartete Filterwerte
-- bei Verlauf: Provider/Aktion und ob der Start erfolgreich oder fehlgeschlagen war
-- bei Rechnerdetails: ob `Test-WSMan <rechner>` grundsätzlich funktioniert
-- bei RDP: eingebettetes RDP oder `mstsc.exe`
-- Anzahl/Anordnung der Monitore bei Multi-Monitor-Problemen
-- ob der Fehler bei einem zweiten Zielrechner ebenfalls auftritt
-- zugehöriger GitHub-Actions-Build bzw. Commit
+- Ziel anonymisiert, falls nötig
+- eingebettetes oder externes RDP
+- bei Monitorproblemen Ausgabe von `mstsc /l` ohne vertrauliche Daten
+- gewünschte Monitor-ID-Liste
+- zugehöriger GitHub-Actions-Build/Commit
 
-Keine Kennwörter oder andere Zugangsdaten in Issues, Screenshots oder Logs aufnehmen.
+Keine Kennwörter oder Zugangsdaten in Issues, Screenshots oder Logs aufnehmen.
