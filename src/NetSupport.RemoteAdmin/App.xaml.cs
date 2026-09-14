@@ -14,11 +14,12 @@ public partial class App : System.Windows.Application
         {
             var configService = new ConfigService();
             var config = await configService.LoadAsync();
+            var rdpSessionLauncher = new EmbeddedRdpSessionLauncher();
 
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
                 new NetSupportProvider(config),
-                new RdpProvider(config)
+                new RdpProvider(config, rdpSessionLauncher)
             });
 
             var discovery = new DomainComputerDiscoveryService();
