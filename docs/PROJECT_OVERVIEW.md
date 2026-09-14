@@ -70,6 +70,8 @@ Der eingebettete Session-Baustein bietet aktuell:
 - Disconnect-Grund inklusive Extended Disconnect Reason, soweit vom Microsoft-Control verfügbar
 - Fatal-Error-Anzeige
 - Anzeige der aktuellen Remote-Auflösung
+- automatische Wiederverbindungsanzeige mit Versuchszähler und Netzstatus
+- Statusmeldung nach erfolgreichem Auto-Reconnect
 - `SmartSizing` zur Anpassung an die Fenstergröße, auch während einer aktiven Verbindung
 - optionalen Benutzernamen und Windows-/AD-Domäne
 - normalen Windows-Credential-Prompt für das Kennwort
@@ -243,7 +245,7 @@ Das Repository enthält einen GitHub-Actions-Workflow für Windows.
 
 Bei jedem Push bzw. Pull Request werden Restore und Release-Build ausgeführt. Compilerfehler werden dadurch früh erkannt und direkt im Entwicklungsbranch korrigiert.
 
-Der eingebettete RDP-Stand aus Phase 1 wurde erfolgreich unter Windows/.NET 8 gebaut. Phase 2 und Phase 3 werden über denselben Workflow fortlaufend revalidiert.
+RDP Phase 3 wurde erfolgreich unter Windows/.NET 8 gebaut. Die Erweiterungen aus Phase 4 werden über denselben Workflow fortlaufend revalidiert.
 
 Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlende `System.IO`-Imports und ungültige Ausdruckszeilen durch CI erkannt und behoben.
 
@@ -251,12 +253,11 @@ Im bisherigen Verlauf wurden unter anderem WPF/WinForms-Namenskonflikte, fehlend
 
 ## Nächste Ausbaustufen
 
-### RDP Phase 4
+### RDP Phase 4 / 5
 
 Als nächste RDP-Schritte sind vorgesehen:
 
 - Multi-Monitor-Unterstützung
-- Auto-Reconnect sauber auswerten und anzeigen
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - noch verständlichere Fehlertexte
 - optionale weitere Redirects wie Laufwerke oder Audio
