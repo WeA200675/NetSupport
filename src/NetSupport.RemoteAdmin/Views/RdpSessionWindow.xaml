@@ -11,6 +11,10 @@
     <DockPanel>
         <Border DockPanel.Dock="Top" Padding="10" BorderBrush="#DDD" BorderThickness="0,0,0,1">
             <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
@@ -24,11 +28,37 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button x:Name="ReconnectButton" Content="Neu verbinden" Padding="14,6" Margin="0,0,8,0"
                             Click="ReconnectButton_OnClick"/>
-                    <Button Content="Vollbild" Padding="14,6" Margin="0,0,8,0"
+                    <Button x:Name="FullscreenButton" Content="Vollbild" Padding="14,6" Margin="0,0,8,0"
                             Click="FullscreenButton_OnClick"/>
                     <Button Content="Trennen" Padding="14,6"
                             Click="DisconnectButton_OnClick"/>
                 </StackPanel>
+
+                <Grid Grid.Row="1" Grid.ColumnSpan="2" Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="220"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="150"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Benutzer" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <TextBox x:Name="UserNameTextBox" Grid.Column="1" Height="30" VerticalContentAlignment="Center"
+                             Padding="8,0" ToolTip="Optional: Benutzername oder DOMÄNE\Benutzer"/>
+
+                    <TextBlock Grid.Column="2" Text="Domäne" VerticalAlignment="Center" Margin="14,0,6,0"/>
+                    <TextBox x:Name="DomainTextBox" Grid.Column="3" Height="30" VerticalContentAlignment="Center"
+                             Padding="8,0" ToolTip="Optional: Windows-/AD-Domäne"/>
+
+                    <CheckBox x:Name="SmartSizingCheckBox" Grid.Column="4" Content="An Fenster anpassen"
+                              IsChecked="True" VerticalAlignment="Center" Margin="16,0,0,0"
+                              Checked="SmartSizingCheckBox_OnChanged" Unchecked="SmartSizingCheckBox_OnChanged"/>
+
+                    <TextBlock Grid.Column="5" Text="Kennwort wird vom Windows-RDP-Dialog abgefragt und nicht von dieser Anwendung gespeichert."
+                               VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
+                </Grid>
             </Grid>
         </Border>
 
