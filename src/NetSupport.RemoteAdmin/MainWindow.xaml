@@ -229,6 +229,21 @@
                             <TextBlock Text="Aktion" FontWeight="SemiBold" Margin="0,12,0,6"/>
                             <ComboBox x:Name="ActionComboBox" Height="32"/>
 
+                            <TextBlock Text="Gezielte RDP-Monitore" FontWeight="SemiBold" Margin="0,12,0,6"/>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="SelectedMonitorIdsTextBox" Height="30" VerticalContentAlignment="Center" Padding="8,0"
+                                         ToolTip="Kommagetrennte IDs, z. B. 0,1. Leer = normaler eingebetteter RDP-Modus."/>
+                                <Button Grid.Column="1" Content="IDs anzeigen" Height="30" Margin="8,0,0,0" Padding="12,0"
+                                        ToolTip="Startet mstsc.exe /l und zeigt die lokalen RDP-Monitor-IDs."
+                                        Click="ShowMonitorIdsButton_OnClick"/>
+                            </Grid>
+                            <TextBlock Text="Mit Monitor-IDs nutzt RDP den dokumentierten selectedmonitors-Pfad über mstsc/.rdp."
+                                       Opacity="0.55" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
+
                             <Button Content="Konfigurationsordner öffnen" Height="32" Margin="0,12,0,0" Click="OpenConfigButton_OnClick"/>
                         </StackPanel>
                     </Expander>
