@@ -66,7 +66,9 @@ public sealed class RdpActiveXControl : AxHost
         int desktopWidth,
         int desktopHeight,
         string? userName = null,
-        string? domain = null)
+        string? domain = null,
+        bool redirectClipboard = true,
+        bool adminSession = false)
     {
         if (string.IsNullOrWhiteSpace(host))
             throw new ArgumentException("Ein Zielrechner ist erforderlich.", nameof(host));
@@ -86,7 +88,7 @@ public sealed class RdpActiveXControl : AxHost
         if (!string.IsNullOrWhiteSpace(domain))
             client.Domain = domain.Trim();
 
-        ConfigureAdvancedSettings(client);
+        ConfigureAdvancedSettings(client, redirectClipboard, adminSession);
         client.Connect();
     }
 
@@ -103,6 +105,15 @@ public sealed class RdpActiveXControl : AxHost
             // Older/partially registered controls can fail to expose the newest settings
             // interface. The session remains usable without SmartSizing.
         }
+    }
+
+    public void SendRemoteAction(RdpRemoteAction action)
+    {
+        dynamic client = GetClient();
+        if (client.Connected == 0)
+            throw new InvalidOperationException("Es besteht keine aktive RDP-Verbindung.");
+
+        client.SendRemoteAction((int)action);
     }
 
     public void DisconnectSession()
@@ -167,13 +178,18 @@ public sealed class RdpActiveXControl : AxHost
         base.DetachSink();
     }
 
-    private static void ConfigureAdvancedSettings(dynamic client)
+    private static void ConfigureAdvancedSettings(
+        dynamic client,
+        bool redirectClipboard,
+        bool adminSession)
     {
         try
         {
             dynamic settings = client.AdvancedSettings9;
             settings.SmartSizing = true;
             settings.EnableCredSspSupport = true;
+            settings.RedirectClipboard = redirectClipboard;
+            settings.ConnectToAdministerServer = adminSession;
         }
         catch
         {
