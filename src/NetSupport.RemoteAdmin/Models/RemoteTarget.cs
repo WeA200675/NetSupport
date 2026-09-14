@@ -19,6 +19,16 @@ public sealed class RemoteTarget
     /// </summary>
     public string? RdpDomain { get; set; }
 
+    /// <summary>
+    /// Enables clipboard redirection for embedded RDP sessions.
+    /// </summary>
+    public bool RdpRedirectClipboard { get; set; } = true;
+
+    /// <summary>
+    /// Requests the administrative RDP session for the target when supported.
+    /// </summary>
+    public bool RdpAdminSession { get; set; }
+
     [JsonIgnore]
     public HostStatus Status { get; set; } = HostStatus.Unknown;
 
