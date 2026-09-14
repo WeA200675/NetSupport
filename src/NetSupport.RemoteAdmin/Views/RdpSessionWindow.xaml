@@ -14,6 +14,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -57,6 +58,33 @@
                               Checked="SmartSizingCheckBox_OnChanged" Unchecked="SmartSizingCheckBox_OnChanged"/>
 
                     <TextBlock Grid.Column="5" Text="Kennwort wird vom Windows-RDP-Dialog abgefragt und nicht von dieser Anwendung gespeichert."
+                               VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
+                </Grid>
+
+                <Grid Grid.Row="2" Grid.ColumnSpan="2" Margin="0,9,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <CheckBox x:Name="ClipboardCheckBox" Content="Zwischenablage" IsChecked="True"
+                              VerticalAlignment="Center" ToolTip="Wird bei der nächsten Verbindung angewendet."/>
+                    <CheckBox x:Name="AdminSessionCheckBox" Grid.Column="1" Content="Admin-Sitzung"
+                              VerticalAlignment="Center" Margin="18,0,0,0"
+                              ToolTip="Administrative RDP-Sitzung; wird bei der nächsten Verbindung angewendet."/>
+
+                    <Button Grid.Column="2" Content="Alt+Tab remote" Padding="12,5" Margin="22,0,0,0"
+                            Click="AppSwitchButton_OnClick"/>
+                    <Button Grid.Column="3" Content="Start remote" Padding="12,5" Margin="8,0,0,0"
+                            Click="StartScreenButton_OnClick"/>
+                    <Button Grid.Column="4" Content="Task-Manager" Padding="12,5" Margin="8,0,0,0"
+                            Click="TaskManagerButton_OnClick"/>
+
+                    <TextBlock Grid.Column="5" Text="Zwischenablage/Admin werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung."
                                VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
                 </Grid>
             </Grid>
