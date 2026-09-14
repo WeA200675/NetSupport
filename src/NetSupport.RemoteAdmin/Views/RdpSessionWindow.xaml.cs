@@ -33,6 +33,8 @@ public partial class RdpSessionWindow : Window
         _rdpControl.FatalError += (_, e) => SetStatus($"RDP-Fehler {e.ErrorCode}");
         _rdpControl.RemoteDesktopSizeChanged += (_, e) =>
             SetStatus($"Verbunden mit {_target.Host} · Remote {e.Width}×{e.Height}");
+        _rdpControl.AutoReconnecting += (_, e) => OnAutoReconnecting(e);
+        _rdpControl.AutoReconnected += (_, _) => SetStatus($"Automatisch wieder verbunden mit {_target.Host}");
 
         RdpHost.Child = _rdpControl;
         Loaded += (_, _) => Connect();
@@ -113,6 +115,16 @@ public partial class RdpSessionWindow : Window
             : e.Description;
 
         SetStatus($"Verbindung getrennt: {details}");
+    }
+
+    private void OnAutoReconnecting(RdpAutoReconnectingEventArgs e)
+    {
+        var network = e.NetworkAvailable ? "Netz verfügbar" : "Netz nicht verfügbar";
+        var attempts = e.MaxAttemptCount > 0
+            ? $"Versuch {e.AttemptCount}/{e.MaxAttemptCount}"
+            : $"Versuch {e.AttemptCount}";
+
+        SetStatus($"Automatische Wiederverbindung: {attempts} · {network} · Grund {e.DisconnectReason}");
     }
 
     private void SetStatus(string text)
