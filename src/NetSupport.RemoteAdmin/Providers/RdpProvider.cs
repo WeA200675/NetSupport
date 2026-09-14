@@ -5,7 +5,10 @@ using NetSupport.RemoteAdmin.Services;
 
 namespace NetSupport.RemoteAdmin.Providers;
 
-public sealed class RdpProvider(AppConfig config, IRdpSessionLauncher sessionLauncher) : IRemoteProvider
+public sealed class RdpProvider(
+    AppConfig config,
+    IRdpSessionLauncher sessionLauncher,
+    IRdpConnectionFileService connectionFileService) : IRemoteProvider
 {
     public string Id => "rdp";
     public string DisplayName => config.UseEmbeddedRdp
@@ -27,16 +30,20 @@ public sealed class RdpProvider(AppConfig config, IRdpSessionLauncher sessionLau
         if (string.IsNullOrWhiteSpace(target.Host))
             throw new ArgumentException("Für die Verbindung ist ein Rechnername oder eine IP-Adresse erforderlich.", nameof(target));
 
-        if (config.UseEmbeddedRdp && sessionLauncher.IsAvailable)
+        var selectedMonitors = connectionFileService.NormalizeMonitorIds(target.RdpSelectedMonitors);
+
+        // Targeted monitor selection is currently expressed through the documented
+        // selectedmonitors RDP-file setting. Normal sessions stay embedded when enabled.
+        if (selectedMonitors is null && config.UseEmbeddedRdp && sessionLauncher.IsAvailable)
         {
             await sessionLauncher.LaunchAsync(target, cancellationToken);
             return;
         }
 
-        LaunchExternalClient(target);
+        LaunchExternalClient(target, selectedMonitors);
     }
 
-    private void LaunchExternalClient(RemoteTarget target)
+    private void LaunchExternalClient(RemoteTarget target, string? selectedMonitors)
     {
         var mstscPath = Path.Combine(Environment.SystemDirectory, "mstsc.exe");
         if (!File.Exists(mstscPath))
@@ -48,15 +55,24 @@ public sealed class RdpProvider(AppConfig config, IRdpSessionLauncher sessionLau
             UseShellExecute = true
         };
 
-        psi.ArgumentList.Add($"/v:{target.Host}");
+        if (selectedMonitors is not null)
+        {
+            target.RdpSelectedMonitors = selectedMonitors;
+            var connectionFile = connectionFileService.CreateSelectedMonitorsFile(target, config.UseFullScreenRdp);
+            psi.ArgumentList.Add(connectionFile);
+        }
+        else
+        {
+            psi.ArgumentList.Add($"/v:{target.Host}");
+
+            if (target.RdpUseMultiMonitor)
+                psi.ArgumentList.Add("/multimon");
+            else if (config.UseFullScreenRdp)
+                psi.ArgumentList.Add("/f");
+        }
 
         if (target.RdpAdminSession)
             psi.ArgumentList.Add("/admin");
-
-        if (target.RdpUseMultiMonitor)
-            psi.ArgumentList.Add("/multimon");
-        else if (config.UseFullScreenRdp)
-            psi.ArgumentList.Add("/f");
 
         _ = Process.Start(psi) ?? throw new InvalidOperationException("Remote Desktop konnte nicht gestartet werden.");
     }
