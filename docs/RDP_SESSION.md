@@ -145,7 +145,30 @@ mstsc.exe /multimon
 
 weitergegeben. Eine gleichzeitig konfigurierte Admin-Sitzung nutzt zusätzlich `/admin`.
 
-Aktuell unterstützt das Tool „alle verfügbaren Monitore“. Eine Auswahl einzelner Monitor-IDs ist eine spätere Erweiterung.
+### Auswahl bestimmter Monitore
+
+Microsoft dokumentiert für das ActiveX-Control `UseMultimon`, also den Multi-Monitor-Modus als Ein/Aus-Eigenschaft. Eine dokumentierte ActiveX-Eigenschaft für eine Liste bestimmter lokaler Monitor-IDs wird in der verwendeten Schnittstelle nicht bereitgestellt.
+
+Für normale RDP-Eigenschaften ist dagegen dokumentiert:
+
+```text
+use multimon:i:1
+selectedmonitors:s:0,1
+```
+
+Die Monitor-IDs können beim Windows-RDP-Client mit
+
+```text
+mstsc.exe /l
+```
+
+ermittelt werden. Bei `selectedmonitors` müssen die ausgewählten Displays den RDP-Regeln entsprechen; unter anderem müssen sie zusammenhängend sein, und der zuerst angegebene Monitor wird zum primären Remote-Display.
+
+Deshalb gilt als Designregel:
+
+- eingebettetes RDP: nur dokumentiertes `UseMultimon`
+- gezielte Monitor-ID-Auswahl: später über einen dokumentierten externen `.rdp`-/`mstsc`-Pfad
+- keine undokumentierte dynamische COM-Eigenschaft nur deshalb setzen, um die Funktion scheinbar im eingebetteten Viewer anzubieten
 
 ---
 
@@ -217,14 +240,17 @@ CredSSP wird aktiviert, sofern die lokale Advanced-Settings-Schnittstelle verfü
 
 ## Nächste Ausbauschritte
 
-- Auswahl bestimmter Monitor-IDs
+- gezielte Monitor-ID-Auswahl über einen externen `.rdp`-/`mstsc`-Pfad
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere RDP-Fehlertexte
-- Session-Historie / letzte Verbindung
 - weitere Redirects wie Laufwerke oder Audio
+
+Der allgemeine Startverlauf liegt nicht in dieser RDP-Schicht, sondern separat hinter `ISessionHistoryService`, weil er gleichermaßen NetSupport und RDP protokolliert.
 
 ---
 
 ## Wichtige Designregel
 
 Die RDP-Implementierung bleibt hinter `IRdpSessionLauncher` und `RdpActiveXControl` gekapselt. Das Hauptfenster kennt keine COM-/ActiveX-Details und keine Passwörter.
+
+Dokumentierte Microsoft-Schnittstellen werden undokumentierten COM-Workarounds vorgezogen.
