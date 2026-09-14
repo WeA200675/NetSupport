@@ -360,7 +360,9 @@ public partial class MainWindow : Window
         {
             Name = target.Name,
             Host = target.Host,
-            Description = target.Description
+            Description = target.Description,
+            RdpUserName = target.RdpUserName,
+            RdpDomain = target.RdpDomain
         });
 
         if (!_targets.Any(t => string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
