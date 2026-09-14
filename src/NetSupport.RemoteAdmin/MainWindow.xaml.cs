@@ -23,13 +23,16 @@ public partial class MainWindow : Window
     private readonly ITargetDiscoveryService _discovery;
     private readonly HostAvailabilityService _availability;
     private readonly ITargetDetailsService _detailsService;
+    private readonly ISessionHistoryService _historyService;
     private readonly List<IRemoteProvider> _availableProviders;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly List<RemoteTarget> _targets = new();
+    private readonly List<SessionHistoryEntry> _historyEntries = new();
     private CancellationTokenSource? _statusCancellation;
     private bool _allowExit;
     private bool _uiReady;
     private bool _updatingGroupFilter;
+    private bool _updatingSavedViews;
 
     public MainWindow(
         AppConfig config,
@@ -37,7 +40,8 @@ public partial class MainWindow : Window
         RemoteProviderRegistry providers,
         ITargetDiscoveryService discovery,
         HostAvailabilityService availability,
-        ITargetDetailsService detailsService)
+        ITargetDetailsService detailsService,
+        ISessionHistoryService historyService)
     {
         InitializeComponent();
 
@@ -47,6 +51,7 @@ public partial class MainWindow : Window
         _discovery = discovery;
         _availability = availability;
         _detailsService = detailsService;
+        _historyService = historyService;
         _targets.AddRange(_config.Targets);
         _availableProviders = _providers.All.Where(provider => provider.IsAvailable).ToList();
 
@@ -58,9 +63,12 @@ public partial class MainWindow : Window
         PreferredProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
 
         RefreshGroupFilterOptions();
+        RefreshSavedViewOptions();
         RefreshTargets();
         UpdateSelectedTargetCard(null);
         _uiReady = true;
+
+        Loaded += async (_, _) => await RefreshHistoryAsync();
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Öffnen", null, (_, _) => ShowFromTray());
@@ -174,6 +182,33 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RefreshSavedViewOptions(string? selectName = null)
+    {
+        _updatingSavedViews = true;
+        try
+        {
+            var currentName = selectName ?? (SavedViewComboBox.SelectedItem as SavedTargetView)?.Name;
+            var items = _config.SavedViews
+                .OrderBy(view => view.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            SavedViewComboBox.ItemsSource = items;
+
+            var selected = string.IsNullOrWhiteSpace(currentName)
+                ? null
+                : items.FirstOrDefault(view =>
+                    string.Equals(view.Name, currentName, StringComparison.OrdinalIgnoreCase));
+
+            SavedViewComboBox.SelectedItem = selected;
+            if (selected is not null)
+                SavedViewComboBox.Text = selected.Name;
+        }
+        finally
+        {
+            _updatingSavedViews = false;
+        }
+    }
+
     private void SelectTargetByHost(string host)
     {
         if (TargetsListBox.ItemsSource is not IEnumerable<RemoteTarget> items)
@@ -199,6 +234,102 @@ public partial class MainWindow : Window
     {
         if (_uiReady)
             RefreshTargets();
+    }
+
+    private void SavedViewComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_uiReady || _updatingSavedViews)
+            return;
+
+        if (SavedViewComboBox.SelectedItem is SavedTargetView view)
+            ApplySavedView(view);
+    }
+
+    private void ApplySavedView(SavedTargetView view)
+    {
+        _uiReady = false;
+        try
+        {
+            FilterTextBox.Text = view.SearchText ?? string.Empty;
+            FavoritesOnlyCheckBox.IsChecked = view.FavoritesOnly;
+
+            var groups = GroupFilterComboBox.ItemsSource as IEnumerable<string>;
+            var selectedGroup = !string.IsNullOrWhiteSpace(view.Group) &&
+                                groups?.FirstOrDefault(group =>
+                                    string.Equals(group, view.Group, StringComparison.OrdinalIgnoreCase)) is { } match
+                ? match
+                : AllGroupsLabel;
+
+            GroupFilterComboBox.SelectedItem = selectedGroup;
+        }
+        finally
+        {
+            _uiReady = true;
+        }
+
+        RefreshTargets();
+        StatusTextBlock.Text = $"Ansicht '{view.Name}' angewendet.";
+    }
+
+    private async void SaveViewButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var name = SavedViewComboBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            StatusTextBlock.Text = "Bitte einen Namen für die Ansicht eingeben.";
+            SavedViewComboBox.Focus();
+            return;
+        }
+
+        var selectedGroup = GroupFilterComboBox.SelectedItem as string;
+        if (string.Equals(selectedGroup, AllGroupsLabel, StringComparison.Ordinal))
+            selectedGroup = null;
+
+        var existing = _config.SavedViews.FirstOrDefault(view =>
+            string.Equals(view.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            existing = new SavedTargetView { Name = name };
+            _config.SavedViews.Add(existing);
+        }
+
+        existing.SearchText = NullIfWhiteSpace(FilterTextBox.Text);
+        existing.Group = NullIfWhiteSpace(selectedGroup);
+        existing.FavoritesOnly = FavoritesOnlyCheckBox.IsChecked == true;
+
+        await _configService.SaveAsync(_config);
+        RefreshSavedViewOptions(existing.Name);
+        StatusTextBlock.Text = $"Ansicht '{existing.Name}' gespeichert.";
+    }
+
+    private async void DeleteViewButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var selected = SavedViewComboBox.SelectedItem as SavedTargetView;
+        var name = selected?.Name ?? SavedViewComboBox.Text.Trim();
+        var existing = _config.SavedViews.FirstOrDefault(view =>
+            string.Equals(view.Name, name, StringComparison.OrdinalIgnoreCase));
+
+        if (existing is null)
+        {
+            StatusTextBlock.Text = "Keine gespeicherte Ansicht zum Löschen ausgewählt.";
+            return;
+        }
+
+        var result = System.Windows.MessageBox.Show(
+            $"Ansicht '{existing.Name}' wirklich löschen?",
+            "Gespeicherte Ansicht",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        _config.SavedViews.Remove(existing);
+        await _configService.SaveAsync(_config);
+        RefreshSavedViewOptions();
+        SavedViewComboBox.SelectedItem = null;
+        SavedViewComboBox.Text = string.Empty;
+        StatusTextBlock.Text = $"Ansicht '{existing.Name}' gelöscht.";
     }
 
     private void ProviderComboBox_OnSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -246,6 +377,7 @@ public partial class MainWindow : Window
             SelectedTargetOsTextBlock.Text = "–";
             SelectedTargetModelTextBlock.Text = "–";
             SelectedTargetLastCheckTextBlock.Text = "–";
+            SelectedTargetLastSessionTextBlock.Text = "–";
             SelectedTargetDetailsErrorTextBlock.Text = string.Empty;
             return;
         }
@@ -267,6 +399,13 @@ public partial class MainWindow : Window
         SelectedTargetLastCheckTextBlock.Text = lastCheck is null
             ? "–"
             : lastCheck.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
+
+        var lastSession = _historyEntries.FirstOrDefault(entry =>
+            string.Equals(entry.Host, target.Host, StringComparison.OrdinalIgnoreCase));
+        SelectedTargetLastSessionTextBlock.Text = lastSession is null
+            ? "–"
+            : $"{lastSession.StartedAt.ToLocalTime():dd.MM.yyyy HH:mm} · {lastSession.ProviderName} · {lastSession.Action}" +
+              (lastSession.Succeeded ? string.Empty : " · Fehler");
 
         SelectedTargetDetailsErrorTextBlock.Text = string.IsNullOrWhiteSpace(details?.ManagementError)
             ? string.Empty
@@ -391,9 +530,10 @@ public partial class MainWindow : Window
             return;
         }
 
+        IRemoteProvider? provider = null;
         try
         {
-            var provider = _providers.Get(providerId);
+            provider = _providers.Get(providerId);
             if (!provider.IsAvailable)
                 throw new InvalidOperationException($"{provider.DisplayName} ist auf diesem Rechner nicht verfügbar.");
 
@@ -402,13 +542,103 @@ public partial class MainWindow : Window
 
             StatusTextBlock.Text = $"Starte {provider.DisplayName} für {target.Host} …";
             await provider.ConnectAsync(target, action);
+            await RecordHistorySafeAsync(target, provider, providerId, action, succeeded: true, error: null);
             StatusTextBlock.Text = $"{provider.DisplayName} für {target.Host} gestartet.";
         }
         catch (Exception ex)
         {
+            await RecordHistorySafeAsync(target, provider, providerId, action, succeeded: false, error: ex.Message);
             StatusTextBlock.Text = "Aktion konnte nicht gestartet werden.";
             System.Windows.MessageBox.Show(ex.Message, "Remote-Aktion", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private async Task RecordHistorySafeAsync(
+        RemoteTarget target,
+        IRemoteProvider? provider,
+        string providerId,
+        RemoteAction action,
+        bool succeeded,
+        string? error)
+    {
+        try
+        {
+            await _historyService.RecordAsync(new SessionHistoryEntry
+            {
+                StartedAt = DateTimeOffset.Now,
+                Host = target.Host,
+                TargetName = NullIfWhiteSpace(target.Name),
+                ProviderId = provider?.Id ?? providerId,
+                ProviderName = provider?.DisplayName ?? providerId,
+                Action = action.ToString(),
+                Succeeded = succeeded,
+                Error = NullIfWhiteSpace(error)
+            });
+
+            await RefreshHistoryAsync();
+        }
+        catch
+        {
+            // Logging must never block or break the requested remote action.
+        }
+    }
+
+    private async Task RefreshHistoryAsync()
+    {
+        try
+        {
+            var entries = await _historyService.GetRecentAsync(20);
+            _historyEntries.Clear();
+            _historyEntries.AddRange(entries);
+            HistoryListBox.ItemsSource = null;
+            HistoryListBox.ItemsSource = _historyEntries;
+            UpdateSelectedTargetCard(SelectedTarget ?? CurrentTarget);
+        }
+        catch
+        {
+            // History is optional convenience data. Core remote functionality remains available.
+        }
+    }
+
+    private async void RefreshHistoryButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        await RefreshHistoryAsync();
+        StatusTextBlock.Text = $"Verlauf aktualisiert: {_historyEntries.Count} Einträge angezeigt.";
+    }
+
+    private async void ClearHistoryButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var result = System.Windows.MessageBox.Show(
+            "Lokalen Verbindungsverlauf wirklich löschen?",
+            "Verbindungsverlauf",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+        if (result != MessageBoxResult.Yes)
+            return;
+
+        await _historyService.ClearAsync();
+        await RefreshHistoryAsync();
+        StatusTextBlock.Text = "Lokaler Verbindungsverlauf gelöscht.";
+    }
+
+    private void HistoryListBox_OnMouseDoubleClick(object sender, WpfMouseButtonEventArgs e)
+    {
+        if (HistoryListBox.SelectedItem is not SessionHistoryEntry entry)
+            return;
+
+        TargetsListBox.SelectedItem = null;
+        HostTextBox.Text = entry.Host;
+
+        var target = _targets.FirstOrDefault(item =>
+            string.Equals(item.Host, entry.Host, StringComparison.OrdinalIgnoreCase));
+        if (target is not null)
+        {
+            SelectTargetByHost(entry.Host);
+            if (SelectedTarget is null)
+                UpdateSelectedTargetCard(target);
+        }
+
+        StatusTextBlock.Text = $"{entry.Host} aus dem Verlauf übernommen.";
     }
 
     private async void LoadDomainButton_OnClick(object sender, RoutedEventArgs e)
@@ -545,14 +775,7 @@ public partial class MainWindow : Window
         try
         {
             ConnectButton.IsEnabled = false;
-            StatusTextBlock.Text = $"Starte {provider.DisplayName} für {target.Host} …";
-            await provider.ConnectAsync(target, action);
-            StatusTextBlock.Text = $"Verbindung zu {target.Host} gestartet.";
-        }
-        catch (Exception ex)
-        {
-            StatusTextBlock.Text = "Verbindung konnte nicht gestartet werden.";
-            System.Windows.MessageBox.Show(ex.Message, "Remote-Verbindung", MessageBoxButton.OK, MessageBoxImage.Error);
+            await LaunchProviderActionAsync(provider.Id, action);
         }
         finally
         {
