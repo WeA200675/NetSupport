@@ -4,7 +4,7 @@ using NetSupport.RemoteAdmin.Services;
 
 namespace NetSupport.RemoteAdmin;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -21,7 +21,9 @@ public partial class App : Application
                 new RdpProvider(config)
             });
 
-            var window = new MainWindow(config, configService, registry);
+            var discovery = new DomainComputerDiscoveryService();
+            var availability = new HostAvailabilityService();
+            var window = new MainWindow(config, configService, registry, discovery, availability);
             MainWindow = window;
 
             if (!config.StartMinimized)
