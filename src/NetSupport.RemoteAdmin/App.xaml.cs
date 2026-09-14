@@ -25,13 +25,15 @@ public partial class App : System.Windows.Application
             var discovery = new DomainComputerDiscoveryService();
             var availability = new HostAvailabilityService();
             var detailsService = new PowerShellTargetDetailsService();
+            var historyService = new JsonSessionHistoryService(configService.ConfigDirectory);
             var window = new MainWindow(
                 config,
                 configService,
                 registry,
                 discovery,
                 availability,
-                detailsService);
+                detailsService,
+                historyService);
             MainWindow = window;
 
             if (!config.StartMinimized)
