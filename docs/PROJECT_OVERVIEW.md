@@ -1,111 +1,177 @@
 # NetSupport Remote Admin – Projektübersicht
 
-> Diese Datei fasst den aktuellen Stand des Projekts verständlich zusammen und wird bei weiteren Ausbauschritten mitgepflegt.
+> Diese Datei fasst den aktuellen funktionalen und technischen Stand des Projekts zusammen und wird bei weiteren Ausbauschritten mitgepflegt.
 
 ---
 
 ## Ziel des Projekts
 
-NetSupport Remote Admin ist eine kompakte Windows-Anwendung, die die tägliche Fernwartung deutlich einfacher machen soll als die klassische NetSupport-Oberfläche.
+NetSupport Remote Admin ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
 
-Die Anwendung dient als eigene Steuerzentrale und verwendet vorhandene Remote-Techniken wie NetSupport Manager und Windows Remote Desktop als austauschbare Backends. Sie soll dauerhaft im Hintergrund laufen können, schnell erreichbar sein und typische Aktionen mit möglichst wenigen Klicks ausführen.
+Das Tool ersetzt NetSupport Manager nicht, sondern stellt eine eigene, einfachere Bedienoberfläche vor vorhandene Remote-Techniken. NetSupport und Windows RDP sind austauschbare Backends. Active Directory dient als Rechnerquelle; flüchtige Rechnerinformationen werden bei Bedarf abgefragt.
+
+Wichtige Ziele:
+
+- wenige Klicks für häufige Aktionen
+- dauerhaft im Windows-Infobereich nutzbar
+- keine Abhängigkeit von unzuverlässig verteilten NetSupport-UI-Einstellungen
+- Rechner mit Favoriten und Gruppen organisieren
+- Standardverbindung pro Rechner festlegen
+- klare Trennung zwischen UI, Discovery, Rechnerdetails und Remote-Backends
+- keine Speicherung von Passwörtern
 
 ---
 
 ## Aktueller Bedienablauf
 
-1. Anwendung starten – sie kann dauerhaft im Windows-Infobereich weiterlaufen.
-2. Rechner direkt per Name/IP eingeben oder Rechner aus der Domäne laden.
-3. Optional den Online-/Offline-Status der Rechner prüfen.
-4. Rechner auswählen.
-5. Rechts erscheinen Status und – nach **Rechnerdetails laden** – IP, Benutzer, Windows-Version, Modell und letzter Prüfzeitpunkt.
-6. Aktion direkt starten: **Steuern**, **Nur ansehen**, **RDP**, **CMD**, **Dateien**, **Inventar** oder **Chat**.
-7. Häufig benötigte Rechner können dauerhaft gespeichert werden.
-
-Ein Doppelklick auf einen Rechner startet direkt die NetSupport-Steuerung.
+1. Anwendung starten oder aus dem Tray öffnen.
+2. Rechner direkt per Name/IP eingeben oder aus Active Directory laden.
+3. Optional Online-/Offline-Status prüfen.
+4. Liste über Text, Gruppe und/oder **Nur Favoriten** filtern.
+5. Rechner auswählen.
+6. Optional **Rechnerdetails laden**.
+7. Favorit, Gruppe und Standard-Provider setzen und mit **Speichern / Aktualisieren** übernehmen.
+8. **Standardverbindung starten** oder den Rechner doppelklicken.
+9. Direkte Schnellaktionen für NetSupport/RDP bleiben unabhängig davon verfügbar.
 
 ---
 
-## Aktuelle Funktionen
+## Zielrechner organisieren
 
-### Oberfläche
+Gespeicherte Ziele besitzen zusätzlich zu Name, Host und Beschreibung folgende Organisationsfelder:
 
-- WPF-Anwendung auf Basis von .NET 8
-- Tray-/Infobereich-Betrieb
-- kompakte Rechnerübersicht
-- Such-/Filterfeld
-- Zielrechner-Karte mit Status, Details und Schnellaktionen
-- erweiterte Provider-/Aktionsauswahl für Sonderfälle
-- Rechnername oder IP-Adresse direkt verwendbar
+```json
+{
+  "isFavorite": true,
+  "group": "Büro",
+  "preferredProviderId": "netsupport"
+}
+```
 
-### NetSupport Manager
+### Favoriten
 
-Der Provider verwendet `PCICTLUI.EXE` und unterstützt aktuell:
+- Favoriten werden vor normalen Rechnern sortiert.
+- In der Liste erscheint ein `★`.
+- **Nur Favoriten** reduziert die Liste entsprechend.
+
+### Gruppen
+
+Gruppen sind freie Textwerte wie `Büro`, `Werkstatt`, `Server` oder `Testgeräte`.
+
+- Textsuche berücksichtigt Gruppen.
+- Ein eigener Gruppenfilter steht oberhalb der Liste bereit.
+- Neue Gruppen erscheinen nach dem Speichern automatisch im Filter.
+
+### Standard-Provider
+
+`preferredProviderId` bestimmt die normale Control-Verbindung eines Ziels.
+
+- **Standardverbindung starten** verwendet diesen Provider.
+- Doppelklick verwendet den gespeicherten Standard-Provider.
+- Direkte Buttons **Steuern** und **RDP** bleiben weiterhin verfügbar.
+- Ist der gespeicherte Provider nicht verfügbar, wird zunächst NetSupport und danach ein anderer verfügbarer Control-Provider verwendet.
+
+Die vollständige Beschreibung liegt in [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
+
+---
+
+## NetSupport Manager
+
+Der NetSupport-Provider startet `PCICTLUI.EXE` und unterstützt:
 
 | Aktion | Funktion |
 |---|---|
-| Steuern | Bildschirm sowie Maus/Tastatur übernehmen |
-| Nur ansehen | Remote-Bildschirm ohne Steuerung anzeigen |
-| Chat | NetSupport Chat öffnen |
-| Inventar | NetSupport Inventaransicht öffnen |
-| Remote CMD | Remote Command Prompt öffnen |
-| Dateien | NetSupport File Transfer öffnen |
+| Steuern | Bildschirm, Maus und Tastatur übernehmen |
+| Nur ansehen | Remote-Bildschirm ohne Steuerung |
+| Chat | NetSupport Chat |
+| Inventar | NetSupport Inventaransicht |
+| Remote CMD | Remote Command Prompt |
+| Dateien | File Transfer |
 
-### Windows Remote Desktop
+Der Pfad wird in den üblichen `Program Files`-Verzeichnissen automatisch gesucht und kann über die Konfiguration überschrieben werden.
 
-RDP unterstützt zwei Betriebsarten:
+---
+
+## Windows Remote Desktop
+
+RDP besitzt zwei Betriebsarten:
 
 **Eingebettet:** Microsoft Remote Desktop ActiveX Control in einem eigenen Session-Fenster.
 
-**Fallback:** `mstsc.exe`, falls der eingebettete Weg deaktiviert oder nicht verfügbar ist.
+**Fallback:** `mstsc.exe`, falls eingebettetes RDP deaktiviert oder nicht verfügbar ist.
 
-Der eingebettete Session-Baustein bietet aktuell:
+Aktuelle Funktionen:
 
 - Verbinden / Neu verbinden / Trennen
-- Vollbild und Fenstermodus
-- echte Sessionstatus-Ereignisse
-- Disconnect-Grund und Fatal-Error-Anzeige
-- Remote-Auflösungsanzeige
+- Vollbild / Fenstermodus
+- Connecting-/Connected-/Login-/Disconnect-Status
+- Extended Disconnect Reason und Fatal-Error-Anzeige
+- Anzeige der Remote-Auflösung
 - Auto-Reconnect-Status mit Versuchszähler und Netzstatus
-- `SmartSizing`
+- SmartSizing
 - Multi-Monitor über `UseMultimon`
-- Benutzername und Windows-/AD-Domäne
-- normalen Windows-Credential-Prompt
+- Benutzername und Domäne
+- normaler Windows-Credential-Prompt
 - keine Passwortspeicherung
 - Zwischenablageumleitung
 - administrative RDP-Sitzung
-- Remote-Aktionen für App-Switch/Alt+Tab, Start und Task-Manager
-- Speicherung der nicht geheimen RDP-Präferenzen für gespeicherte Ziele
+- Remote-Aktionen für Alt+Tab, Start und Task-Manager
+- persistente nicht geheime RDP-Präferenzen
 
-Beim externen Fallback werden Admin-Sitzung und Multi-Monitor über `/admin` beziehungsweise `/multimon` an `mstsc.exe` weitergegeben.
+Beim externen Client werden Multi-Monitor und Admin-Sitzung über `/multimon` bzw. `/admin` weitergegeben.
 
-Die ausführliche RDP-Dokumentation liegt in [`docs/RDP_SESSION.md`](RDP_SESSION.md).
+Details: [`RDP_SESSION.md`](RDP_SESSION.md).
 
-### Active Directory
+---
 
-Die Rechnerliste kann aus Active Directory geladen werden. Die aktuelle Implementierung verwendet `Get-ADComputer` und benötigt dafür das Microsoft ActiveDirectory-PowerShell-Modul (RSAT).
+## Active Directory
 
-Die AD-Anbindung ist hinter `ITargetDiscoveryService` abstrahiert. Weitere Quellen wie CSV, SCCM/MECM, Intune oder ein Inventardienst können später ergänzt werden.
+Die Rechnerliste kann über `ITargetDiscoveryService` aus Active Directory geladen werden.
 
-### Online-/Offline-Status
+Aktuelle Implementierung:
 
-Rechner werden parallel per Ping geprüft. Die Prüfung arbeitet mit begrenzter Parallelität. Status und letzter Prüfzeitpunkt sind Laufzeitinformationen und werden nicht dauerhaft gespeichert.
+```text
+DomainComputerDiscoveryService -> Get-ADComputer
+```
 
-### Rechnerdetails
+Dafür wird RSAT / das ActiveDirectory-PowerShell-Modul benötigt.
 
-Die Rechnerdetails sind hinter `ITargetDetailsService` abstrahiert. Die erste Implementierung `PowerShellTargetDetailsService` kombiniert lokale DNS-Auflösung mit einer Remote-CIM-Abfrage über `Get-CimInstance`.
+AD-gefundene Rechner bleiben zunächst flüchtig und werden erst mit **Speichern / Aktualisieren** dauerhaft in die lokale Bedienkonfiguration aufgenommen.
 
-Aktuell werden angezeigt:
+---
+
+## Online-/Offline-Status
+
+`HostAvailabilityService` prüft Rechner parallel per Ping mit begrenzter Parallelität.
+
+Der Status und der Zeitpunkt der letzten Prüfung sind Laufzeitinformationen und werden nicht in `settings.json` gespeichert.
+
+---
+
+## Rechnerdetails
+
+Rechnerdetails sind hinter `ITargetDetailsService` gekapselt.
+
+Aktuelle Implementierung:
+
+```text
+PowerShellTargetDetailsService
+   +--> lokale DNS-Auflösung
+   +--> Get-CimInstance Win32_ComputerSystem
+   +--> Get-CimInstance Win32_OperatingSystem
+```
+
+Angezeigt werden:
 
 - IP-Adresse(n)
-- angemeldeter Benutzer
+- aktuell gemeldeter Windows-Benutzer
 - Windows-Edition und Version
 - Hersteller und Modell
-- Zeitpunkt der letzten Status-/Detailprüfung
+- letzter Status-/Detailprüfzeitpunkt
 
-Die CIM-Abfrage verwendet die aktuelle Windows-Identität und die normale WSMan-Konfiguration der Domäne. Ein Zeitlimit von 12 Sekunden verhindert, dass ein blockierter Rechner die Oberfläche lange festhält. Wenn CIM/WSMan nicht verfügbar ist, bleiben DNS, Ping, NetSupport und RDP weiter nutzbar; die Oberfläche kennzeichnet die Detaildaten lediglich als unvollständig.
+Die Remote-CIM-Abfrage verwendet die aktuelle Windows-Identität und die normale WSMan-Konfiguration. Ein UI-Zeitlimit verhindert langes Blockieren. Ist CIM/WSMan nicht verfügbar, bleiben DNS, Ping, NetSupport und RDP unabhängig nutzbar.
 
-Die Detaildaten werden bewusst **nicht** in `settings.json` gespeichert, weil sie schnell veralten können.
+Diese Informationen werden bewusst nicht gespeichert, weil sie schnell veralten können.
 
 ---
 
@@ -121,14 +187,14 @@ MainWindow
    |               |       +--> EmbeddedRdpSessionLauncher
    |               |               +--> RdpSessionWindow
    |               |                       +--> RdpActiveXControl
-   |               |                               +--> MsTscAx.dll / IMsTscAxEvents
-   |               +--> mstsc.exe Fallback
+   |               |                               +--> MsTscAx.dll
+   |               +--> mstsc.exe fallback
    |
    +--> ITargetDiscoveryService
-   |       +--> DomainComputerDiscoveryService --> Get-ADComputer
+   |       +--> DomainComputerDiscoveryService
    |
    +--> ITargetDetailsService
-   |       +--> PowerShellTargetDetailsService --> DNS + Get-CimInstance
+   |       +--> PowerShellTargetDetailsService
    |
    +--> HostAvailabilityService
    |
@@ -136,20 +202,18 @@ MainWindow
            +--> %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-### Erweiterungspunkte
+Erweiterungspunkte:
 
-- Remote-Technologien: `IRemoteProvider`
-- Rechnerquellen: `ITargetDiscoveryService`
-- Rechnerdetailquellen: `ITargetDetailsService`
-- eingebettete RDP-Sessions: `IRdpSessionLauncher`
-
-Dadurch bleiben Oberfläche, Rechnerquellen, Inventardaten, Remote-Provider und Session-Hosting voneinander getrennt.
+- `IRemoteProvider` – weitere Remote-Technologien
+- `ITargetDiscoveryService` – weitere Rechnerquellen
+- `ITargetDetailsService` – weitere Inventar-/Detailquellen
+- `IRdpSessionLauncher` – alternatives RDP-Session-Hosting
 
 ---
 
 ## Konfiguration
 
-Die Konfiguration liegt unabhängig von NetSupport- und GPO-Profilen im Benutzerprofil:
+Pfad:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
@@ -167,7 +231,10 @@ Beispiel:
     {
       "name": "PC-001",
       "host": "PC-001",
-      "description": "Büro",
+      "description": "Büro-PC",
+      "isFavorite": true,
+      "group": "Büro",
+      "preferredProviderId": "netsupport",
       "rdpUserName": "max.mustermann",
       "rdpDomain": "CONTOSO",
       "rdpRedirectClipboard": true,
@@ -178,38 +245,45 @@ Beispiel:
 }
 ```
 
-RDP-Passwörter werden bewusst **nicht** gespeichert. Rechnerdetails wie OS, IP und Benutzer sind ebenfalls nur Laufzeitdaten.
+Nicht gespeichert werden unter anderem:
+
+- Passwörter
+- aktueller Online-/Offline-Status
+- aktuelle IP-Adressen
+- aktuell angemeldeter Benutzer
+- Laufzeit-Windowsinformationen
 
 ---
 
 ## Build und Test
 
-Voraussetzungen:
-
-- Windows 10 oder Windows 11
-- .NET 8 SDK für lokale Entwicklung
-- RSAT / ActiveDirectory-PowerShell-Modul für AD-Suche
-- WSMan/CIM-Zugriff für vollständige Rechnerdetails
-- installierter NetSupport Manager Control für NetSupport-Aktionen
+Lokaler Build:
 
 ```powershell
 dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
 ```
 
-GitHub Actions erzeugt zusätzlich einen self-contained Windows-x64-Testbuild als Artefakt `NetSupport.RemoteAdmin-win-x64`. Die praktische Testcheckliste liegt in [`docs/TESTING.md`](TESTING.md).
+GitHub Actions führt zusätzlich einen self-contained Windows-x64-Publish aus und lädt das Artefakt
+
+```text
+NetSupport.RemoteAdmin-win-x64
+```
+
+hoch.
+
+Die praktische Testcheckliste liegt in [`TESTING.md`](TESTING.md).
 
 ---
 
-## Nächste Ausbaustufen
+## Nächste sinnvolle Ausbaustufen
 
-- ausgewählte Monitorgruppen statt nur „alle Monitore“
+- Auswahl bestimmter Monitor-IDs statt nur aller Monitore
 - weitere Tastatur-/Sondertasten-Werkzeuge
 - detailliertere RDP-Fehlertexte
 - weitere Redirects wie Laufwerke oder Audio
 - Session-Historie / letzte Verbindung
-- Favoriten und Rechnergruppen
-- bevorzugter Remote-Provider pro Rechner
+- optional gespeicherte Ansichten/Filter
 - weitere Discovery-, Details- und Remote-Provider
 
 ---
@@ -218,23 +292,17 @@ GitHub Actions erzeugt zusätzlich einen self-contained Windows-x64-Testbuild al
 
 - Bedienung zuerst
 - wenig Klicks für häufige Aufgaben
-- keine Abhängigkeit von instabil verteilten NetSupport-UI-Einstellungen
-- klare Trennung zwischen UI, Discovery, Rechnerdetails und Remote-Backends
-- möglichst wenige externe Abhängigkeiten
+- explizites Speichern dauerhafter Organisationsänderungen
 - keine Speicherung von Passwörtern
 - flüchtige Inventardaten nicht unnötig persistieren
-- Konfiguration verständlich und transparent halten
+- klare Trennung der Verantwortlichkeiten
+- neue Funktionen so integrieren, dass Backends später austauschbar bleiben
 
 ---
 
-## Aktueller Entwicklungsbranch
+## Entwicklungsbranch und Pull Request
 
 ```text
 feature/extensible-remote-admin
-```
-
-Aktueller Pull Request:
-
-```text
 PR #1 – Add extensible remote admin frontend
 ```
