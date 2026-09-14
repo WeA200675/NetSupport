@@ -1,8 +1,8 @@
 <Window x:Class="NetSupport.RemoteAdmin.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Remote Admin" Height="680" Width="1060"
-        MinHeight="560" MinWidth="880"
+        Title="Remote Admin" Height="720" Width="1100"
+        MinHeight="580" MinWidth="900"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="18">
         <Grid.RowDefinitions>
@@ -32,21 +32,28 @@
         <Grid Grid.Row="2" Margin="0,0,0,12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="155"/>
+                <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="FilterTextBox" Height="32" VerticalContentAlignment="Center" Padding="9,0"
-                     ToolTip="Rechner filtern" TextChanged="FilterTextBox_OnTextChanged"/>
-            <Button Grid.Column="1" x:Name="LoadDomainButton" Content="Domäne laden" Height="32" Width="120" Margin="8,0,0,0"
+                     ToolTip="Name, Host, Beschreibung oder Gruppe filtern" TextChanged="FilterTextBox_OnTextChanged"/>
+            <ComboBox x:Name="GroupFilterComboBox" Grid.Column="1" Height="32" Margin="8,0,0,0"
+                      VerticalContentAlignment="Center" ToolTip="Rechnergruppe filtern"
+                      SelectionChanged="GroupFilterComboBox_OnSelectionChanged"/>
+            <CheckBox x:Name="FavoritesOnlyCheckBox" Grid.Column="2" Content="Nur Favoriten" Margin="12,0,4,0"
+                      VerticalAlignment="Center" Checked="FavoritesOnlyCheckBox_OnChanged" Unchecked="FavoritesOnlyCheckBox_OnChanged"/>
+            <Button Grid.Column="3" x:Name="LoadDomainButton" Content="Domäne laden" Height="32" Width="120" Margin="8,0,0,0"
                     Click="LoadDomainButton_OnClick"/>
-            <Button Grid.Column="2" x:Name="RefreshStatusButton" Content="Status prüfen" Height="32" Width="120" Margin="8,0,0,0"
+            <Button Grid.Column="4" x:Name="RefreshStatusButton" Content="Status prüfen" Height="32" Width="120" Margin="8,0,0,0"
                     Click="RefreshStatusButton_OnClick"/>
         </Grid>
 
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="3*"/>
-                <ColumnDefinition Width="2.35*"/>
+                <ColumnDefinition Width="2.45*"/>
             </Grid.ColumnDefinitions>
 
             <GroupBox Header="Rechner" Margin="0,0,12,0">
@@ -57,15 +64,18 @@
                         <DataTemplate>
                             <Grid Margin="2,4">
                                 <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <StackPanel>
+                                <TextBlock Text="{Binding FavoriteMarker}" FontSize="15" VerticalAlignment="Top" Margin="0,0,7,0"/>
+                                <StackPanel Grid.Column="1">
                                     <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding Host}" Opacity="0.65" FontSize="11"/>
+                                    <TextBlock Text="{Binding Group}" Opacity="0.62" FontSize="11" FontWeight="SemiBold"/>
                                     <TextBlock Text="{Binding Description}" Opacity="0.55" FontSize="11" TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="{Binding StatusText}" VerticalAlignment="Center" Margin="12,0,4,0"/>
+                                <TextBlock Grid.Column="2" Text="{Binding StatusText}" VerticalAlignment="Center" Margin="12,0,4,0"/>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -80,6 +90,32 @@
                             <TextBlock x:Name="SelectedTargetNameTextBlock" Text="Kein Rechner ausgewählt" FontSize="18" Margin="0,6,0,0"/>
                             <TextBlock x:Name="SelectedTargetHostTextBlock" Opacity="0.65" Margin="0,2,0,0"/>
                             <TextBlock x:Name="SelectedTargetStatusTextBlock" Opacity="0.75" Margin="0,4,0,0"/>
+
+                            <Grid Margin="0,10,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="92"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Text="Favorit" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <CheckBox x:Name="FavoriteCheckBox" Grid.Column="1" Content="Bevorzugt anzeigen" VerticalAlignment="Center"/>
+
+                                <TextBlock Grid.Row="1" Text="Gruppe" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,7,0,0"/>
+                                <TextBox x:Name="TargetGroupTextBox" Grid.Row="1" Grid.Column="1" Height="28" Margin="0,7,0,0"
+                                         Padding="7,0" VerticalContentAlignment="Center" ToolTip="Zum Beispiel Büro, Werkstatt, Server"/>
+
+                                <TextBlock Grid.Row="2" Text="Standard" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,7,0,0"/>
+                                <ComboBox x:Name="PreferredProviderComboBox" Grid.Row="2" Grid.Column="1" Height="28" Margin="0,7,0,0"
+                                          DisplayMemberPath="DisplayName" VerticalContentAlignment="Center"/>
+                            </Grid>
+
+                            <Button x:Name="StandardConnectButton" Content="Standardverbindung starten" Height="32" Margin="0,10,0,0"
+                                    Click="StandardConnectButton_OnClick"/>
 
                             <Separator Margin="0,10,0,8"/>
 
@@ -128,7 +164,7 @@
                         <Button Content="Dateien" Tag="netsupport|FileTransfer" Height="42" Margin="0,6,6,6" Click="QuickActionButton_OnClick"/>
                         <Button Content="Inventar" Tag="netsupport|Inventory" Height="42" Margin="6,6,0,6" Click="QuickActionButton_OnClick"/>
                         <Button Content="Chat" Tag="netsupport|Chat" Height="42" Margin="0,6,6,0" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Speichern" Height="42" Margin="6,6,0,0" Click="SaveTargetButton_OnClick"/>
+                        <Button Content="Speichern / Aktualisieren" Height="42" Margin="6,6,0,0" Click="SaveTargetButton_OnClick"/>
                     </UniformGrid>
 
                     <Expander Header="Erweitert" Margin="0,18,0,0">
