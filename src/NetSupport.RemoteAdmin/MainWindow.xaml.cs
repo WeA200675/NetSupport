@@ -20,6 +20,7 @@ public partial class MainWindow : Window
     private readonly RemoteProviderRegistry _providers;
     private readonly ITargetDiscoveryService _discovery;
     private readonly HostAvailabilityService _availability;
+    private readonly ITargetDetailsService _detailsService;
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly List<RemoteTarget> _targets = new();
     private CancellationTokenSource? _statusCancellation;
@@ -30,7 +31,8 @@ public partial class MainWindow : Window
         ConfigService configService,
         RemoteProviderRegistry providers,
         ITargetDiscoveryService discovery,
-        HostAvailabilityService availability)
+        HostAvailabilityService availability,
+        ITargetDetailsService detailsService)
     {
         InitializeComponent();
 
@@ -39,6 +41,7 @@ public partial class MainWindow : Window
         _providers = providers;
         _discovery = discovery;
         _availability = availability;
+        _detailsService = detailsService;
         _targets.AddRange(_config.Targets);
 
         ProviderComboBox.ItemsSource = _providers.All.Where(p => p.IsAvailable).ToList();
@@ -145,17 +148,81 @@ public partial class MainWindow : Window
 
     private void UpdateSelectedTargetCard(RemoteTarget? target)
     {
+        RefreshDetailsButton.IsEnabled = target is not null;
+
         if (target is null)
         {
             SelectedTargetNameTextBlock.Text = "Kein Rechner ausgewählt";
             SelectedTargetHostTextBlock.Text = string.Empty;
             SelectedTargetStatusTextBlock.Text = "Rechner auswählen oder oben einen Namen eingeben.";
+            SelectedTargetIpTextBlock.Text = "–";
+            SelectedTargetUserTextBlock.Text = "–";
+            SelectedTargetOsTextBlock.Text = "–";
+            SelectedTargetModelTextBlock.Text = "–";
+            SelectedTargetLastCheckTextBlock.Text = "–";
+            SelectedTargetDetailsErrorTextBlock.Text = string.Empty;
             return;
         }
 
         SelectedTargetNameTextBlock.Text = string.IsNullOrWhiteSpace(target.Name) ? target.Host : target.Name;
         SelectedTargetHostTextBlock.Text = target.Host;
         SelectedTargetStatusTextBlock.Text = target.StatusText;
+
+        var details = target.Details;
+        SelectedTargetIpTextBlock.Text = details?.IpAddresses ?? "–";
+        SelectedTargetUserTextBlock.Text = details?.LoggedOnUser ?? "–";
+        SelectedTargetOsTextBlock.Text = details?.OperatingSystemDisplay ?? "–";
+        SelectedTargetModelTextBlock.Text = details?.ComputerModel ?? "–";
+
+        var lastCheck = target.LastStatusCheck ?? details?.CheckedAt;
+        SelectedTargetLastCheckTextBlock.Text = lastCheck is null
+            ? "–"
+            : lastCheck.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss");
+
+        SelectedTargetDetailsErrorTextBlock.Text = string.IsNullOrWhiteSpace(details?.ManagementError)
+            ? string.Empty
+            : $"Verwaltungsdaten nicht vollständig: {details.ManagementError}";
+    }
+
+    private async void RefreshDetailsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var target = CurrentTarget;
+        if (target is null)
+        {
+            StatusTextBlock.Text = "Bitte zuerst einen Rechner auswählen.";
+            return;
+        }
+
+        try
+        {
+            RefreshDetailsButton.IsEnabled = false;
+            StatusTextBlock.Text = $"Lade Rechnerdetails für {target.Host} über {_detailsService.DisplayName} …";
+
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+            target.Details = await _detailsService.GetDetailsAsync(target, timeout.Token);
+
+            if (SelectedTarget is not null &&
+                string.Equals(SelectedTarget.Host, target.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                UpdateSelectedTargetCard(target);
+            }
+
+            StatusTextBlock.Text = string.IsNullOrWhiteSpace(target.Details.ManagementError)
+                ? $"Rechnerdetails für {target.Host} aktualisiert."
+                : $"Rechnerdetails für {target.Host} teilweise geladen; CIM/WSMan ist nicht vollständig verfügbar.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusTextBlock.Text = $"Rechnerdetails für {target.Host}: Zeitlimit erreicht.";
+        }
+        catch (Exception ex)
+        {
+            StatusTextBlock.Text = $"Rechnerdetails konnten nicht geladen werden: {ex.Message}";
+        }
+        finally
+        {
+            RefreshDetailsButton.IsEnabled = SelectedTarget is not null;
+        }
     }
 
     private async void QuickActionButton_OnClick(object sender, RoutedEventArgs e)
@@ -265,6 +332,7 @@ public partial class MainWindow : Window
                     target.Status = await _availability.IsOnlineAsync(target.Host, cancellationToken: cancellationToken)
                         ? HostStatus.Online
                         : HostStatus.Offline;
+                    target.LastStatusCheck = DateTimeOffset.Now;
                 }
                 finally
                 {
@@ -364,7 +432,8 @@ public partial class MainWindow : Window
             RdpUserName = target.RdpUserName,
             RdpDomain = target.RdpDomain,
             RdpRedirectClipboard = target.RdpRedirectClipboard,
-            RdpAdminSession = target.RdpAdminSession
+            RdpAdminSession = target.RdpAdminSession,
+            RdpUseMultiMonitor = target.RdpUseMultiMonitor
         });
 
         if (!_targets.Any(t => string.Equals(t.Host, target.Host, StringComparison.OrdinalIgnoreCase)))
