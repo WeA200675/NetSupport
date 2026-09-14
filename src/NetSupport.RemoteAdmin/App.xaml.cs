@@ -15,11 +15,12 @@ public partial class App : System.Windows.Application
             var configService = new ConfigService();
             var config = await configService.LoadAsync();
             var rdpSessionLauncher = new EmbeddedRdpSessionLauncher(config, configService);
+            var rdpConnectionFileService = new RdpConnectionFileService(configService.ConfigDirectory);
 
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
                 new NetSupportProvider(config),
-                new RdpProvider(config, rdpSessionLauncher)
+                new RdpProvider(config, rdpSessionLauncher, rdpConnectionFileService)
             });
 
             var discovery = new DomainComputerDiscoveryService();
@@ -33,7 +34,8 @@ public partial class App : System.Windows.Application
                 discovery,
                 availability,
                 detailsService,
-                historyService);
+                historyService,
+                rdpConnectionFileService);
             MainWindow = window;
 
             if (!config.StartMinimized)
