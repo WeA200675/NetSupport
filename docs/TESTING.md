@@ -71,6 +71,7 @@ prüfen:
 - `PCICTLUI.EXE` wird gefunden oder verständlich als fehlend gemeldet
 - bei gültiger Datei werden Produkt-/Dateiversion soweit verfügbar angezeigt
 - bei absichtlich falschem konfiguriertem Pfad wird eine alternative lokale Installation als Hinweis erkannt, sofern vorhanden
+- NetSupport-Control-Profil wird separat geprüft
 - RSAT/ActiveDirectory-Modul wird korrekt erkannt
 - lokales CIM/WSMan wird geprüft
 - Autostartzustand wird angezeigt
@@ -132,6 +133,81 @@ Dieser Test prüft die Provider-Härtung.
 7. anschließend den korrekten NetSupport-Pfad über **Automatisch erkennen** oder **NetSupport prüfen…** wiederherstellen
 
 Der Provider darf ausschließlich `PCICTLUI.EXE` starten.
+
+---
+
+## 4a. NetSupport-Control-Profile
+
+In NetSupport Manager für den aktuellen Windows-Benutzer ein Testprofil anlegen, zum Beispiel:
+
+```text
+Helpdesk Test
+```
+
+NetSupport verwaltet diese Profile unter:
+
+```text
+HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
+### Profil erkennen und laden
+
+1. **Erweitert → Einstellungen → NetSupport Manager** öffnen
+2. **Profile neu laden** drücken
+3. `Helpdesk Test` muss in der Liste erscheinen
+4. Profil auswählen
+5. `/F` zunächst deaktiviert lassen
+6. speichern
+7. **Systemzustand** öffnen
+8. **NetSupport Control-Profil** muss OK anzeigen
+9. Diagnoseprotokoll aktivieren
+10. eine NetSupport-Aktion starten
+11. Diagnose muss `/n "Helpdesk Test"` in der erzeugten `PCICTLUI.EXE`-Kommandozeile enthalten
+
+### Feste Profilbindung
+
+1. **Control auf dieses Profil festlegen (/F)** aktivieren
+2. speichern
+3. NetSupport-Aktion starten
+4. Diagnose muss `/f /n "Helpdesk Test"` enthalten
+5. prüfen, dass NetSupport den Control entsprechend seiner `/F`-/`/N`-Semantik auf das gewählte Profil beschränkt
+
+### Fehlendes Profil
+
+1. Anwendung schließen oder Einstellungsfenster schließen
+2. Testprofil in NetSupport Manager umbenennen oder löschen
+3. Anwendung erneut verwenden
+4. **Systemzustand** muss das konfigurierte Profil als fehlend melden
+5. eine Remote-Aktion darf **nicht** stillschweigend mit einem anderen Profil starten
+6. verständliche Fehlermeldung muss erscheinen
+
+### Ungültige Kombinationen
+
+Prüfen:
+
+- `/F` aktivieren und Profilfeld leeren → Speichern muss blockiert werden
+- Profilname mit `"` oder Zeilenumbruch über manipulierte Konfiguration → Provider muss Start blockieren
+- unbekannten, aber syntaktisch gültigen Profilnamen speichern → Warnung; Remote-Start bleibt blockiert, bis das Profil lokal vorhanden ist
+
+### Profilpasswort
+
+Falls das NetSupport-Profil selbst passwortgeschützt ist:
+
+- Passwortabfrage muss weiterhin von NetSupport kommen
+- das Remote-Admin-Tool darf kein Profilpasswort speichern
+- im Diagnoseprotokoll und Supportpaket darf kein Profilpasswort erscheinen
+
+### Supportpaket
+
+Bei aktivierter Anonymisierung prüfen:
+
+- `netSupportProfileConfigured` ist enthalten
+- `netSupportProfileAvailable` ist enthalten
+- `netSupportProfileLocked` ist enthalten
+- der echte Profilname wird als `netsupport-profile` ausgegeben
+- auch Diagnosezeilen im ZIP dürfen den echten Profilnamen nicht mehr enthalten
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
 
 ---
 
@@ -374,6 +450,8 @@ Zusätzlich prüfen:
 - `configuration-summary.json` enthält `remoteAccessPolicy = NetSupport-only`
 - NetSupport-Produkt-/Dateiversion ist enthalten, sofern auslesbar
 - der Erkennungsstatus der NetSupport-Installation ist enthalten
+- NetSupport-Profilstatus und `/F`-Status sind enthalten
+- echter Profilname ist bei Anonymisierung ersetzt
 - Zielnamen sind bei Anonymisierung ersetzt
 - Kennwörter/Credentials sind nicht enthalten
 
@@ -386,6 +464,9 @@ Ein Build ist für den praktischen Pilotbetrieb geeignet, wenn:
 - GitHub Actions vollständig grün ist
 - RDP im Produkt weder sichtbar noch startbar ist
 - NetSupport-Installation auf den vorgesehenen Admin-PCs korrekt erkannt oder bewusst auswählbar ist
+- ein konfiguriertes Control-Profil auf dem Admin-PC erkannt und mit `/N` gestartet wird
+- `/F` nur zusammen mit einem vorhandenen Profil verwendet werden kann
+- ein fehlendes konfiguriertes Profil nicht stillschweigend umgangen wird
 - NetSupport Control/View auf mindestens zwei typischen Ziel-PCs funktioniert
 - eine manipulierte Fremd-EXE nicht über den NetSupport-Provider gestartet werden kann
 - AD-Liste und Filter funktionieren
