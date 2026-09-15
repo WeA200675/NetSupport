@@ -82,7 +82,10 @@ public sealed class RdpActiveXControl : AxHost
         string? domain = null,
         bool redirectClipboard = true,
         bool adminSession = false,
-        bool useMultiMonitor = false)
+        bool useMultiMonitor = false,
+        bool redirectDrives = false,
+        bool redirectMicrophone = false,
+        int audioRedirectionMode = 0)
     {
         if (string.IsNullOrWhiteSpace(host))
             throw new ArgumentException("Ein Zielrechner ist erforderlich.", nameof(host));
@@ -103,7 +106,13 @@ public sealed class RdpActiveXControl : AxHost
             client.Domain = domain.Trim();
 
         ConfigureMultiMonitor(client, useMultiMonitor);
-        ConfigureAdvancedSettings(client, redirectClipboard, adminSession);
+        ConfigureAdvancedSettings(
+            client,
+            redirectClipboard,
+            adminSession,
+            redirectDrives,
+            redirectMicrophone,
+            NormalizeAudioMode(audioRedirectionMode));
         client.Connect();
     }
 
@@ -215,7 +224,10 @@ public sealed class RdpActiveXControl : AxHost
     private static void ConfigureAdvancedSettings(
         dynamic client,
         bool redirectClipboard,
-        bool adminSession)
+        bool adminSession,
+        bool redirectDrives,
+        bool redirectMicrophone,
+        int audioRedirectionMode)
     {
         try
         {
@@ -223,6 +235,9 @@ public sealed class RdpActiveXControl : AxHost
             settings.SmartSizing = true;
             settings.EnableCredSspSupport = true;
             settings.RedirectClipboard = redirectClipboard;
+            settings.RedirectDrives = redirectDrives;
+            settings.AudioCaptureRedirectionMode = redirectMicrophone;
+            settings.AudioRedirectionMode = audioRedirectionMode;
             settings.ConnectToAdministerServer = adminSession;
         }
         catch
@@ -231,6 +246,8 @@ public sealed class RdpActiveXControl : AxHost
             // is unavailable on the local Remote Desktop ActiveX registration.
         }
     }
+
+    private static int NormalizeAudioMode(int value) => value is >= 0 and <= 2 ? value : 0;
 
     private void OnDisconnected(int reason)
     {
