@@ -16,7 +16,9 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock Text="Remote Admin" FontSize="24" FontWeight="SemiBold"/>
-            <TextBlock Text="Schneller Zugriff auf NetSupport, RDP und Domänenrechner" Opacity="0.65" Margin="0,4,0,16"/>
+            <TextBlock Text="Schneller Zugriff auf NetSupport und Domänenrechner" Opacity="0.65" Margin="0,4,0,4"/>
+            <TextBlock Text="Domänenrichtlinie: Remotezugriff erfolgt ausschließlich über NetSupport Manager. RDP wird von dieser Anwendung nicht angeboten."
+                       Opacity="0.62" FontSize="11" Margin="0,0,0,16" TextWrapping="Wrap"/>
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,10">
@@ -185,12 +187,12 @@
                     <UniformGrid Columns="2">
                         <Button Content="Steuern" Tag="netsupport|Control" Height="42" Margin="0,0,6,6" Click="QuickActionButton_OnClick"/>
                         <Button Content="Nur ansehen" Tag="netsupport|View" Height="42" Margin="6,0,0,6" Click="QuickActionButton_OnClick"/>
-                        <Button Content="RDP" Tag="rdp|Control" Height="42" Margin="0,6,6,6" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Remote CMD" Tag="netsupport|CommandPrompt" Height="42" Margin="6,6,0,6" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Dateien" Tag="netsupport|FileTransfer" Height="42" Margin="0,6,6,6" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Inventar" Tag="netsupport|Inventory" Height="42" Margin="6,6,0,6" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Chat" Tag="netsupport|Chat" Height="42" Margin="0,6,6,0" Click="QuickActionButton_OnClick"/>
-                        <Button Content="Speichern / Aktualisieren" Height="42" Margin="6,6,0,0" Click="SaveTargetButton_OnClick"/>
+                        <Button Content="Remote CMD" Tag="netsupport|CommandPrompt" Height="42" Margin="0,6,6,6" Click="QuickActionButton_OnClick"/>
+                        <Button Content="Dateien" Tag="netsupport|FileTransfer" Height="42" Margin="6,6,0,6" Click="QuickActionButton_OnClick"/>
+                        <Button Content="Inventar" Tag="netsupport|Inventory" Height="42" Margin="0,6,6,6" Click="QuickActionButton_OnClick"/>
+                        <Button Content="Chat" Tag="netsupport|Chat" Height="42" Margin="6,6,0,6" Click="QuickActionButton_OnClick"/>
+                        <Button Content="Speichern / Aktualisieren" Height="42" Margin="0,6,6,0" Click="SaveTargetButton_OnClick"/>
+                        <Button Content="Einstellungen" Height="42" Margin="6,6,0,0" Click="OpenSettingsButton_OnClick"/>
                     </UniformGrid>
 
                     <Expander Header="Zuletzt verwendet" Margin="0,18,0,0" IsExpanded="True">
@@ -230,25 +232,10 @@
                             <TextBlock Text="Aktion" FontWeight="SemiBold" Margin="0,12,0,6"/>
                             <ComboBox x:Name="ActionComboBox" Height="32"/>
 
-                            <TextBlock Text="Gezielte RDP-Monitore" FontWeight="SemiBold" Margin="0,12,0,6"/>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox x:Name="SelectedMonitorIdsTextBox" Height="30" VerticalContentAlignment="Center" Padding="8,0"
-                                         ToolTip="Kommagetrennte IDs, z. B. 0,1. Leer = normaler eingebetteter RDP-Modus."/>
-                                <Button Grid.Column="1" Content="IDs anzeigen" Height="30" Margin="8,0,0,0" Padding="12,0"
-                                        ToolTip="Startet mstsc.exe /l und zeigt die lokalen RDP-Monitor-IDs."
-                                        Click="ShowMonitorIdsButton_OnClick"/>
-                            </Grid>
-                            <TextBlock Text="Mit Monitor-IDs nutzt RDP den dokumentierten selectedmonitors-Pfad über mstsc/.rdp."
-                                       Opacity="0.55" FontSize="11" TextWrapping="Wrap" Margin="0,5,0,0"/>
+                            <TextBlock Text="Gemäß Domänenrichtlinie wird nur NetSupport als Remote-Provider registriert."
+                                       Opacity="0.55" FontSize="11" TextWrapping="Wrap" Margin="0,8,0,0"/>
 
-                            <UniformGrid Columns="2" Margin="0,12,0,0">
-                                <Button Content="Einstellungen" Height="32" Margin="0,0,5,0" Click="OpenSettingsButton_OnClick"/>
-                                <Button Content="Konfigurationsordner" Height="32" Margin="5,0,0,0" Click="OpenConfigButton_OnClick"/>
-                            </UniformGrid>
+                            <Button Content="Konfigurationsordner" Height="32" Margin="0,12,0,0" Click="OpenConfigButton_OnClick"/>
                         </StackPanel>
                     </Expander>
                 </StackPanel>
