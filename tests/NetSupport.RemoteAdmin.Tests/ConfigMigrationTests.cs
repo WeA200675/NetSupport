@@ -53,6 +53,29 @@ public sealed class ConfigMigrationTests
         Assert.Equal(expected, ConfigNormalizer.NormalizePreferredAction(input));
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(65536)]
+    public void Normalize_InvalidNetSupportClientPort_FallsBackToDefault(int port)
+    {
+        var config = new AppConfig { NetSupportClientPort = port };
+
+        ConfigNormalizer.Normalize(config);
+
+        Assert.Equal(NetSupportReachabilityService.DefaultClientPort, config.NetSupportClientPort);
+    }
+
+    [Fact]
+    public void Normalize_KeepsCustomValidNetSupportClientPort()
+    {
+        var config = new AppConfig { NetSupportClientPort = 15405 };
+
+        ConfigNormalizer.Normalize(config);
+
+        Assert.Equal(15405, config.NetSupportClientPort);
+    }
+
     [Fact]
     public void Normalize_RepairsNullCollectionsFromMalformedOrLegacyJson()
     {
@@ -69,6 +92,7 @@ public sealed class ConfigMigrationTests
         ConfigNormalizer.Normalize(config);
 
         Assert.Equal(ConfigNormalizer.CurrentSchemaVersion, config.SchemaVersion);
+        Assert.Equal(NetSupportReachabilityService.DefaultClientPort, config.NetSupportClientPort);
         Assert.NotNull(config.Targets);
         Assert.Empty(config.Targets);
         Assert.NotNull(config.SavedViews);
@@ -127,5 +151,6 @@ public sealed class ConfigMigrationTests
         Assert.Equal("netsupport", target.PreferredProviderId);
         Assert.Equal("Control", target.PreferredAction);
         Assert.Equal(@"C:\Program Files\NetSupport\NetSupport Manager\PCICTLUI.EXE", config.NetSupportExecutable);
+        Assert.Equal(NetSupportReachabilityService.DefaultClientPort, config.NetSupportClientPort);
     }
 }
