@@ -108,7 +108,7 @@ Gespeichert werden nur:
 
 Der Verlauf ist auf 100 Einträge begrenzt, kann gelöscht werden und enthält keine Passwörter, Bildschirminhalte oder CIM-Inventardaten.
 
-Über **CSV exportieren** kann der vollständige lokale Verlauf semikolongetrennt und als UTF-8 mit BOM exportiert werden. Das Format ist bewusst auf zuverlässiges Öffnen in deutschsprachigen Excel-Installationen ausgelegt.
+Über **CSV exportieren** kann der vollständige lokale Verlauf semikolongetrennt und als UTF-8 mit BOM exportiert werden.
 
 Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md) und [`OPERATIONS.md`](OPERATIONS.md).
 
@@ -139,8 +139,6 @@ Wert:
 NetSupportRemoteAdmin
 ```
 
-Dadurch werden keine computerweiten Einstellungen oder Gruppenrichtlinien verändert.
-
 ### Diagnoseprotokoll
 
 Optionales Log:
@@ -149,15 +147,7 @@ Optionales Log:
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-Das Log wird bei ungefähr 2 MB nach
-
-```text
-application.log.1
-```
-
-rotiert.
-
-Erfasst werden unter anderem Programmstart/-ende, Remote-Aktionsstarts, Provider/Aktion/Zielhost, AD-Ladevorgänge, Statusprüfungen und Fehler. Nicht protokolliert werden Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte.
+Das Log wird bei ungefähr 2 MB nach `application.log.1` rotiert. Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte werden nicht protokolliert.
 
 Details: [`OPERATIONS.md`](OPERATIONS.md).
 
@@ -165,21 +155,7 @@ Details: [`OPERATIONS.md`](OPERATIONS.md).
 
 ## Supportpaket
 
-`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche.
-
-Aktuelle Implementierung:
-
-```text
-ISupportBundleService
-   +--> SupportBundleService
-           +--> AppConfig (bereinigte Zusammenfassung)
-           +--> ISessionHistoryService
-           +--> IDiagnosticLogService
-           +--> System-/Runtime-Informationen
-           +--> ZIP-Erzeugung
-```
-
-Standardmäßig ist die Anonymisierung aktiviert.
+`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche. Standardmäßig ist die Anonymisierung aktiviert.
 
 Das ZIP enthält:
 
@@ -194,7 +170,7 @@ logs/
 
 Die originale `settings.json` wird nicht kopiert. RDP-Passwörter/Credentials, Sitzungsinhalte, Zwischenablageinhalte und Remote-Dateiinhalte werden nicht aufgenommen.
 
-Bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Verlauf und Logs ersetzt. Ziele erscheinen z. B. als `target-001`. Gruppen und Ansichten werden in der Konfigurationsübersicht abstrahiert. RDP-Benutzername/Domain werden dort nur als `konfiguriert: ja/nein` dargestellt.
+Bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Verlauf und Logs ersetzt. Ziele erscheinen z. B. als `target-001`. RDP-Benutzername/Domain werden in der Konfigurationsübersicht nur als `konfiguriert: ja/nein` dargestellt.
 
 Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
@@ -229,16 +205,7 @@ PowerShellTargetDetailsService
    +--> Get-CimInstance Win32_OperatingSystem
 ```
 
-Angezeigt werden:
-
-- IP-Adresse(n)
-- angemeldeter Windows-Benutzer
-- Windows-Edition/-Version
-- Hersteller/Modell
-- letzter Prüfzeitpunkt
-- jüngster bekannter Remote-Start des Hosts
-
-CIM/WSMan-Fehler blockieren die übrigen Remote-Funktionen nicht.
+Angezeigt werden IP-Adresse(n), angemeldeter Windows-Benutzer, Windows-Edition/-Version, Hersteller/Modell, letzter Prüfzeitpunkt und jüngster bekannter Remote-Start des Hosts. CIM/WSMan-Fehler blockieren die übrigen Remote-Funktionen nicht.
 
 ---
 
@@ -272,17 +239,33 @@ Aktuelle Funktionen:
 - Connect / Reconnect / Disconnect
 - Vollbild
 - Connecting-/Connected-/Login-/Disconnect-Status
-- Extended Disconnect Reason
-- Fatal-Error-Anzeige
-- Remote-Auflösung
-- Auto-Reconnect-Status
+- Extended Disconnect Reason und Fatal-Error-Anzeige
+- Remote-Auflösung und Auto-Reconnect-Status
 - SmartSizing
 - Zwischenablage
+- Laufwerksumleitung, standardmäßig deaktiviert
+- Mikrofonumleitung, standardmäßig deaktiviert
+- Audioausgabe: lokal / remote / aus
 - Admin-Sitzung
-- Benutzername/Domäne
-- keine Passwortspeicherung
+- Benutzername/Domäne ohne Passwortspeicherung
 - Remote Alt+Tab, Start und Task-Manager
 - Multi-Monitor über `UseMultimon`
+
+Nicht geheime RDP-Präferenzen werden für gespeicherte Ziele erhalten. Audio-/Geräteoptionen werden vor dem Verbindungsaufbau gesetzt und sind daher ab dem nächsten Verbinden/Neuverbinden wirksam.
+
+### Externer RDP-Pfad
+
+Der externe `mstsc.exe`-Weg verwendet eine von `RdpConnectionFileService` erzeugte credential-freie `.rdp`-Datei. Dadurch werden folgende Präferenzen konsistent übertragen:
+
+- Bildschirmmodus
+- Multi-Monitor
+- optionale ausgewählte Monitor-IDs
+- Zwischenablage
+- Laufwerke
+- Mikrofon
+- Audioausgabe
+
+Eine Admin-Sitzung wird zusätzlich über `/admin` angefordert.
 
 ### Gezielte Monitorwahl
 
@@ -292,22 +275,12 @@ Für einzelne lokale RDP-Monitore kann pro Ziel gespeichert werden:
 "rdpSelectedMonitors": "0,1"
 ```
 
-Die lokalen IDs werden mit
-
-```text
-mstsc.exe /l
-```
-
-angezeigt. Im UI steht dafür **IDs anzeigen** bereit.
-
-Ist `rdpSelectedMonitors` gesetzt, erzeugt `IRdpConnectionFileService` eine minimale `.rdp`-Datei mit:
+Lokale IDs werden mit `mstsc.exe /l` angezeigt. Ist `rdpSelectedMonitors` gesetzt, enthält die generierte `.rdp`-Datei unter anderem:
 
 ```text
 use multimon:i:1
 selectedmonitors:s:0,1
 ```
-
-und startet den Windows-RDP-Client damit. Ohne ID-Liste bleibt der normale eingebettete Viewer aktiv.
 
 Die Dateien liegen unter:
 
@@ -316,8 +289,6 @@ Die Dateien liegen unter:
 ```
 
 Sie enthalten keine Passwörter oder Credentials.
-
-Microsoft dokumentiert `SelectedMonitors` inzwischen zusätzlich als benannte Eigenschaft von `IMsRdpExtendedSettings`. Für die aktuelle Phase wird trotzdem der transparente `.rdp`-Pfad verwendet, weil die bestehende AxHost-Kapselung bewusst ohne generierte MSTSCLib-Interop-Assemblies arbeitet. Eine spätere typisierte Extended-Settings-Anbindung kann die Auswahl auch im eingebetteten Viewer ermöglichen.
 
 Details: [`RDP_SELECTED_MONITORS.md`](RDP_SELECTED_MONITORS.md) und [`RDP_SESSION.md`](RDP_SESSION.md).
 
@@ -331,15 +302,7 @@ Details: [`RDP_SELECTED_MONITORS.md`](RDP_SELECTED_MONITORS.md) und [`RDP_SESSIO
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Enthält unter anderem:
-
-- gespeicherte Ziele
-- Favoriten/Gruppen
-- bevorzugte Provider
-- nicht geheime RDP-Präferenzen
-- `rdpSelectedMonitors`
-- gespeicherte Ansichten
-- Start-/RDP-/Diagnoseoptionen
+Enthält unter anderem gespeicherte Ziele, Favoriten/Gruppen, bevorzugte Provider, nicht geheime RDP-Präferenzen, `rdpSelectedMonitors`, gespeicherte Ansichten sowie Start-/RDP-/Diagnoseoptionen.
 
 ### Startverlauf
 
@@ -359,9 +322,7 @@ Enthält unter anderem:
 %AppData%\NetSupportRemoteAdmin\rdp\
 ```
 
-Support-ZIPs werden nicht automatisch im AppData-Verzeichnis abgelegt, sondern nur am vom Benutzer gewählten Zielpfad.
-
-Nicht gespeichert werden RDP-Passwörter oder andere Credentials.
+Support-ZIPs werden nur am vom Benutzer gewählten Zielpfad abgelegt. RDP-Passwörter oder andere Credentials werden nicht gespeichert.
 
 ---
 
@@ -382,24 +343,12 @@ MainWindow
    |                       +--> RdpConnectionFileService
    |                               +--> .rdp + mstsc.exe
    |
-   +--> ITargetDiscoveryService
-   |       +--> DomainComputerDiscoveryService
-   |
-   +--> ITargetDetailsService
-   |       +--> PowerShellTargetDetailsService
-   |
-   +--> ISessionHistoryService
-   |       +--> JsonSessionHistoryService
-   |
-   +--> IAutoStartService
-   |       +--> WindowsAutoStartService --> HKCU Run
-   |
-   +--> IDiagnosticLogService
-   |       +--> DiagnosticLogService --> logs/application.log
-   |
-   +--> ISupportBundleService
-   |       +--> SupportBundleService --> anonymisiertes ZIP
-   |
+   +--> ITargetDiscoveryService --> DomainComputerDiscoveryService
+   +--> ITargetDetailsService --> PowerShellTargetDetailsService
+   +--> ISessionHistoryService --> JsonSessionHistoryService
+   +--> IAutoStartService --> WindowsAutoStartService --> HKCU Run
+   +--> IDiagnosticLogService --> DiagnosticLogService
+   +--> ISupportBundleService --> SupportBundleService
    +--> HostAvailabilityService
    +--> ConfigService
 ```
@@ -427,13 +376,7 @@ dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
 ```
 
-GitHub Actions führt zusätzlich einen self-contained Windows-x64-Publish aus und lädt das Artefakt
-
-```text
-NetSupport.RemoteAdmin-win-x64
-```
-
-hoch.
+GitHub Actions führt zusätzlich einen self-contained Windows-x64-Publish aus und lädt das Artefakt `NetSupport.RemoteAdmin-win-x64` hoch.
 
 Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
@@ -442,9 +385,9 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 ## Nächste sinnvolle Ausbaustufen
 
 - optional `IMsRdpExtendedSettings.SelectedMonitors` typisiert für eingebettetes RDP anbinden
-- weitere RDP-Redirects wie Laufwerke/Audio
 - weitere Tastatur-/Sondertastenfunktionen
 - detailliertere RDP-Fehlertexte
+- differenziertere Laufwerksauswahl statt nur alle/keine
 - Filter/Zeitraum für den History-Export
 - weitere Discovery-, Details-, History-, Support- und Remote-Provider
 
