@@ -77,6 +77,49 @@ NetSupport bleibt dann bewusst der einzige Remote-Provider; es gibt keinen alter
 
 ---
 
+### NetSupport Control-Profil
+
+Der Systemzustand prüft separat die optionale Control-Profilkonfiguration.
+
+Lokale Quelle:
+
+```text
+HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
+Typische Ergebnisse:
+
+#### Info – kein festes Profil konfiguriert
+
+Wenn `netSupportProfileName` leer und `/F` nicht aktiviert ist, verwendet NetSupport sein normales Standardverhalten.
+
+Der Check zeigt zusätzlich an, wie viele lokale Control-Profile erkannt wurden.
+
+#### OK – Profil vorhanden
+
+Wenn ein Profil konfiguriert ist und als Unterschlüssel unter `ConfigList` gefunden wird, ist der Check grün.
+
+Zusätzlich wird angezeigt, ob die Profilbindung aktiv ist:
+
+```text
+/N Profil
+/F + /N Profil
+```
+
+#### Fehler – Profil fehlt oder Konfiguration ungültig
+
+Fehler werden angezeigt, wenn:
+
+- `/F` aktiviert ist, aber kein Profilname gesetzt wurde
+- der Profilname syntaktisch ungültig ist
+- das konfigurierte Profil für den aktuellen Windows-Benutzer nicht vorhanden ist
+
+Ein fehlendes Profil ist bewusst ein Fehler, weil der produktive Provider in diesem Fall ebenfalls den Remote-Start blockiert. Die Anwendung soll nicht stillschweigend mit einem anderen NetSupport-Profil weiterarbeiten.
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
+
+---
+
 ### Active Directory / RSAT
 
 Über eine lokale, nicht interaktive Windows-PowerShell-Abfrage wird geprüft, ob das Modul
@@ -133,16 +176,16 @@ Ein deaktiviertes Protokoll ist kein Fehler, erschwert aber die spätere Fehlers
 
 PowerShell-basierte Checks besitzen ein lokales Zeitlimit von ungefähr acht Sekunden. Dadurch kann eine defekte PowerShell-/CIM-Umgebung das Systemzustandsfenster nicht unbegrenzt blockieren.
 
-Die NetSupport-Installationserkennung selbst ist lokal und durchsucht keine Laufwerke rekursiv.
+NetSupport-Installations- und Profilprüfung sind rein lokal und durchsuchen keine Laufwerke bzw. Zielrechner.
 
 ---
 
 ## Statusstufen
 
 - **OK** – Voraussetzung ist vorhanden und der Check war erfolgreich.
-- **Info** – neutraler Zustand, z. B. Autostart aus.
+- **Info** – neutraler Zustand, z. B. kein festes NetSupport-Profil oder Autostart aus.
 - **Hinweis** – optionale Voraussetzung fehlt oder eine reparierbare Abweichung wurde gefunden.
-- **Fehler** – zentrale lokale Voraussetzung fehlt oder ein notwendiger Pfad ist nicht nutzbar.
+- **Fehler** – zentrale lokale Voraussetzung fehlt oder eine Startkonfiguration würde den NetSupport-Provider blockieren.
 
 ---
 
@@ -157,6 +200,7 @@ SettingsWindow
                    |
                    +--> SystemHealthService
                            +--> INetSupportInstallationService
+                           +--> INetSupportProfileService
                            +--> Dateisystem
                            +--> powershell.exe
                            +--> ActiveDirectory-Modul
@@ -171,6 +215,14 @@ INetSupportInstallationService
    +--> NetSupportInstallationService
 ```
 
+NetSupport-Profilprüfung:
+
+```text
+INetSupportProfileService
+   +--> NetSupportProfileService
+           +--> HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
 Modelle:
 
 ```text
@@ -182,6 +234,6 @@ Models/NetSupportInstallationCandidate.cs
 
 ## Sicherheits- und Betriebsprinzip
 
-Der Systemzustand ist ein **lokaler Diagnosecheck**. Er führt keine Remote-Aktionen aus, speichert keine Credentials und ändert keine GPO-/HKLM-Einstellungen.
+Der Systemzustand ist ein **lokaler Diagnosecheck**. Er führt keine Remote-Aktionen aus, speichert keine Credentials und ändert keine GPO-/HKLM- oder NetSupport-ConfigList-Einstellungen.
 
 Damit kann die Seite auf einem neuen Admin-PC verwendet werden, um vor dem produktiven Einsatz fehlende oder veraltete Voraussetzungen zu erkennen.
