@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using Microsoft.Win32;
 using NetSupport.RemoteAdmin.Models;
 
 namespace NetSupport.RemoteAdmin.Services;
@@ -13,17 +12,14 @@ public sealed class SystemHealthService(
     ConfigService configService,
     IAutoStartService autoStartService) : ISystemHealthService
 {
-    private static readonly Guid RdpClientClsid = new("3F859AA3-C2D4-4FAA-B0E4-FD0C9C4E5E3A");
-
     public async Task<IReadOnlyList<SystemHealthCheckResult>> CheckAsync(
         CancellationToken cancellationToken = default)
     {
         var results = new List<SystemHealthCheckResult>
         {
+            CheckRemoteAccessPolicy(),
             CheckConfigDirectory(),
             CheckNetSupport(),
-            CheckMstsc(),
-            CheckRdpActiveX(),
             CheckAutoStart(),
             CheckDiagnostics()
         };
@@ -32,6 +28,11 @@ public sealed class SystemHealthService(
         results.Add(await CheckLocalCimAsync(cancellationToken));
         return results;
     }
+
+    private static SystemHealthCheckResult CheckRemoteAccessPolicy() => Healthy(
+        "Remotezugriffsrichtlinie",
+        "NetSupport-only ist aktiv; RDP wird nicht als Remote-Provider registriert.",
+        "Domänenkonformer Remotezugriff erfolgt ausschließlich über NetSupport Manager.");
 
     private SystemHealthCheckResult CheckConfigDirectory()
     {
@@ -69,30 +70,6 @@ public sealed class SystemHealthService(
         return File.Exists(config.NetSupportExecutable)
             ? Healthy("NetSupport Manager", "PCICTLUI.EXE wurde gefunden.", config.NetSupportExecutable)
             : Error("NetSupport Manager", "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.", config.NetSupportExecutable);
-    }
-
-    private static SystemHealthCheckResult CheckMstsc()
-    {
-        var path = Path.Combine(Environment.SystemDirectory, "mstsc.exe");
-        return File.Exists(path)
-            ? Healthy("Windows Remote Desktop", "mstsc.exe ist verfügbar.", path)
-            : Error("Windows Remote Desktop", "mstsc.exe wurde nicht gefunden.", path);
-    }
-
-    private static SystemHealthCheckResult CheckRdpActiveX()
-    {
-        if (IsClsidRegistered(RdpClientClsid))
-        {
-            return Healthy(
-                "RDP ActiveX",
-                "MsRdpClient12NotSafeForScripting ist registriert.",
-                RdpClientClsid.ToString("B"));
-        }
-
-        return Warning(
-            "RDP ActiveX",
-            "Das eingebettete RDP-Control wurde nicht gefunden.",
-            "Externes mstsc.exe kann weiterhin als Fallback verwendet werden.");
     }
 
     private SystemHealthCheckResult CheckAutoStart() => new()
@@ -160,27 +137,6 @@ public sealed class SystemHealthService(
             ? "Remote-Rechnerdetails können trotzdem abhängig von Firewall/Berechtigungen variieren."
             : result.StandardError.Trim();
         return Warning("CIM / WSMan", "Lokale CIM-Abfrage ist fehlgeschlagen.", details);
-    }
-
-    private static bool IsClsidRegistered(Guid clsid)
-    {
-        var path = $@"CLSID\{{{clsid:D}}}";
-        foreach (var view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
-        {
-            try
-            {
-                using var root = RegistryKey.OpenBaseKey(RegistryHive.ClassesRoot, view);
-                using var key = root.OpenSubKey(path, writable: false);
-                if (key is not null)
-                    return true;
-            }
-            catch
-            {
-                // Try the other registry view. Missing ActiveX is reported as a warning.
-            }
-        }
-
-        return false;
     }
 
     private static async Task<PowerShellResult> RunPowerShellAsync(
