@@ -7,6 +7,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – eingebettetes RDP, Events, Sicherheit, Audio/Redirects und Multi-Monitor
+- [`docs/RDP_DIAGNOSTICS.md`](docs/RDP_DIAGNOSTICS.md) – verständliche Disconnect-Gründe, kopierbare Fehlerdetails und Remote-Aktionen
 - [`docs/RDP_SELECTED_MONITORS.md`](docs/RDP_SELECTED_MONITORS.md) – gezielte Auswahl bestimmter RDP-Monitore und externer RDP-Dateipfad
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
@@ -57,7 +58,7 @@ Normalerweise kann RDP in einem eigenen Fenster der Anwendung eingebettet werden
 - Connect / Reconnect / Disconnect
 - Vollbild
 - Connecting-/Connected-/Login-/Disconnect-Ereignisse
-- verständlichere Disconnect-Informationen
+- verständliche Extended-Disconnect-Diagnose inklusive kopierbarer technischer Details
 - Auto-Reconnect-Anzeige
 - SmartSizing
 - Zwischenablage
@@ -66,7 +67,7 @@ Normalerweise kann RDP in einem eigenen Fenster der Anwendung eingebettet werden
 - Audioausgabe lokal / remote / aus
 - Admin-Sitzung
 - Benutzername/Domäne ohne Passwortspeicherung
-- Remote Alt+Tab, Start und Task-Manager
+- Remote Alt+Tab, Start, Action Center (Win+A) und Task-Manager
 - Multi-Monitor über `UseMultimon`
 
 Für eine **gezielte Auswahl einzelner lokaler Monitore** gibt es zusätzlich einen dokumentierten externen RDP-Pfad:
@@ -114,7 +115,7 @@ Es rotiert bei ungefähr 2 MB nach `application.log.1`. Passwörter, RDP-Credent
 
 Das Supportpaket erzeugt eine ZIP-Datei mit bereinigten System-, Konfigurations-, History- und Logdaten. Die Original-`settings.json` sowie Passwörter/Credentials werden nicht aufgenommen. Die Anonymisierung von Host-/Benutzer-/Rechnerkennungen ist standardmäßig aktiviert.
 
-Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md) und [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md).
+Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md), [`docs/RDP_DIAGNOSTICS.md`](docs/RDP_DIAGNOSTICS.md) und [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md).
 
 ## Persistente Dateien
 
