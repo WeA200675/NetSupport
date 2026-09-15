@@ -51,6 +51,7 @@ public partial class App : System.Windows.Application
 
             var discovery = new DomainComputerDiscoveryService();
             var availability = new HostAvailabilityService();
+            var netSupportReachability = new NetSupportReachabilityService();
             var detailsService = new PowerShellTargetDetailsService();
             var historyService = new JsonSessionHistoryService(configService.ConfigDirectory);
             var window = new MainWindow(
@@ -59,6 +60,7 @@ public partial class App : System.Windows.Application
                 registry,
                 discovery,
                 availability,
+                netSupportReachability,
                 detailsService,
                 historyService,
                 autoStartService,
