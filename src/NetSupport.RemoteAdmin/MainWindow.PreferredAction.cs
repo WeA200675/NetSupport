@@ -60,7 +60,7 @@ public partial class MainWindow
 
         // The existing provider handler rebuilds the action list. Re-apply the target preference
         // afterwards so a provider refresh does not silently reset the visible standard action.
-        Dispatcher.BeginInvoke(() => UpdatePreferredActionEditor(SelectedTarget));
+        Dispatcher.BeginInvoke((Action)(() => UpdatePreferredActionEditor(SelectedTarget)));
     }
 
     private void UpdatePreferredActionEditor(RemoteTarget? target)
