@@ -47,13 +47,16 @@ Geprüft werden bewusst nur lokale, nachvollziehbare Quellen:
 
 Es findet **keine rekursive Laufwerkssuche** statt.
 
-### Neue Einstellungsfunktionen
+### Einstellungsfunktionen
 
 Unter **Erweitert → Einstellungen → NetSupport Manager** stehen zur Verfügung:
 
 - **Durchsuchen…** – Pfad manuell auswählen
 - **Automatisch erkennen** – besten lokal gefundenen gültigen Pfad übernehmen
 - **NetSupport prüfen…** – gefundene Kandidaten mit Quelle und Versionsinformationen anzeigen und bewusst auswählen
+- lokales Control-Profil auswählen
+- **Profile neu laden**
+- optional **Control auf dieses Profil festlegen (/F)**
 
 Das Prüffenster führt keine Remoteverbindung und keinen Netzwerkscan aus.
 
@@ -103,6 +106,8 @@ Andere Programme werden mit einer verständlichen Fehlermeldung abgewiesen.
 NetSupport dokumentiert für `PCICTLUI.EXE` unter anderem:
 
 ```text
+/N Profile name
+/F
 /C ClientName | "Address"
 /V
 /VC
@@ -112,6 +117,8 @@ NetSupport dokumentiert für `PCICTLUI.EXE` unter anderem:
 /A
 /I
 ```
+
+`/N` lädt eine benannte Control-Konfiguration. `/F` wird zusammen mit `/N` verwendet, um den Control auf das gewählte Profil zu beschränken.
 
 Für eine TCP/IP-Adresse verwendet NetSupport die besondere Adressnotation:
 
@@ -125,10 +132,16 @@ Beispiel:
 PCICTLUI.EXE /c">10.0.0.1" /vc /e
 ```
 
-Die NetSupport-DNA-Dokumentation verwendet ebenfalls die Form:
+Mit Profil:
 
 ```text
-PCICTLUI.exe /c">%address%" /v /e
+PCICTLUI.EXE /n "Helpdesk" /c PC-001 /vc /e
+```
+
+Mit Profilbindung:
+
+```text
+PCICTLUI.EXE /f /n "Helpdesk" /c PC-001 /vc /e
 ```
 
 Offizielle Quellen:
@@ -136,6 +149,39 @@ Offizielle Quellen:
 - `https://kb.netsupportsoftware.com/knowledge-base/netsupport-manager-control-command-line-options/`
 - `https://kb.netsupportsoftware.com/knowledge-base/how-to-configure-remote-control-within-netsupport-dna/`
 - `https://kb.netsupportsoftware.com/knowledge-base/how-to-use-pin-connect-via-the-command-line/`
+
+---
+
+## Control-Profile
+
+Die Profilintegration liegt hinter:
+
+```text
+INetSupportProfileService
+   +--> NetSupportProfileService
+```
+
+Vorhandene Profile werden ausschließlich aus folgendem Benutzerzweig gelesen:
+
+```text
+HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
+Die Anwendung verändert diesen NetSupport-Schlüssel nicht.
+
+Vor dem Start gilt:
+
+- Profilname maximal 128 Zeichen
+- keine Anführungszeichen
+- keine Steuerzeichen/Zeilenumbrüche
+- `/F` nur mit gesetztem Profil
+- konfiguriertes Profil muss lokal vorhanden sein
+
+Fehlt ein konfiguriertes Profil, wird der Start blockiert. Es gibt bewusst keinen automatischen Fallback auf das Standardprofil, da dies eine erwartete eingeschränkte Control-Konfiguration umgehen könnte.
+
+NetSupport-Profilpasswörter werden von der Anwendung nicht gespeichert oder an die Kommandozeile angehängt. Eine Passwortabfrage bleibt bei NetSupport.
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
 
 ---
 
@@ -199,7 +245,7 @@ Die NetSupport-IP-Syntax enthält absichtlich eingebettete Anführungszeichen:
 
 `ProcessStartInfo.ArgumentList` escaped Argumente selbstständig für Windows. Dadurch könnte die für NetSupport relevante kompakte Form verändert werden.
 
-Deshalb wird nach strenger Zielvalidierung eine kontrollierte rohe Argumentzeichenfolge über
+Deshalb wird nach strenger Ziel- und Profilvalidierung eine kontrollierte rohe Argumentzeichenfolge über
 
 ```csharp
 ProcessStartInfo.Arguments
@@ -223,6 +269,12 @@ Wenn das Diagnoseprotokoll aktiviert ist, werden unter anderem protokolliert:
 PCICTLUI.EXE /c PC-001 /vc /e
 ```
 
+mit Profil beispielsweise:
+
+```text
+PCICTLUI.EXE /f /n "Helpdesk" /c PC-001 /vc /e
+```
+
 oder bei IP:
 
 ```text
@@ -231,19 +283,23 @@ PCICTLUI.EXE /c">10.20.30.40" /vc /e
 
 Nach erfolgreichem `Process.Start` wird zusätzlich die gestartete Prozess-ID protokolliert.
 
-Hostname/IP gehören zur lokalen technischen Diagnose. Das anonymisierte Supportpaket ersetzt bekannte Zielkennungen dagegen durch `target-...`-Aliase.
+Hostname/IP und Profilname gehören zur lokalen technischen Diagnose. Das anonymisierte Supportpaket ersetzt bekannte Zielkennungen durch `target-...`-Aliase und den konfigurierten Profilnamen durch `netsupport-profile`.
 
 ---
 
 ## Systemzustand
 
-Der lokale Systemzustand unterscheidet jetzt:
+Der lokale Systemzustand unterscheidet bei der Installation:
 
 1. **konfigurierter Pfad gültig** – OK inklusive Produkt-/Dateiversion
 2. **konfigurierter Pfad ungültig, alternative Installation gefunden** – Hinweis mit gefundenem Pfad
 3. **keine Installation auffindbar** – Fehler mit Handlungshinweis
 
-Dadurch lässt sich ein Admin-PC auch dann reparieren, wenn `settings.json` noch auf eine alte Installation zeigt.
+Zusätzlich wird das optionale Control-Profil separat geprüft:
+
+- kein Profil = Info / NetSupport-Standardverhalten
+- Profil vorhanden = OK
+- Profil fehlt, Name ungültig oder `/F` ohne Profil = Fehler
 
 ---
 
@@ -252,14 +308,17 @@ Dadurch lässt sich ein Admin-PC auch dann reparieren, wenn `settings.json` noch
 `configuration-summary.json` enthält zusätzlich nicht geheime NetSupport-Metadaten:
 
 - Control-Pfad konfiguriert: ja/nein
-- konfigurierter Control-Pfad vorhanden: ja/nein
+- konfigurierte Control-Executable verwendbar: ja/nein
 - alternative Installation gefunden: ja/nein
 - Produktname
 - Produktversion
 - Dateiversion
 - Hersteller
+- Profil konfiguriert/verfügbar
+- Profilbindung `/F` aktiv
+- Anzahl lokal erkannter Profile
 
-Der vollständige NetSupport-Installationspfad wird in der bereinigten Support-Zusammenfassung nicht benötigt und nicht zusätzlich aufgenommen.
+Bei aktiver Anonymisierung wird der konkrete Profilname nicht offengelegt.
 
 ---
 
@@ -277,6 +336,10 @@ Der Provider verweigert den Start, wenn der Dateiname nicht `PCICTLUI.EXE` ist �
 
 Ein Ziel mit unerlaubten Zeichen wird **vor** dem Prozessstart abgewiesen.
 
+### Profil fehlt oder ist ungültig
+
+Ein konfiguriertes Profil wird vor dem Start lokal geprüft. Fehlt es oder ist der Name ungültig, wird keine Remote-Aktion gestartet.
+
 ### NetSupport selbst lehnt die Verbindung ab
 
 Der Prozessstart kann technisch erfolgreich sein, obwohl NetSupport den Client später nicht erreicht oder die Verbindung aufgrund seiner eigenen Konfiguration/Berechtigung ablehnt.
@@ -289,7 +352,4 @@ Der lokale Verlauf dokumentiert deshalb den **Startversuch**, nicht den vollstä
 
 - optional Installationsordner auf notwendige NetSupport-Begleitdateien prüfen
 - besser unterscheiden zwischen `PCICTLUI.EXE`-Startfehler und späterem NetSupport-Verbindungsfehler
-- bei Bedarf freigegebene NetSupport-Konfigurationsprofile (`/N`, `/F`) explizit integrieren
 - optional bekannte NetSupport-Versionen/Abweichungen im Supportpaket gegeneinander vergleichbar machen
-
-Konfigurationsprofile werden nur ergänzt, wenn klar ist, welches Profil administrativ vorgesehen ist; die Anwendung soll vorhandene NetSupport-Sicherheitsvorgaben nicht verändern.
