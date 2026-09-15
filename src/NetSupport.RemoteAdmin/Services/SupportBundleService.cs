@@ -188,7 +188,8 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             description = anonymized ? null : target.Description,
             isFavorite = target.IsFavorite,
             group = MapGroup(target.Group),
-            preferredProviderId = target.PreferredProviderId
+            preferredProviderId = target.PreferredProviderId,
+            preferredAction = target.PreferredAction
         }).ToList();
 
         var savedViews = anonymized
@@ -210,7 +211,7 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
         var netSupportCandidates = _netSupportInstallationService.Discover(_config.NetSupportExecutable);
         var configuredNetSupport = netSupportCandidates.FirstOrDefault(candidate =>
             string.Equals(candidate.Source, "Konfiguriert", StringComparison.OrdinalIgnoreCase));
-        var detectedNetSupport = netSupportCandidates.FirstOrDefault(candidate => candidate.Exists);
+        var detectedNetSupport = netSupportCandidates.FirstOrDefault(candidate => candidate.IsUsable);
 
         var data = new
         {
@@ -218,11 +219,11 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             startMinimized = _config.StartMinimized,
             diagnosticLoggingEnabled = _config.DiagnosticLoggingEnabled,
             netSupportExecutableConfigured = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable),
-            netSupportExecutableExists = configuredNetSupport?.Exists == true,
+            netSupportExecutableExists = configuredNetSupport?.IsUsable == true,
             netSupportExecutableFileName = string.IsNullOrWhiteSpace(_config.NetSupportExecutable)
                 ? null
                 : Path.GetFileName(_config.NetSupportExecutable),
-            netSupportAlternativeInstallationFound = configuredNetSupport?.Exists != true && detectedNetSupport is not null,
+            netSupportAlternativeInstallationFound = configuredNetSupport?.IsUsable != true && detectedNetSupport is not null,
             netSupportProductName = detectedNetSupport?.ProductName,
             netSupportProductVersion = detectedNetSupport?.ProductVersion,
             netSupportFileVersion = detectedNetSupport?.FileVersion,
