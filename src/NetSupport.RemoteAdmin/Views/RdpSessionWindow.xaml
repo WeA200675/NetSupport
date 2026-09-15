@@ -4,9 +4,9 @@
         xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="RDP Session"
         Width="1280"
-        Height="860"
-        MinWidth="940"
-        MinHeight="640"
+        Height="880"
+        MinWidth="980"
+        MinHeight="660"
         WindowStartupLocation="CenterOwner">
     <DockPanel>
         <Border DockPanel.Dock="Top" Padding="10" BorderBrush="#DDD" BorderThickness="0,0,0,1">
@@ -25,9 +25,13 @@
                 <StackPanel>
                     <TextBlock x:Name="TargetTextBlock" FontSize="17" FontWeight="SemiBold"/>
                     <TextBlock x:Name="StatusTextBlock" Margin="0,3,0,0" Opacity="0.65" Text="Nicht verbunden"/>
+                    <TextBlock x:Name="SessionDetailTextBlock" Margin="0,3,0,0" Opacity="0.55" FontSize="11"
+                               TextWrapping="Wrap" Visibility="Collapsed"/>
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="CopyDetailsButton" Content="Details kopieren" Padding="12,6" Margin="0,0,8,0"
+                            Visibility="Collapsed" Click="CopyDetailsButton_OnClick"/>
                     <Button x:Name="ReconnectButton" Content="Neu verbinden" Padding="14,6" Margin="0,0,8,0"
                             Click="ReconnectButton_OnClick"/>
                     <Button x:Name="FullscreenButton" Content="Vollbild" Padding="14,6" Margin="0,0,8,0"
@@ -70,6 +74,7 @@
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
 
@@ -86,10 +91,12 @@
                             Click="AppSwitchButton_OnClick"/>
                     <Button Grid.Column="4" Content="Start remote" Padding="12,5" Margin="8,0,0,0"
                             Click="StartScreenButton_OnClick"/>
-                    <Button Grid.Column="5" Content="Task-Manager" Padding="12,5" Margin="8,0,0,0"
+                    <Button Grid.Column="5" Content="Action Center" Padding="12,5" Margin="8,0,0,0"
+                            Click="ActionCenterButton_OnClick"/>
+                    <Button Grid.Column="6" Content="Task-Manager" Padding="12,5" Margin="8,0,0,0"
                             Click="TaskManagerButton_OnClick"/>
 
-                    <TextBlock Grid.Column="6" Text="Zwischenablage/Admin/Mehrere Monitore werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung."
+                    <TextBlock Grid.Column="7" Text="Optionen werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung; Task-Manager hängt von der Windows-Version ab."
                                VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
                 </Grid>
 
