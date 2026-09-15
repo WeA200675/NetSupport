@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Windows;
 using NetSupport.RemoteAdmin.Services;
@@ -41,6 +42,7 @@ public partial class SettingsWindow : Window
         StartMinimizedCheckBox.IsChecked = _config.StartMinimized;
         DiagnosticLoggingCheckBox.IsChecked = _config.DiagnosticLoggingEnabled;
         NetSupportPathTextBox.Text = _config.NetSupportExecutable ?? string.Empty;
+        NetSupportClientPortTextBox.Text = _config.NetSupportClientPort.ToString(CultureInfo.InvariantCulture);
         NetSupportLockProfileCheckBox.IsChecked = _config.NetSupportLockProfile;
         RefreshNetSupportProfiles(_config.NetSupportProfileName);
         LogPathTextBlock.Text = $"Protokoll: {_diagnosticLog.LogPath}";
@@ -270,6 +272,21 @@ public partial class SettingsWindow : Window
             }
         }
 
+        if (!int.TryParse(
+                NetSupportClientPortTextBox.Text.Trim(),
+                NumberStyles.None,
+                CultureInfo.InvariantCulture,
+                out var clientPort) || clientPort is < 1 or > 65535)
+        {
+            System.Windows.MessageBox.Show(
+                "Der NetSupport-Client-Port muss eine Zahl zwischen 1 und 65535 sein. Standard ist TCP 5405.",
+                "NetSupport Client-Port",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            NetSupportClientPortTextBox.Focus();
+            return;
+        }
+
         string? profileName = null;
         var profileInput = NetSupportProfileComboBox.Text.Trim();
         if (!string.IsNullOrWhiteSpace(profileInput))
@@ -312,6 +329,7 @@ public partial class SettingsWindow : Window
             _config.StartMinimized = StartMinimizedCheckBox.IsChecked == true;
             _config.DiagnosticLoggingEnabled = DiagnosticLoggingCheckBox.IsChecked == true;
             _config.NetSupportExecutable = string.IsNullOrWhiteSpace(netSupportPath) ? null : netSupportPath;
+            _config.NetSupportClientPort = clientPort;
             _config.NetSupportProfileName = profileName;
             _config.NetSupportLockProfile = lockProfile;
 
@@ -319,7 +337,7 @@ public partial class SettingsWindow : Window
             await _configService.SaveAsync(_config);
 
             _diagnosticLog.Info(
-                $"Einstellungen gespeichert. Remotezugriffsrichtlinie bleibt NetSupport-only. Control-Profil: {(profileName ?? "Standard")}; Profilbindung: {lockProfile}.");
+                $"Einstellungen gespeichert. Remotezugriffsrichtlinie bleibt NetSupport-only. Client-Port: {clientPort}; Control-Profil: {(profileName ?? "Standard")}; Profilbindung: {lockProfile}.");
             DialogResult = true;
             Close();
         }
