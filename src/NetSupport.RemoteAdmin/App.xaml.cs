@@ -6,9 +6,23 @@ namespace NetSupport.RemoteAdmin;
 
 public partial class App : System.Windows.Application
 {
+    private SingleInstanceGuard? _singleInstanceGuard;
+
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        _singleInstanceGuard = SingleInstanceGuard.TryAcquire();
+        if (_singleInstanceGuard is null)
+        {
+            System.Windows.MessageBox.Show(
+                "NetSupport Remote Admin läuft in dieser Windows-Sitzung bereits.",
+                "NetSupport Remote Admin",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            Shutdown(0);
+            return;
+        }
 
         IDiagnosticLogService? diagnosticLog = null;
         try
@@ -60,5 +74,12 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBox.Show(ex.Message, "NetSupport Remote Admin", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(1);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _singleInstanceGuard?.Dispose();
+        _singleInstanceGuard = null;
+        base.OnExit(e);
     }
 }
