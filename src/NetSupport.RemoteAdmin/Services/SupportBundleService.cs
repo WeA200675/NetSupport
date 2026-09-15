@@ -90,7 +90,7 @@ public sealed class SupportBundleService : ISupportBundleService
         }
     }
 
-    private async Task WriteManifestAsync(
+    private static async Task WriteManifestAsync(
         string directory,
         bool anonymized,
         CancellationToken cancellationToken)
@@ -99,6 +99,7 @@ public sealed class SupportBundleService : ISupportBundleService
 NetSupport Remote Admin - Supportpaket
 Erstellt: {{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss zzz}}
 Anonymisierung: {{(anonymized ? "aktiv" : "deaktiviert")}}
+Remotezugriffsrichtlinie: NetSupport-only
 
 Enthalten:
 - system-info.json: lokale Laufzeit-/Windows-Informationen
@@ -108,8 +109,7 @@ Enthalten:
 - logs/: vorhandene, beim Verpacken bereinigte Diagnoseprotokolle
 
 Nie enthalten:
-- RDP-Passwörter oder andere Kennwörter
-- gespeicherte Windows-Credentials
+- Kennwörter oder gespeicherte Windows-Credentials
 - Bildschirminhalte
 - Zwischenablageinhalte
 - Inhalte übertragener Dateien
@@ -187,16 +187,7 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             description = anonymized ? null : target.Description,
             isFavorite = target.IsFavorite,
             group = MapGroup(target.Group),
-            preferredProviderId = target.PreferredProviderId,
-            rdpUserNameConfigured = !string.IsNullOrWhiteSpace(target.RdpUserName),
-            rdpDomainConfigured = !string.IsNullOrWhiteSpace(target.RdpDomain),
-            rdpRedirectClipboard = target.RdpRedirectClipboard,
-            rdpRedirectDrives = target.RdpRedirectDrives,
-            rdpRedirectMicrophone = target.RdpRedirectMicrophone,
-            rdpAudioRedirectionMode = target.RdpAudioRedirectionMode,
-            rdpAdminSession = target.RdpAdminSession,
-            rdpUseMultiMonitor = target.RdpUseMultiMonitor,
-            rdpSelectedMonitors = target.RdpSelectedMonitors
+            preferredProviderId = target.PreferredProviderId
         }).ToList();
 
         var savedViews = anonymized
@@ -217,9 +208,8 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
 
         var data = new
         {
+            remoteAccessPolicy = "NetSupport-only",
             startMinimized = _config.StartMinimized,
-            useEmbeddedRdp = _config.UseEmbeddedRdp,
-            useFullScreenRdp = _config.UseFullScreenRdp,
             diagnosticLoggingEnabled = _config.DiagnosticLoggingEnabled,
             netSupportExecutableConfigured = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable),
             netSupportExecutableExists = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable)
@@ -358,12 +348,6 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
         AddAlias(aliases, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "user-profile");
         AddAlias(aliases, _configService.ConfigDirectory, "config-directory");
 
-        foreach (var target in _config.Targets)
-        {
-            AddAlias(aliases, target.RdpUserName, "rdp-user");
-            AddAlias(aliases, target.RdpDomain, "rdp-domain");
-        }
-
         return aliases;
     }
 
@@ -405,9 +389,7 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
 
         var result = value;
         foreach (var pair in aliases.OrderByDescending(pair => pair.Key.Length))
-        {
             result = result.Replace(pair.Key, pair.Value, StringComparison.OrdinalIgnoreCase);
-        }
 
         return result;
     }
