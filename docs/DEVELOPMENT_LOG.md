@@ -6,6 +6,67 @@ Diese Datei hält die wesentlichen Entwicklungsschritte und Architekturentscheid
 
 ---
 
+## 2026-09-15 – Bevorzugte NetSupport-Aktion pro Rechner
+
+Gespeicherte Ziele können jetzt zusätzlich enthalten:
+
+```json
+"preferredAction": "Control"
+```
+
+Unterstützte Werte:
+
+```text
+Control
+View
+Chat
+Inventory
+CommandPrompt
+FileTransfer
+```
+
+Bedienlogik:
+
+- die vorhandene Auswahl **Erweitert → Aktion** wird mit dem gespeicherten Wert vorbelegt
+- der Standard-Button zeigt die aktuell gewählte NetSupport-Aktion lesbar an
+- eine geänderte Aktion kann sofort ausprobiert werden, ohne automatisch gespeichert zu werden
+- **Speichern / Aktualisieren** persistiert die Aktion
+- Doppelklick verwendet absichtlich die zuletzt gespeicherte Aktion
+- fehlende/ungültige Werte fallen auf `Control` zurück
+
+Die zusätzliche Logik ist in `MainWindow.PreferredAction.cs` gekapselt.
+
+Details: [`NETSUPPORT_PREFERRED_ACTIONS.md`](NETSUPPORT_PREFERRED_ACTIONS.md).
+
+---
+
+## 2026-09-15 – Installationserkennung gegen Fremd-EXE gehärtet
+
+Beim Gegenprüfen wurde ein Randfall geschlossen: Eine existierende Datei gilt nicht allein deshalb als gültige NetSupport-Installation.
+
+`NetSupportInstallationCandidate` unterscheidet jetzt:
+
+```text
+Exists
+IsControlExecutable
+IsUsable = Exists && IsControlExecutable
+```
+
+Damit gilt eine Installation nur dann als verwendbar, wenn die Datei existiert **und** `PCICTLUI.EXE` heißt.
+
+Diese Definition wird konsistent verwendet in:
+
+- automatischer Erkennung
+- **NetSupport prüfen…**
+- Einstellungszusammenfassung
+- Systemzustand
+- Supportpaket
+- produktivem `NetSupportProvider`
+
+Ein vorhandenes Fremdprogramm wird nicht mehr als NetSupport-Kandidat bevorzugt oder zur Übernahme freigegeben.
+
+---
+
 ## 2026-09-15 – NetSupport-Installationserkennung und lokale Diagnose
 
 Die NetSupport-spezifische Betriebsdiagnose wurde ausgebaut, damit unterschiedliche Admin-PCs mit abweichenden Installationspfaden/Versionen leichter vergleichbar sind.
@@ -306,6 +367,7 @@ README.md
 docs/PROJECT_OVERVIEW.md
 docs/DOMAIN_REMOTE_POLICY.md
 docs/NETSUPPORT_INTEGRATION.md
+docs/NETSUPPORT_PREFERRED_ACTIONS.md
 docs/DEVELOPMENT_LOG.md
 docs/TARGET_ORGANIZATION.md
 docs/SAVED_VIEWS_AND_HISTORY.md
@@ -319,8 +381,8 @@ docs/TESTING.md
 
 ## Nächste technische Optionen
 
+- benannte NetSupport-Control-Konfigurationen (`/N`, optional `/F`) bewusst anbinden
 - NetSupport-Installationsordner optional auf Begleitdateien prüfen
 - NetSupport-Startfehler von späteren Verbindungsfehlern besser unterscheiden
 - zusätzliche Domänen-/Rechnermetadaten
 - Filter/Zeitraum für Verlauf/CSV
-- weitere **freigegebene** Discovery-/Inventarquellen
