@@ -182,7 +182,12 @@ public sealed class JsonSessionHistoryService : ISessionHistoryService
         if (string.IsNullOrEmpty(value))
             return string.Empty;
 
-        var normalized = value.Replace("\r", " ").Replace("\n", " ");
+        // Treat a Windows CRLF as one logical line break so one newline becomes one space.
+        // Afterwards also normalize lone CR/LF values from external error messages.
+        var normalized = value
+            .Replace("\r\n", " ")
+            .Replace("\r", " ")
+            .Replace("\n", " ");
 
         // Spreadsheet applications can interpret CSV cells beginning with =, +, -, @ or a tab
         // as formulas/commands. Prefix an apostrophe before CSV quoting so exported history remains
