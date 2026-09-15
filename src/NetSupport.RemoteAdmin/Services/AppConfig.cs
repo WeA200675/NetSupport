@@ -5,6 +5,8 @@ namespace NetSupport.RemoteAdmin.Services;
 public sealed class AppConfig
 {
     public string? NetSupportExecutable { get; set; }
+    public string? NetSupportProfileName { get; set; }
+    public bool NetSupportLockProfile { get; set; }
     public bool StartMinimized { get; set; }
     public bool DiagnosticLoggingEnabled { get; set; } = true;
     public List<RemoteTarget> Targets { get; set; } = [];
