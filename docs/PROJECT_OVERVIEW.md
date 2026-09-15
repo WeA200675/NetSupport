@@ -39,8 +39,8 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 3. Liste über Text, Gruppe, Favoriten oder gespeicherte Ansicht filtern.
 4. Ziel auswählen.
 5. Optional Online-Status und Rechnerdetails laden.
-6. Favorit, Gruppe und Standard-Provider speichern.
-7. NetSupport-Schnellaktion oder Standardverbindung starten.
+6. Favorit, Gruppe und bevorzugte NetSupport-Aktion speichern.
+7. NetSupport-Schnellaktion oder Standardaktion starten.
 8. Unter **Zuletzt verwendet** Startversuche einsehen oder als CSV exportieren.
 9. Unter **Erweitert → Einstellungen** Start-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
 10. Bei Bedarf **NetSupport prüfen…**, **Systemzustand** oder ein anonymisierbares Supportpaket verwenden.
@@ -96,9 +96,39 @@ Aktuelle Schnellaktionen:
 | **Remote CMD** | Remote Command Prompt |
 | **Dateien** | File Transfer |
 
-### Installationserkennung
+### Bevorzugte Standardaktion pro Rechner
 
-Neue Schicht:
+Ein gespeichertes Ziel kann zusätzlich enthalten:
+
+```json
+"preferredAction": "View"
+```
+
+Unterstützt werden:
+
+```text
+Control
+View
+Chat
+Inventory
+CommandPrompt
+FileTransfer
+```
+
+Die bestehende Auswahl **Erweitert → Aktion** wird beim Auswählen eines Rechners mit dem gespeicherten Wert vorbelegt. Der Standard-Button zeigt die aktuell gewählte Aktion in lesbarer Form.
+
+Verhalten:
+
+- Standard-Button kann eine geänderte, noch nicht gespeicherte Aktion sofort ausprobieren
+- **Speichern / Aktualisieren** persistiert `preferredAction`
+- Doppelklick verwendet bewusst die zuletzt gespeicherte Aktion
+- fehlende/ungültige Werte fallen auf `Control` zurück
+
+Damit bleibt ein Doppelklick reproduzierbar und ältere Konfigurationen behalten ihr bisheriges Verhalten.
+
+Details: [`NETSUPPORT_PREFERRED_ACTIONS.md`](NETSUPPORT_PREFERRED_ACTIONS.md).
+
+### Installationserkennung
 
 ```text
 INetSupportInstallationService
@@ -150,7 +180,8 @@ Persistierbare Zielattribute:
   "description": "Büro 1",
   "isFavorite": true,
   "group": "Büro",
-  "preferredProviderId": "netsupport"
+  "preferredProviderId": "netsupport",
+  "preferredAction": "Control"
 }
 ```
 
@@ -161,7 +192,7 @@ Funktionen:
 - freie Gruppen wie `Büro`, `Werkstatt`, `Server`
 - Gruppenfilter
 - Textsuche über Name, Host, Beschreibung und Gruppe
-- Doppelklick startet die NetSupport-Standardverbindung
+- Doppelklick startet die gespeicherte NetSupport-Standardaktion
 
 Details: [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
 
@@ -169,19 +200,13 @@ Details: [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
 
 ## Gespeicherte Ansichten
 
-Benannte Ansichten speichern:
-
-- Textsuche
-- Gruppenfilter
-- Favoritenfilter
+Benannte Ansichten speichern Textsuche, Gruppenfilter und Favoritenfilter.
 
 Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
 
 ---
 
 ## Active Directory und Status
-
-Discovery:
 
 ```text
 ITargetDiscoveryService
@@ -205,14 +230,7 @@ ITargetDetailsService
            +--> Get-CimInstance Win32_OperatingSystem
 ```
 
-Angezeigt werden unter anderem:
-
-- IP-Adresse(n)
-- angemeldeter Windows-Benutzer
-- Windows-Edition/-Version
-- Hersteller/Modell
-- letzter Prüfzeitpunkt
-- jüngster bekannter Remote-Start
+Angezeigt werden unter anderem IP-Adresse(n), angemeldeter Windows-Benutzer, Windows-Version, Hersteller/Modell und Zeitstempel.
 
 CIM/WSMan-Fehler blockieren die NetSupport-Funktionen nicht.
 
@@ -225,8 +243,6 @@ CIM/WSMan-Fehler blockieren die NetSupport-Funktionen nicht.
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
 ```
-
-Gespeichert werden Zeitpunkt, Ziel, Provider, Aktion, Start-Erfolg/-Fehler und optionaler Fehlertext.
 
 Der Verlauf ist auf 100 Einträge begrenzt und kann als semikolongetrennte UTF-8-CSV mit BOM exportiert werden.
 
@@ -244,11 +260,13 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - Diagnoseordner öffnen
 - Supportpaket erzeugen
 
-Autostart wird ausschließlich im Profil des aktuellen Benutzers verwaltet:
+Autostart wird ausschließlich unter
 
 ```text
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
+
+verwaltet.
 
 ---
 
@@ -274,25 +292,19 @@ Details: [`SYSTEM_HEALTH.md`](SYSTEM_HEALTH.md).
 
 ## Diagnoseprotokoll
 
-Optionales Log:
-
 ```text
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-Rotation bei ungefähr 2 MB nach:
+Rotation erfolgt bei ungefähr 2 MB nach `application.log.1`.
 
-```text
-application.log.1
-```
-
-Das Log enthält Betriebsereignisse und Fehler, aber keine Kennwörter, Bildschirminhalte, Zwischenablageinhalte oder Inhalte übertragener Dateien.
+Das Log enthält Betriebsereignisse und Fehler, aber keine Kennwörter oder Sitzungsinhalte.
 
 ---
 
 ## Supportpaket
 
-`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche. Standardmäßig ist die Anonymisierung aktiviert.
+`ISupportBundleService` erzeugt auf Wunsch ein anonymisierbares lokales ZIP.
 
 Enthalten:
 
@@ -307,39 +319,9 @@ logs/
 
 Die originale `settings.json` wird nicht kopiert. Kennwörter, gespeicherte Credentials und Sitzungsinhalte werden nicht aufgenommen.
 
-`configuration-summary.json` enthält unter anderem:
-
-```text
-remoteAccessPolicy = NetSupport-only
-NetSupport-Produkt-/Dateiversion
-NetSupport-Erkennungsstatus
-```
+`configuration-summary.json` dokumentiert unter anderem NetSupport-only-Richtlinie und NetSupport-Installations-/Versionsstatus.
 
 Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
-
----
-
-## Persistente Dateien
-
-Konfiguration:
-
-```text
-%AppData%\NetSupportRemoteAdmin\settings.json
-```
-
-Startverlauf:
-
-```text
-%AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-Diagnose:
-
-```text
-%AppData%\NetSupportRemoteAdmin\logs\application.log
-```
-
-Support-ZIPs werden nur am vom Benutzer gewählten Zielpfad abgelegt.
 
 ---
 
@@ -351,6 +333,7 @@ MainWindow
    +--> RemoteProviderRegistry
    |       +--> NetSupportProvider --> PCICTLUI.EXE
    |
+   +--> MainWindow.PreferredAction.cs
    +--> INetSupportInstallationService --> NetSupportInstallationService
    +--> ITargetDiscoveryService --> DomainComputerDiscoveryService
    +--> ITargetDetailsService --> PowerShellTargetDetailsService
@@ -405,7 +388,6 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 - freigegebene NetSupport-Konfigurationsprofile nur bei klarer administrativer Vorgabe integrieren
 - zusätzliche Rechner-/Domänenmetadaten
 - Filter/Zeitraum für History-Export
-- weitere freigegebene Discovery-/Inventarquellen
 
 ---
 
