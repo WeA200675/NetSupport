@@ -22,7 +22,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 
 ---
 
-## Executable
+## Installation und Erkennung
 
 Verwendet wird das NetSupport-Manager-Control:
 
@@ -30,16 +30,71 @@ Verwendet wird das NetSupport-Manager-Control:
 PCICTLUI.EXE
 ```
 
-Typische Installationsorte, die `ConfigService` beim ersten Start prüft:
+Die lokale Installationserkennung liegt hinter:
 
 ```text
-%ProgramFiles(x86)%\NetSupport\NetSupport Manager\PCICTLUI.EXE
-%ProgramFiles%\NetSupport\NetSupport Manager\PCICTLUI.EXE
+INetSupportInstallationService
+   |
+   +--> NetSupportInstallationService
 ```
 
-Der tatsächlich verwendete Pfad kann unter **Erweitert → Einstellungen** geändert werden.
+Geprüft werden bewusst nur lokale, nachvollziehbare Quellen:
 
-Der **Systemzustand** zeigt zusätzlich die aus der Datei auslesbare Produkt-/Dateiversion an.
+1. aktuell konfigurierter Pfad
+2. `%ProgramFiles(x86)%\NetSupport\NetSupport Manager\PCICTLUI.EXE`
+3. `%ProgramFiles%\NetSupport\NetSupport Manager\PCICTLUI.EXE`
+4. Windows-Uninstall-Registry in HKLM/HKCU sowie 32-/64-Bit-Sicht, wenn dort **NetSupport Manager** registriert ist
+
+Es findet **keine rekursive Laufwerkssuche** statt.
+
+### Neue Einstellungsfunktionen
+
+Unter **Erweitert → Einstellungen → NetSupport Manager** stehen zur Verfügung:
+
+- **Durchsuchen…** – Pfad manuell auswählen
+- **Automatisch erkennen** – besten lokal gefundenen gültigen Pfad übernehmen
+- **NetSupport prüfen…** – gefundene Kandidaten mit Quelle und Versionsinformationen anzeigen und bewusst auswählen
+
+Das Prüffenster führt keine Remoteverbindung und keinen Netzwerkscan aus.
+
+### Ausgelesene Dateiinformationen
+
+Wenn `PCICTLUI.EXE` vorhanden ist, werden best-effort gelesen:
+
+- Produktname
+- Produktversion
+- Dateiversion
+- Hersteller
+- letzter Änderungszeitpunkt
+- Erkennungsquelle
+
+Der Systemzustand verwendet dieselbe Erkennung.
+
+---
+
+## Default-Konfiguration
+
+Bei einer neuen Konfiguration verwendet `ConfigService` ebenfalls `NetSupportInstallationService`.
+
+Dadurch kann ein neuer Admin-PC bereits beim ersten Start einen vorhandenen lokalen NetSupport-Control-Pfad übernehmen, auch wenn die Installation über eine Registry-Quelle statt nur über einen Standardordner gefunden wird.
+
+Eine bestehende manuell gespeicherte Konfiguration wird nicht ungefragt überschrieben; dafür stehen die Erkennungsfunktionen im Einstellungsfenster bereit.
+
+---
+
+## Schutz des ausführbaren Programms
+
+`NetSupportProvider` akzeptiert nicht mehr irgendeine in `settings.json` eingetragene EXE.
+
+Vor jedem Start wird geprüft:
+
+- Pfad ist syntaktisch auflösbar
+- Datei existiert
+- Dateiname ist exakt `PCICTLUI.EXE` (Groß-/Kleinschreibung unerheblich)
+
+Damit kann eine manipulierte Konfigurationsdatei nicht dazu verwendet werden, über den Remote-Provider ein beliebiges anderes Programm mit unseren Argumenten zu starten.
+
+Andere Programme werden mit einer verständlichen Fehlermeldung abgewiesen.
 
 ---
 
@@ -61,10 +116,10 @@ NetSupport dokumentiert für `PCICTLUI.EXE` unter anderem:
 Für eine TCP/IP-Adresse verwendet NetSupport die besondere Adressnotation:
 
 ```text
-/ c">address"
+/c">address"
 ```
 
-ohne das Leerzeichen zwischen `/` und `c`, zum Beispiel sinngemäß:
+Beispiel:
 
 ```text
 PCICTLUI.EXE /c">10.0.0.1" /vc /e
@@ -86,8 +141,6 @@ Offizielle Quellen:
 
 ## Unterstützte Aktionen
 
-Die Anwendung bildet aktuell folgende Funktionen ab:
-
 | UI / `RemoteAction` | NetSupport-Argumente |
 |---|---|
 | Steuern / `Control` | `/vc /e` |
@@ -105,8 +158,6 @@ Die `m`-/`x`-Varianten und ihre Exit-Schalter sind von NetSupport auch für die 
 
 ### IP-Adresse
 
-Bei einer IP-Adresse wird der NetSupport-spezifische `>`-Präfix verwendet:
-
 ```text
 10.20.30.40
 ```
@@ -121,27 +172,20 @@ wird zu:
 
 ### Rechnername / FQDN
 
-Ein Domänenrechner wird beispielsweise als
+Beispiele:
 
 ```text
 PC-001
-```
-
-oder
-
-```text
 PC-001.example.local
 ```
 
-übergeben.
-
-Die Anwendung akzeptiert für Namen nur einen begrenzten DNS-/NetBIOS-artigen Zeichensatz:
+Für Namen akzeptiert die Anwendung nur einen begrenzten DNS-/NetBIOS-artigen Zeichensatz:
 
 ```text
 A-Z a-z 0-9 . _ -
 ```
 
-Anführungszeichen, Zeilenumbrüche und beliebiger zusätzlicher Kommandozeilentext sind nicht erlaubt.
+Anführungszeichen, Zeilenumbrüche und beliebiger zusätzlicher Kommandozeilentext werden vor `Process.Start` abgewiesen.
 
 ---
 
@@ -155,7 +199,7 @@ Die NetSupport-IP-Syntax enthält absichtlich eingebettete Anführungszeichen:
 
 `ProcessStartInfo.ArgumentList` escaped Argumente selbstständig für Windows. Dadurch könnte die für NetSupport relevante kompakte Form verändert werden.
 
-Deshalb wird nach strenger Zielvalidierung eine rohe, kontrollierte Argumentzeichenfolge erzeugt und über
+Deshalb wird nach strenger Zielvalidierung eine kontrollierte rohe Argumentzeichenfolge über
 
 ```csharp
 ProcessStartInfo.Arguments
@@ -173,7 +217,7 @@ verhindert dabei, dass eine Shell zwischen Anwendung und NetSupport liegt.
 
 ## Diagnose
 
-Wenn das Diagnoseprotokoll aktiviert ist, wird die gestartete NetSupport-CLI protokolliert, zum Beispiel:
+Wenn das Diagnoseprotokoll aktiviert ist, werden unter anderem protokolliert:
 
 ```text
 PCICTLUI.EXE /c PC-001 /vc /e
@@ -185,7 +229,37 @@ oder bei IP:
 PCICTLUI.EXE /c">10.20.30.40" /vc /e
 ```
 
-Da Hostname/IP für die technische Fehlersuche relevant sind, gehören sie zum lokalen Diagnoseprotokoll. Das anonymisierte Supportpaket ersetzt bekannte Zielkennungen dagegen durch `target-...`-Aliase.
+Nach erfolgreichem `Process.Start` wird zusätzlich die gestartete Prozess-ID protokolliert.
+
+Hostname/IP gehören zur lokalen technischen Diagnose. Das anonymisierte Supportpaket ersetzt bekannte Zielkennungen dagegen durch `target-...`-Aliase.
+
+---
+
+## Systemzustand
+
+Der lokale Systemzustand unterscheidet jetzt:
+
+1. **konfigurierter Pfad gültig** – OK inklusive Produkt-/Dateiversion
+2. **konfigurierter Pfad ungültig, alternative Installation gefunden** – Hinweis mit gefundenem Pfad
+3. **keine Installation auffindbar** – Fehler mit Handlungshinweis
+
+Dadurch lässt sich ein Admin-PC auch dann reparieren, wenn `settings.json` noch auf eine alte Installation zeigt.
+
+---
+
+## Supportpaket
+
+`configuration-summary.json` enthält zusätzlich nicht geheime NetSupport-Metadaten:
+
+- Control-Pfad konfiguriert: ja/nein
+- konfigurierter Control-Pfad vorhanden: ja/nein
+- alternative Installation gefunden: ja/nein
+- Produktname
+- Produktversion
+- Dateiversion
+- Hersteller
+
+Der vollständige NetSupport-Installationspfad wird in der bereinigten Support-Zusammenfassung nicht benötigt und nicht zusätzlich aufgenommen.
 
 ---
 
@@ -193,29 +267,29 @@ Da Hostname/IP für die technische Fehlersuche relevant sind, gehören sie zum l
 
 ### `PCICTLUI.EXE` fehlt
 
-Die Anwendung startet keinen alternativen Remote-Provider. Stattdessen wird ein Fehler angezeigt und der Systemzustand markiert NetSupport als nicht verfügbar.
+Die Anwendung startet keinen alternativen Remote-Provider. Der Systemzustand versucht zunächst, eine andere lokale NetSupport-Installation zu finden und zeigt ansonsten einen Fehler.
+
+### Falsche EXE konfiguriert
+
+Der Provider verweigert den Start, wenn der Dateiname nicht `PCICTLUI.EXE` ist – selbst wenn die Datei existiert.
 
 ### Ungültiger Zielwert
 
-Ein Ziel mit unerlaubten Zeichen wird **vor** `Process.Start` abgewiesen.
-
-Damit kann ein frei eingegebener Zielwert nicht als zusätzlicher NetSupport-/Windows-Kommandozeilentext interpretiert werden.
+Ein Ziel mit unerlaubten Zeichen wird **vor** dem Prozessstart abgewiesen.
 
 ### NetSupport selbst lehnt die Verbindung ab
 
 Der Prozessstart kann technisch erfolgreich sein, obwohl NetSupport den Client später nicht erreicht oder die Verbindung aufgrund seiner eigenen Konfiguration/Berechtigung ablehnt.
 
-Der lokale Startverlauf dokumentiert deshalb den **Startversuch**, nicht den vollständigen Erfolg oder die Dauer einer NetSupport-Sitzung.
-
-Für verbindliche Sitzungsnachvollziehbarkeit bleibt die vorhandene NetSupport-/Unternehmenskonfiguration maßgeblich.
+Der lokale Verlauf dokumentiert deshalb den **Startversuch**, nicht den vollständigen Erfolg oder die Dauer einer NetSupport-Sitzung. Für verbindliche Sitzungsnachvollziehbarkeit bleibt die vorhandene NetSupport-/Unternehmenskonfiguration maßgeblich.
 
 ---
 
 ## Nächste NetSupport-spezifische Ausbauschritte
 
-- installierte NetSupport-Version zusätzlich in das Supportpaket aufnehmen
 - optional Installationsordner auf notwendige NetSupport-Begleitdateien prüfen
 - besser unterscheiden zwischen `PCICTLUI.EXE`-Startfehler und späterem NetSupport-Verbindungsfehler
-- bei Bedarf freigegebene NetSupport-Konfigurationsprofile (`/N`, `/F`) explizit in die Anwendung integrieren
+- bei Bedarf freigegebene NetSupport-Konfigurationsprofile (`/N`, `/F`) explizit integrieren
+- optional bekannte NetSupport-Versionen/Abweichungen im Supportpaket gegeneinander vergleichbar machen
 
-Konfigurationsprofile sollten nur ergänzt werden, wenn klar ist, welches Profil administrativ vorgesehen ist; die Anwendung soll vorhandene NetSupport-Sicherheitsvorgaben nicht verändern.
+Konfigurationsprofile werden nur ergänzt, wenn klar ist, welches Profil administrativ vorgesehen ist; die Anwendung soll vorhandene NetSupport-Sicherheitsvorgaben nicht verändern.
