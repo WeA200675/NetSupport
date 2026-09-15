@@ -140,10 +140,16 @@ public partial class SettingsWindow : Window
                 return;
             }
 
+            if (!candidate.IsControlExecutable)
+            {
+                NetSupportInfoTextBlock.Text = "Datei vorhanden, aber nicht PCICTLUI.EXE. Dieser Pfad kann nicht als NetSupport-Control verwendet werden.";
+                return;
+            }
+
             var product = string.IsNullOrWhiteSpace(candidate.ProductName)
                 ? "NetSupport Manager"
                 : candidate.ProductName;
-            NetSupportInfoTextBlock.Text = $"Gefunden: {product} · Version {candidate.VersionText}";
+            NetSupportInfoTextBlock.Text = $"Gültig: {product} · Version {candidate.VersionText}";
         }
         catch (Exception ex)
         {
@@ -218,17 +224,19 @@ public partial class SettingsWindow : Window
     private async void SaveButton_OnClick(object sender, RoutedEventArgs e)
     {
         var netSupportPath = NetSupportPathTextBox.Text.Trim();
-        if (!string.IsNullOrWhiteSpace(netSupportPath) &&
-            (!File.Exists(netSupportPath) ||
-             !string.Equals(Path.GetFileName(netSupportPath), "PCICTLUI.EXE", StringComparison.OrdinalIgnoreCase)))
+        if (!string.IsNullOrWhiteSpace(netSupportPath))
         {
-            var result = System.Windows.MessageBox.Show(
-                "Der angegebene NetSupport-Pfad zeigt nicht auf eine vorhandene PCICTLUI.EXE. Trotzdem speichern?",
-                "NetSupport-Pfad",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (result != MessageBoxResult.Yes)
-                return;
+            var candidate = _netSupportInstallationService.Inspect(netSupportPath, "Eingabe");
+            if (!candidate.IsUsable)
+            {
+                var result = System.Windows.MessageBox.Show(
+                    "Der angegebene NetSupport-Pfad zeigt nicht auf eine vorhandene PCICTLUI.EXE. Trotzdem als Konfigurationswert speichern? Remote-Aktionen bleiben damit blockiert, bis ein gültiger Pfad gesetzt ist.",
+                    "NetSupport-Pfad",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
         }
 
         try
