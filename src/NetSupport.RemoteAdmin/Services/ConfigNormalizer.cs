@@ -1,15 +1,26 @@
+using System.IO;
 using NetSupport.RemoteAdmin.Providers;
 
 namespace NetSupport.RemoteAdmin.Services;
 
 internal static class ConfigNormalizer
 {
+    internal const int CurrentSchemaVersion = 1;
     internal const string ApprovedProviderId = "netsupport";
 
     internal static AppConfig Normalize(AppConfig config)
     {
         ArgumentNullException.ThrowIfNull(config);
 
+        if (config.SchemaVersion > CurrentSchemaVersion)
+        {
+            throw new InvalidDataException(
+                $"Die Konfiguration verwendet Schema-Version {config.SchemaVersion}, diese Anwendung unterstützt jedoch maximal Version {CurrentSchemaVersion}. " +
+                "Bitte eine gleich neue oder neuere Programmversion verwenden.");
+        }
+
+        // Schema 0 represents all unversioned/legacy settings files. Current migrations are
+        // intentionally idempotent, so normalizing an already-current file is safe as well.
         config.Targets ??= [];
         config.SavedViews ??= [];
 
@@ -32,6 +43,7 @@ internal static class ConfigNormalizer
             target.Group = NullIfWhiteSpace(target.Group);
         }
 
+        config.SchemaVersion = CurrentSchemaVersion;
         return config;
     }
 
