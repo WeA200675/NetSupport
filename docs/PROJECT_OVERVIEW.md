@@ -28,6 +28,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 - Diagnose darf die Fernwartung nicht blockieren
 - Supportdaten werden gezielt und anonymisierbar erzeugt
 - lokale NetSupport-Installation wird nachvollziehbar statt durch Laufwerksscans erkannt
+- vorhandene NetSupport-Control-Profile bleiben Quelle der eigentlichen Control-Konfiguration
 - Architektur bleibt erweiterbar, obwohl aktuell nur NetSupport freigegeben ist
 
 ---
@@ -43,7 +44,8 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 7. NetSupport-Schnellaktion oder Standardaktion starten.
 8. Unter **Zuletzt verwendet** Startversuche einsehen oder als CSV exportieren.
 9. Unter **Erweitert → Einstellungen** Start-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
-10. Bei Bedarf **NetSupport prüfen…**, **Systemzustand** oder ein anonymisierbares Supportpaket verwenden.
+10. Optional ein vorhandenes NetSupport-Control-Profil auswählen und mit `/F` binden.
+11. Bei Bedarf **NetSupport prüfen…**, **Systemzustand** oder ein anonymisierbares Supportpaket verwenden.
 
 ---
 
@@ -152,6 +154,43 @@ Unter **Erweitert → Einstellungen → NetSupport Manager** gibt es:
 
 Das Prüffenster zeigt Kandidaten, Quelle, Produkt-/Dateiversion und Hersteller. Ein gültiger Pfad kann bewusst übernommen werden.
 
+### Control-Profile
+
+```text
+INetSupportProfileService
+   +--> NetSupportProfileService
+```
+
+Die Anwendung liest vorhandene Control-Profile ausschließlich aus:
+
+```text
+HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
+Sie schreibt nicht in diesen NetSupport-Schlüssel.
+
+Optional kann in den Einstellungen ein vorhandenes Profil gewählt werden. Der Provider startet dann mit:
+
+```text
+/n "Profilname"
+```
+
+Bei aktivierter Profilbindung zusätzlich mit:
+
+```text
+/f
+```
+
+Sicherheitsverhalten:
+
+- Profilname wird vor der rohen CLI validiert
+- `/F` ohne Profil ist ungültig
+- konfiguriertes Profil muss lokal für den aktuellen Windows-Benutzer vorhanden sein
+- fehlt das Profil, wird die Remote-Aktion blockiert statt ein anderes Profil zu verwenden
+- Profilpasswörter werden nicht gespeichert; eine eventuelle Passwortabfrage bleibt bei NetSupport
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
+
 ### Start-Härtung
 
 Vor jedem Prozessstart wird geprüft:
@@ -160,8 +199,9 @@ Vor jedem Prozessstart wird geprüft:
 - Datei existiert
 - Dateiname ist exakt `PCICTLUI.EXE`
 - Zielhost/IP ist für die kontrollierte NetSupport-CLI zulässig
+- optionaler Control-Profilname ist syntaktisch zulässig und lokal vorhanden
 
-Eine manuell manipulierte Konfiguration kann dadurch nicht benutzt werden, um über den Remote-Provider ein beliebiges anderes Programm zu starten.
+Eine manuell manipulierte Konfiguration kann dadurch nicht benutzt werden, um über den Remote-Provider ein beliebiges anderes Programm zu starten oder ein erwartetes Profil stillschweigend zu umgehen.
 
 Die optionale Diagnose protokolliert die erzeugte NetSupport-CLI und nach erfolgreichem `Process.Start` die Prozess-ID.
 
@@ -256,6 +296,7 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - beim Start minimiert öffnen
 - Diagnoseprotokoll aktivieren/deaktivieren
 - NetSupport-Control-Pfad auswählen/erkennen/prüfen
+- lokales NetSupport-Control-Profil auswählen und optional mit `/F` binden
 - Systemzustand öffnen
 - Diagnoseordner öffnen
 - Supportpaket erzeugen
@@ -281,6 +322,7 @@ Aktuelle Checks:
 - konfigurierter `PCICTLUI.EXE`-Pfad vorhanden
 - NetSupport-Produkt-/Dateiversion
 - alternative lokale NetSupport-Installation, falls der gespeicherte Pfad veraltet ist
+- konfiguriertes NetSupport-Control-Profil und `/F`-Konsistenz
 - ActiveDirectory-PowerShell-Modul / RSAT
 - lokale CIM-/WSMan-Grundfunktion
 - Autostartzustand
@@ -319,7 +361,7 @@ logs/
 
 Die originale `settings.json` wird nicht kopiert. Kennwörter, gespeicherte Credentials und Sitzungsinhalte werden nicht aufgenommen.
 
-`configuration-summary.json` dokumentiert unter anderem NetSupport-only-Richtlinie und NetSupport-Installations-/Versionsstatus.
+`configuration-summary.json` dokumentiert unter anderem NetSupport-only-Richtlinie, NetSupport-Installations-/Versionsstatus sowie den bereinigten Control-Profilstatus. Bei aktiver Anonymisierung wird der tatsächliche Profilname als `netsupport-profile` ersetzt.
 
 Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
@@ -335,6 +377,7 @@ MainWindow
    |
    +--> MainWindow.PreferredAction.cs
    +--> INetSupportInstallationService --> NetSupportInstallationService
+   +--> INetSupportProfileService --> NetSupportProfileService --> HKCU NetSupport ConfigList
    +--> ITargetDiscoveryService --> DomainComputerDiscoveryService
    +--> ITargetDetailsService --> PowerShellTargetDetailsService
    +--> ISessionHistoryService --> JsonSessionHistoryService
@@ -351,6 +394,7 @@ Erweiterungspunkte:
 ```text
 IRemoteProvider
 INetSupportInstallationService
+INetSupportProfileService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
@@ -385,7 +429,6 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
 - NetSupport-Installationsordner optional auf notwendige Begleitdateien prüfen
 - Startfehler von späteren NetSupport-Verbindungsfehlern besser unterscheiden
-- freigegebene NetSupport-Konfigurationsprofile nur bei klarer administrativer Vorgabe integrieren
 - zusätzliche Rechner-/Domänenmetadaten
 - Filter/Zeitraum für History-Export
 
