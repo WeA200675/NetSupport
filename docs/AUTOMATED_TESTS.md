@@ -8,7 +8,7 @@
 
 Die produktive NetSupport-Anbindung erzeugt bewusst eine rohe Kommandozeile für `PCICTLUI.EXE`, weil NetSupport für IP-Ziele eine besondere Syntax verwendet.
 
-Deshalb werden die sicherheitskritischen Regeln jetzt automatisiert geprüft, bevor GitHub Actions einen Windows-Testbuild veröffentlicht.
+Deshalb werden die sicherheitskritischen Regeln automatisiert geprüft, bevor GitHub Actions einen Windows-Testbuild veröffentlicht.
 
 CI-Reihenfolge:
 
@@ -126,6 +126,38 @@ Mit temporären lokalen Testdateien wird geprüft:
 - nicht vorhandene `PCICTLUI.EXE` wird abgewiesen
 
 Dabei wird keine Testdatei ausgeführt.
+
+---
+
+## Letzte bestätigte CI-Validierung
+
+Der erste vollständig erfolgreiche Lauf mit aktivem Test-Gate war GitHub Actions **#555** auf Head:
+
+```text
+a8dae0eb55d439e1eeb3766866a02875b0d47aef
+```
+
+Ergebnis:
+
+```text
+Build succeeded
+0 Warnungen
+0 Fehler
+29 Tests insgesamt
+29 bestanden
+0 fehlgeschlagen
+```
+
+Danach wurden im selben Lauf auch self-contained Windows-x64-Publish und Artifact-Upload erfolgreich ausgeführt.
+
+Artefakt dieses Laufs:
+
+```text
+NetSupport.RemoteAdmin-win-x64
+SHA-256: f420abff5f663a717fd8e23f218d9ad966034450ec6adf42d720fb1005625015
+```
+
+Spätere reine Dokumentationscommits ändern diese getestete Programmlogik nicht; der jeweils aktuelle Head wird dennoch erneut durch denselben vollständigen CI-Ablauf geschickt.
 
 ---
 
