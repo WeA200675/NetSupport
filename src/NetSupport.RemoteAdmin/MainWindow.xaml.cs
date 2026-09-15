@@ -18,6 +18,7 @@ namespace NetSupport.RemoteAdmin;
 public partial class MainWindow : Window
 {
     private const string AllGroupsLabel = "Alle Gruppen";
+    private const string ApprovedProviderId = "netsupport";
 
     private readonly AppConfig _config;
     private readonly ConfigService _configService;
@@ -26,7 +27,6 @@ public partial class MainWindow : Window
     private readonly HostAvailabilityService _availability;
     private readonly ITargetDetailsService _detailsService;
     private readonly ISessionHistoryService _historyService;
-    private readonly IRdpConnectionFileService _rdpConnectionFileService;
     private readonly IAutoStartService _autoStartService;
     private readonly IDiagnosticLogService _diagnosticLog;
     private readonly List<IRemoteProvider> _availableProviders;
@@ -38,6 +38,7 @@ public partial class MainWindow : Window
     private bool _uiReady;
     private bool _updatingGroupFilter;
     private bool _updatingSavedViews;
+    private bool _policyNormalizationPending;
 
     public MainWindow(
         AppConfig config,
@@ -47,7 +48,6 @@ public partial class MainWindow : Window
         HostAvailabilityService availability,
         ITargetDetailsService detailsService,
         ISessionHistoryService historyService,
-        IRdpConnectionFileService rdpConnectionFileService,
         IAutoStartService autoStartService,
         IDiagnosticLogService diagnosticLog)
     {
@@ -60,9 +60,10 @@ public partial class MainWindow : Window
         _availability = availability;
         _detailsService = detailsService;
         _historyService = historyService;
-        _rdpConnectionFileService = rdpConnectionFileService;
         _autoStartService = autoStartService;
         _diagnosticLog = diagnosticLog;
+
+        _policyNormalizationPending = NormalizeDomainPolicyPreferences();
         _targets.AddRange(_config.Targets);
         _availableProviders = _providers.All.Where(provider => provider.IsAvailable).ToList();
 
@@ -73,7 +74,24 @@ public partial class MainWindow : Window
         UpdateSelectedTargetCard(null);
         _uiReady = true;
 
-        Loaded += async (_, _) => await RefreshHistoryAsync();
+        Loaded += async (_, _) =>
+        {
+            if (_policyNormalizationPending)
+            {
+                try
+                {
+                    await _configService.SaveAsync(_config);
+                    _policyNormalizationPending = false;
+                    _diagnosticLog.Info("Alte nicht zulässige Remote-Provider-/RDP-Präferenzen wurden aus der Konfiguration bereinigt.");
+                }
+                catch (Exception ex)
+                {
+                    _diagnosticLog.Error("Domänenrichtlinien-Migration konnte nicht gespeichert werden.", ex);
+                }
+            }
+
+            await RefreshHistoryAsync();
+        };
 
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Öffnen", null, (_, _) => ShowFromTray());
@@ -98,7 +116,7 @@ public partial class MainWindow : Window
             StatusTextBlock.Text = "Läuft im Infobereich weiter";
         };
 
-        _diagnosticLog.Info("Hauptfenster initialisiert.");
+        _diagnosticLog.Info("Hauptfenster initialisiert. Domänenrichtlinie: NetSupport-only.");
     }
 
     private RemoteTarget? SelectedTarget => TargetsListBox.SelectedItem as RemoteTarget;
@@ -115,17 +133,70 @@ public partial class MainWindow : Window
                 return null;
 
             return _targets.FirstOrDefault(t => string.Equals(t.Host, host, StringComparison.OrdinalIgnoreCase))
-                   ?? new RemoteTarget { Name = host, Host = host };
+                   ?? new RemoteTarget { Name = host, Host = host, PreferredProviderId = ApprovedProviderId };
         }
+    }
+
+    private bool NormalizeDomainPolicyPreferences()
+    {
+        var changed = false;
+
+        // Legacy builds exposed RDP options. They are now deliberately neutralized because
+        // domain policy permits remote administration through NetSupport only.
+        if (_config.UseEmbeddedRdp)
+        {
+            _config.UseEmbeddedRdp = false;
+            changed = true;
+        }
+
+        if (_config.UseFullScreenRdp)
+        {
+            _config.UseFullScreenRdp = false;
+            changed = true;
+        }
+
+        foreach (var target in _config.Targets)
+        {
+            if (!string.IsNullOrWhiteSpace(target.PreferredProviderId) &&
+                !string.Equals(target.PreferredProviderId, ApprovedProviderId, StringComparison.OrdinalIgnoreCase))
+            {
+                target.PreferredProviderId = ApprovedProviderId;
+                changed = true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(target.RdpUserName) ||
+                !string.IsNullOrWhiteSpace(target.RdpDomain) ||
+                target.RdpAdminSession ||
+                target.RdpUseMultiMonitor ||
+                !string.IsNullOrWhiteSpace(target.RdpSelectedMonitors) ||
+                target.RdpRedirectDrives ||
+                target.RdpRedirectMicrophone ||
+                target.RdpAudioRedirectionMode != 0)
+            {
+                target.RdpUserName = null;
+                target.RdpDomain = null;
+                target.RdpRedirectClipboard = true;
+                target.RdpAdminSession = false;
+                target.RdpUseMultiMonitor = false;
+                target.RdpSelectedMonitors = null;
+                target.RdpRedirectDrives = false;
+                target.RdpRedirectMicrophone = false;
+                target.RdpAudioRedirectionMode = 0;
+                changed = true;
+            }
+        }
+
+        return changed;
     }
 
     private void RefreshProviderAvailability()
     {
         var selectedProviderId = (ProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
-        var preferredProviderId = (PreferredProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
 
         _availableProviders.Clear();
-        _availableProviders.AddRange(_providers.All.Where(provider => provider.IsAvailable));
+        _availableProviders.AddRange(_providers.All.Where(provider =>
+            provider.IsAvailable &&
+            string.Equals(provider.Id, ApprovedProviderId, StringComparison.OrdinalIgnoreCase)));
 
         ProviderComboBox.ItemsSource = null;
         ProviderComboBox.ItemsSource = _availableProviders;
@@ -137,8 +208,7 @@ public partial class MainWindow : Window
         PreferredProviderComboBox.ItemsSource = null;
         PreferredProviderComboBox.ItemsSource = _availableProviders;
         PreferredProviderComboBox.DisplayMemberPath = nameof(IRemoteProvider.DisplayName);
-        PreferredProviderComboBox.SelectedItem = _availableProviders.FirstOrDefault(provider =>
-            string.Equals(provider.Id, preferredProviderId, StringComparison.OrdinalIgnoreCase));
+        PreferredProviderComboBox.SelectedItem = _availableProviders.FirstOrDefault();
     }
 
     private void RefreshTargets()
@@ -394,7 +464,6 @@ public partial class MainWindow : Window
         FavoriteCheckBox.IsEnabled = hasTarget;
         TargetGroupTextBox.IsEnabled = hasTarget;
         PreferredProviderComboBox.IsEnabled = hasTarget;
-        SelectedMonitorIdsTextBox.IsEnabled = hasTarget;
 
         if (target is null)
         {
@@ -404,7 +473,6 @@ public partial class MainWindow : Window
             FavoriteCheckBox.IsChecked = false;
             TargetGroupTextBox.Text = string.Empty;
             PreferredProviderComboBox.SelectedItem = null;
-            SelectedMonitorIdsTextBox.Text = string.Empty;
             SelectedTargetIpTextBlock.Text = "–";
             SelectedTargetUserTextBlock.Text = "–";
             SelectedTargetOsTextBlock.Text = "–";
@@ -421,7 +489,6 @@ public partial class MainWindow : Window
         FavoriteCheckBox.IsChecked = target.IsFavorite;
         TargetGroupTextBox.Text = target.Group ?? string.Empty;
         PreferredProviderComboBox.SelectedItem = ResolvePreferredControlProvider(target);
-        SelectedMonitorIdsTextBox.Text = target.RdpSelectedMonitors ?? string.Empty;
 
         var details = target.Details;
         SelectedTargetIpTextBlock.Text = details?.IpAddresses ?? "–";
@@ -446,28 +513,16 @@ public partial class MainWindow : Window
             : $"Verwaltungsdaten nicht vollständig: {details.ManagementError}";
     }
 
-    private IRemoteProvider? ResolvePreferredControlProvider(RemoteTarget target)
-    {
-        var configured = _availableProviders.FirstOrDefault(provider =>
+    private IRemoteProvider? ResolvePreferredControlProvider(RemoteTarget target) =>
+        _availableProviders.FirstOrDefault(provider =>
             provider.SupportedActions.Contains(RemoteAction.Control) &&
-            string.Equals(provider.Id, target.PreferredProviderId, StringComparison.OrdinalIgnoreCase));
-        if (configured is not null)
-            return configured;
-
-        var netSupport = _availableProviders.FirstOrDefault(provider =>
-            provider.SupportedActions.Contains(RemoteAction.Control) &&
-            string.Equals(provider.Id, "netsupport", StringComparison.OrdinalIgnoreCase));
-
-        return netSupport ?? _availableProviders.FirstOrDefault(provider =>
-            provider.SupportedActions.Contains(RemoteAction.Control));
-    }
+            string.Equals(provider.Id, ApprovedProviderId, StringComparison.OrdinalIgnoreCase));
 
     private void ApplyTargetEditor(RemoteTarget target)
     {
         target.IsFavorite = FavoriteCheckBox.IsChecked == true;
         target.Group = NullIfWhiteSpace(TargetGroupTextBox.Text);
-        target.PreferredProviderId = (PreferredProviderComboBox.SelectedItem as IRemoteProvider)?.Id;
-        target.RdpSelectedMonitors = _rdpConnectionFileService.NormalizeMonitorIds(SelectedMonitorIdsTextBox.Text);
+        target.PreferredProviderId = ApprovedProviderId;
     }
 
     private static string? NullIfWhiteSpace(string? value)
@@ -482,17 +537,10 @@ public partial class MainWindow : Window
         if (target is null)
             return;
 
-        var provider = PreferredProviderComboBox.SelectedItem as IRemoteProvider;
-        if (provider is null ||
-            !provider.IsAvailable ||
-            !provider.SupportedActions.Contains(RemoteAction.Control))
-        {
-            provider = ResolvePreferredControlProvider(target);
-        }
-
+        var provider = ResolvePreferredControlProvider(target);
         if (provider is null)
         {
-            StatusTextBlock.Text = "Kein Provider für eine Standardverbindung verfügbar.";
+            StatusTextBlock.Text = "NetSupport Manager ist auf diesem Admin-PC nicht verfügbar.";
             return;
         }
 
@@ -554,6 +602,12 @@ public partial class MainWindow : Window
             return;
         }
 
+        if (!string.Equals(parts[0], ApprovedProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            StatusTextBlock.Text = "Dieser Remote-Provider ist gemäß Domänenrichtlinie nicht zugelassen.";
+            return;
+        }
+
         await LaunchProviderActionAsync(parts[0], action);
     }
 
@@ -564,6 +618,15 @@ public partial class MainWindow : Window
         {
             StatusTextBlock.Text = "Bitte zuerst einen Rechner auswählen oder eingeben.";
             HostTextBox.Focus();
+            return;
+        }
+
+        if (!string.Equals(providerId, ApprovedProviderId, StringComparison.OrdinalIgnoreCase))
+        {
+            var policyError = "Remotezugriff ist in dieser Domäne ausschließlich über NetSupport Manager zulässig.";
+            _diagnosticLog.Info($"Nicht zugelassener Remote-Provider blockiert: {providerId} -> {target.Host}");
+            StatusTextBlock.Text = policyError;
+            System.Windows.MessageBox.Show(policyError, "Domänenrichtlinie", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -726,6 +789,7 @@ public partial class MainWindow : Window
 
                 if (existing is null)
                 {
+                    target.PreferredProviderId = ApprovedProviderId;
                     _targets.Add(target);
                 }
                 else
@@ -820,7 +884,7 @@ public partial class MainWindow : Window
         var provider = ResolvePreferredControlProvider(target);
         if (provider is null)
         {
-            StatusTextBlock.Text = "Kein Provider für eine Standardverbindung verfügbar.";
+            StatusTextBlock.Text = "NetSupport Manager ist auf diesem Admin-PC nicht verfügbar.";
             return;
         }
 
@@ -840,7 +904,7 @@ public partial class MainWindow : Window
         if (ProviderComboBox.SelectedItem is not IRemoteProvider provider ||
             ActionComboBox.SelectedItem is not RemoteAction action)
         {
-            StatusTextBlock.Text = "Kein verfügbarer Remote-Provider ausgewählt.";
+            StatusTextBlock.Text = "NetSupport Manager ist nicht verfügbar oder keine Aktion ist ausgewählt.";
             return;
         }
 
@@ -861,18 +925,10 @@ public partial class MainWindow : Window
         if (target is null)
             return;
 
-        try
-        {
-            if (SelectedTarget is not null)
-                ApplyTargetEditor(target);
-        }
-        catch (ArgumentException ex)
-        {
-            StatusTextBlock.Text = "RDP-Monitor-IDs sind ungültig.";
-            System.Windows.MessageBox.Show(ex.Message, "RDP-Monitorwahl", MessageBoxButton.OK, MessageBoxImage.Warning);
-            SelectedMonitorIdsTextBox.Focus();
-            return;
-        }
+        if (SelectedTarget is not null)
+            ApplyTargetEditor(target);
+        else
+            target.PreferredProviderId = ApprovedProviderId;
 
         var existing = _config.Targets.FirstOrDefault(saved =>
             string.Equals(saved.Host, target.Host, StringComparison.OrdinalIgnoreCase));
@@ -916,28 +972,18 @@ public partial class MainWindow : Window
         destination.Description = source.Description;
         destination.IsFavorite = source.IsFavorite;
         destination.Group = source.Group;
-        destination.PreferredProviderId = source.PreferredProviderId;
-        destination.RdpUserName = source.RdpUserName;
-        destination.RdpDomain = source.RdpDomain;
-        destination.RdpRedirectClipboard = source.RdpRedirectClipboard;
-        destination.RdpAdminSession = source.RdpAdminSession;
-        destination.RdpUseMultiMonitor = source.RdpUseMultiMonitor;
-        destination.RdpSelectedMonitors = source.RdpSelectedMonitors;
-    }
+        destination.PreferredProviderId = ApprovedProviderId;
 
-    private void ShowMonitorIdsButton_OnClick(object sender, RoutedEventArgs e)
-    {
-        try
-        {
-            _rdpConnectionFileService.ShowLocalMonitorIds();
-            StatusTextBlock.Text = "Windows RDP zeigt die lokalen Monitor-IDs an. Gewünschte IDs anschließend kommagetrennt eintragen und speichern.";
-        }
-        catch (Exception ex)
-        {
-            _diagnosticLog.Error("RDP-Monitor-IDs konnten nicht angezeigt werden.", ex);
-            StatusTextBlock.Text = "RDP-Monitor-IDs konnten nicht angezeigt werden.";
-            System.Windows.MessageBox.Show(ex.Message, "RDP-Monitorwahl", MessageBoxButton.OK, MessageBoxImage.Error);
-        }
+        // Do not persist legacy RDP preferences. RDP is not an approved remote-control path.
+        destination.RdpUserName = null;
+        destination.RdpDomain = null;
+        destination.RdpRedirectClipboard = true;
+        destination.RdpAdminSession = false;
+        destination.RdpUseMultiMonitor = false;
+        destination.RdpSelectedMonitors = null;
+        destination.RdpRedirectDrives = false;
+        destination.RdpRedirectMicrophone = false;
+        destination.RdpAudioRedirectionMode = 0;
     }
 
     private void OpenSettingsButton_OnClick(object sender, RoutedEventArgs e)
