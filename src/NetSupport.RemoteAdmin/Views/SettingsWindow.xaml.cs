@@ -154,11 +154,6 @@ public partial class SettingsWindow : Window
             _config.DiagnosticLoggingEnabled = DiagnosticLoggingCheckBox.IsChecked == true;
             _config.NetSupportExecutable = string.IsNullOrWhiteSpace(netSupportPath) ? null : netSupportPath;
 
-            // Keep legacy RDP flags neutralized. They are retained only for backward-compatible
-            // deserialization of older settings files and are not configurable in this build.
-            _config.UseEmbeddedRdp = false;
-            _config.UseFullScreenRdp = false;
-
             _autoStartService.SetEnabled(AutoStartCheckBox.IsChecked == true);
             await _configService.SaveAsync(_config);
 
