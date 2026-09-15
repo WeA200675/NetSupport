@@ -58,14 +58,19 @@ Stattdessen wird eine bereinigte Zusammenfassung erzeugt, unter anderem mit:
 - `remoteAccessPolicy = NetSupport-only`
 - Start-/Diagnoseoptionen
 - Anzahl gespeicherter Ziele und Ansichten
-- Favorit/Gruppe/Standard-Provider
+- Favorit/Gruppe/Standard-Provider und bevorzugte NetSupport-Aktion
 - NetSupport-Control-Pfad konfiguriert: ja/nein
-- konfigurierter `PCICTLUI.EXE`-Pfad vorhanden: ja/nein
+- konfigurierte `PCICTLUI.EXE` verwendbar: ja/nein
 - alternative lokale NetSupport-Installation gefunden: ja/nein
 - NetSupport-Produktname
 - Produktversion
 - Dateiversion
 - Hersteller
+- `netSupportProfileConfigured`
+- `netSupportProfileName`
+- `netSupportProfileAvailable`
+- `netSupportProfileLocked`
+- `netSupportDiscoveredProfileCount`
 
 Der vollständige NetSupport-Installationspfad wird in der bereinigten Zusammenfassung nicht zusätzlich benötigt. Die eigentliche Anwendungskonfiguration bleibt weiterhin ausschließlich in `settings.json`.
 
@@ -109,11 +114,37 @@ Die Versionsinformationen helfen insbesondere, Unterschiede zwischen mehreren Ad
 
 ---
 
+## NetSupport-Control-Profilstatus
+
+Wenn ein Control-Profil konfiguriert ist, enthält die Zusammenfassung den technischen Zustand dieser Auswahl:
+
+```text
+konfiguriert
+lokal vorhanden
+/F-Bindung aktiv
+Anzahl lokal erkannter Profile
+```
+
+Die Anwendung nimmt **keine Profilpasswörter** in das Supportpaket auf. Profilpasswörter werden vom Tool grundsätzlich nicht gespeichert.
+
+Bei aktivierter Anonymisierung wird der tatsächliche Profilname ersetzt:
+
+```text
+Helpdesk Intern -> netsupport-profile
+```
+
+Derselbe Alias wird beim Bereinigen der kopierten Diagnoseprotokolle verwendet. Dadurch soll ein Profilname nicht über eine protokollierte `PCICTLUI.EXE /n ...`-Zeile wieder sichtbar werden.
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
+
+---
+
 ## Daten, die niemals aufgenommen werden
 
 Unabhängig von der Anonymisierungsoption werden bewusst nicht in das Supportpaket geschrieben:
 
 - Kennwörter
+- NetSupport-Profilpasswörter
 - gespeicherte Windows-Credentials
 - Original-`settings.json`
 - Bildschirm-/Sitzungsinhalte
@@ -133,14 +164,15 @@ PC-BUERO-17  -> target-001
 PC-SERVER-02 -> target-002
 ```
 
-Zusätzlich werden bekannte lokale Identitäten und Pfade ersetzt, unter anderem:
+Zusätzlich werden bekannte lokale Identitäten, Pfade und der konfigurierte NetSupport-Profilname ersetzt, unter anderem:
 
 ```text
-Rechnername        -> local-machine
-Benutzername       -> local-user
-Windows-Domain     -> local-domain
-Benutzerprofil     -> user-profile
-Konfigurationspfad -> config-directory
+Rechnername         -> local-machine
+Benutzername        -> local-user
+Windows-Domain      -> local-domain
+Benutzerprofil      -> user-profile
+Konfigurationspfad  -> config-directory
+NetSupport-Profil   -> netsupport-profile
 ```
 
 Gruppen und gespeicherte Ansichten werden in der Konfigurationsübersicht bei aktiver Anonymisierung ebenfalls abstrahiert.
@@ -149,7 +181,7 @@ Gruppen und gespeicherte Ansichten werden in der Konfigurationsübersicht bei ak
 
 ## Wenn Anonymisierung deaktiviert wird
 
-Bei deaktivierter Anonymisierung können Hostnamen, Anzeigenamen, Gruppen und lokale Rechner-/Benutzerkennungen im Paket enthalten sein.
+Bei deaktivierter Anonymisierung können Hostnamen, Anzeigenamen, Gruppen, NetSupport-Profilname und lokale Rechner-/Benutzerkennungen im Paket enthalten sein.
 
 Auch dann werden Kennwörter/Credentials nicht bewusst aufgenommen.
 
@@ -178,6 +210,7 @@ SettingsWindow
                    +--> AppConfig
                    +--> ConfigService
                    +--> INetSupportInstallationService
+                   +--> INetSupportProfileService
                    +--> ISessionHistoryService
                    +--> IDiagnosticLogService
                    +--> System-/Runtime-Informationen
@@ -193,16 +226,19 @@ Der Service erzeugt bewusst eine eigene Supportdarstellung statt bestehende Konf
 Für einen manuellen Test:
 
 1. Diagnoseprotokoll aktivieren.
-2. Einige erfolgreiche und eine absichtlich fehlerhafte NetSupport-Aktion starten.
-3. **Einstellungen → Supportpaket erstellen…** öffnen.
-4. Anonymisierung aktiviert lassen.
-5. ZIP entpacken.
-6. Prüfen, dass Hostnamen durch `target-...` ersetzt wurden.
-7. Prüfen, dass `settings.json` nicht enthalten ist.
-8. Nach bekannten Benutzernamen, Domainnamen und Kennwörtern suchen.
-9. Prüfen, dass `configuration-summary.json` `remoteAccessPolicy: NetSupport-only` enthält.
-10. NetSupport-Produkt-/Dateiversion und Erkennungsstatus prüfen.
-11. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
+2. Optional ein NetSupport-Control-Profil auswählen und eine Aktion starten.
+3. Einige erfolgreiche und eine absichtlich fehlerhafte NetSupport-Aktion starten.
+4. **Einstellungen → Supportpaket erstellen…** öffnen.
+5. Anonymisierung aktiviert lassen.
+6. ZIP entpacken.
+7. Prüfen, dass Hostnamen durch `target-...` ersetzt wurden.
+8. Bei konfiguriertem Profil prüfen, dass dessen echter Name durch `netsupport-profile` ersetzt wurde.
+9. Prüfen, dass auch die kopierten Logzeilen den echten Profilnamen nicht enthalten.
+10. Prüfen, dass `settings.json` nicht enthalten ist.
+11. Nach bekannten Benutzernamen, Domainnamen und Kennwörtern suchen.
+12. Prüfen, dass `configuration-summary.json` `remoteAccessPolicy: NetSupport-only` enthält.
+13. NetSupport-Produkt-/Dateiversion, Erkennungsstatus und Profilstatus prüfen.
+14. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
 
 ---
 
