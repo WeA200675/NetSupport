@@ -58,8 +58,16 @@ Stattdessen wird eine bereinigte Zusammenfassung erzeugt, unter anderem mit:
 - `remoteAccessPolicy = NetSupport-only`
 - Start-/Diagnoseoptionen
 - Anzahl gespeicherter Ziele und Ansichten
-- vorhandenem/nicht vorhandenem NetSupport-Executable
 - Favorit/Gruppe/Standard-Provider
+- NetSupport-Control-Pfad konfiguriert: ja/nein
+- konfigurierter `PCICTLUI.EXE`-Pfad vorhanden: ja/nein
+- alternative lokale NetSupport-Installation gefunden: ja/nein
+- NetSupport-Produktname
+- Produktversion
+- Dateiversion
+- Hersteller
+
+Der vollständige NetSupport-Installationspfad wird in der bereinigten Zusammenfassung nicht zusätzlich benötigt. Die eigentliche Anwendungskonfiguration bleibt weiterhin ausschließlich in `settings.json`.
 
 ### `recent-history.json`
 
@@ -79,6 +87,25 @@ Fasst die letzten bekannten Fehler aus Startverlauf und Diagnoseprotokoll zusamm
 ### `logs/`
 
 Vorhandene Diagnoseprotokolle werden beim Erstellen des Pakets neu gelesen und – bei aktivierter Anonymisierung – zusätzlich bereinigt.
+
+---
+
+## NetSupport-Installationsdaten
+
+Die NetSupport-Metadaten stammen aus derselben lokalen Erkennung wie **NetSupport prüfen…** und der **Systemzustand**.
+
+Mögliche Quellen sind:
+
+```text
+Konfigurierter Pfad
+Program Files (x86)
+Program Files
+Windows-Uninstall-Registry
+```
+
+Es findet keine rekursive Laufwerkssuche statt.
+
+Die Versionsinformationen helfen insbesondere, Unterschiede zwischen mehreren Admin-PCs zu erkennen, ohne dafür Credentials oder Remote-Daten zu sammeln.
 
 ---
 
@@ -150,6 +177,7 @@ SettingsWindow
            +--> SupportBundleService
                    +--> AppConfig
                    +--> ConfigService
+                   +--> INetSupportInstallationService
                    +--> ISessionHistoryService
                    +--> IDiagnosticLogService
                    +--> System-/Runtime-Informationen
@@ -173,7 +201,8 @@ Für einen manuellen Test:
 7. Prüfen, dass `settings.json` nicht enthalten ist.
 8. Nach bekannten Benutzernamen, Domainnamen und Kennwörtern suchen.
 9. Prüfen, dass `configuration-summary.json` `remoteAccessPolicy: NetSupport-only` enthält.
-10. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
+10. NetSupport-Produkt-/Dateiversion und Erkennungsstatus prüfen.
+11. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
 
 ---
 
