@@ -1,6 +1,6 @@
 # Betrieb, Einstellungen und Diagnose
 
-> Diese Datei beschreibt die betriebliche Nutzung von **NetSupport Remote Admin**: Einstellungen, Autostart, Diagnoseprotokoll, Supportpaket und Export des lokalen Verbindungsverlaufs.
+> Diese Datei beschreibt die betriebliche Nutzung von **NetSupport Remote Admin**: Einstellungen, NetSupport-Erkennung, Autostart, Diagnoseprotokoll, Supportpaket und Export des lokalen Verbindungsverlaufs.
 
 ---
 
@@ -28,11 +28,60 @@ Dort können aktuell geändert bzw. ausgeführt werden:
 - **Beim Start minimiert im Infobereich öffnen**
 - **Diagnoseprotokoll schreiben**
 - Pfad zu `PCICTLUI.EXE`
+- **Automatisch erkennen**
+- **NetSupport prüfen…**
 - **Systemzustand**
 - **Diagnoseordner öffnen**
 - **Supportpaket erstellen…**
 
 Für diese Standardoptionen ist keine manuelle Bearbeitung von `settings.json` erforderlich.
+
+---
+
+## NetSupport-Pfad und Installationserkennung
+
+Der produktive Remote-Provider akzeptiert ausschließlich eine vorhandene Datei mit dem Namen:
+
+```text
+PCICTLUI.EXE
+```
+
+### Manuell auswählen
+
+Über **Durchsuchen…** kann die Datei manuell gewählt werden.
+
+### Automatisch erkennen
+
+**Automatisch erkennen** prüft lokal:
+
+- aktuell eingetragenen Pfad
+- Program Files (x86)
+- Program Files
+- Windows-Uninstall-Registry für NetSupport Manager in HKLM/HKCU, 32-/64-Bit
+
+Es findet keine rekursive Laufwerkssuche statt.
+
+Wenn eine gültige Installation gefunden wird, wird der Pfad in das Eingabefeld übernommen. Dauerhaft gespeichert wird er erst mit **Speichern**.
+
+### NetSupport prüfen…
+
+Das Prüffenster zeigt alle bekannten Kandidaten mit:
+
+- gefunden / nicht gefunden
+- Erkennungsquelle
+- Produktname
+- Produktversion
+- Dateiversion
+- Hersteller
+- Pfad
+
+Ein gültiger Kandidat kann bewusst über **Pfad übernehmen** gewählt werden.
+
+Die Prüfung startet weder `PCICTLUI.EXE` noch eine Remoteverbindung.
+
+### Neue Konfiguration
+
+Bei einem ganz neuen Benutzerprofil verwendet auch `ConfigService` die Installationserkennung, um einen vorhandenen lokalen NetSupport-Control-Pfad als Ausgangswert zu setzen.
 
 ---
 
@@ -52,7 +101,7 @@ Wert:
 NetSupportRemoteAdmin
 ```
 
-Es werden keine computerweiten Registry-Werte und keine Gruppenrichtlinien geändert. Für das Aktivieren oder Deaktivieren des Autostarts sind deshalb normalerweise keine erhöhten Rechte erforderlich.
+Es werden keine computerweiten Registry-Werte und keine Gruppenrichtlinien geändert.
 
 Wenn **Beim Start minimiert** zusätzlich aktiviert ist, startet die Anwendung beim Windows-Login direkt im Infobereich.
 
@@ -66,13 +115,13 @@ Das optionale Diagnoseprotokoll liegt unter:
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-Die Einstellungsseite enthält **Diagnoseordner öffnen**.
-
 Das Protokoll erfasst für die Fehlersuche unter anderem:
 
 - Programmstart und Programmende
 - Änderungen wichtiger Einstellungen
 - Start von NetSupport-Aktionen
+- tatsächlich erzeugte NetSupport-Kommandozeile
+- gestartete `PCICTLUI.EXE`-Prozess-ID
 - Provider und Aktion
 - Zielhostname
 - Active-Directory-Ladevorgänge und Fehler
@@ -92,21 +141,19 @@ Bewusst nicht protokolliert werden:
 - Remote-Dateiinhalte
 - komplette CIM-/Inventardatensätze
 
-Hostnamen und die gestartete Verwaltungsaktion sind Teil der betrieblichen Diagnose.
+Hostnamen und die gestartete Verwaltungsaktion sind Teil der lokalen technischen Diagnose.
 
 ### Rotation
 
-`application.log` wird bei ungefähr 2 MB rotiert.
-
-Die vorherige Datei wird als
+`application.log` wird bei ungefähr 2 MB nach
 
 ```text
 application.log.1
 ```
 
-erhalten.
+rotiert.
 
-Ein Fehler im Diagnose-Logging darf die Remoteverwaltung niemals blockieren.
+Ein Fehler im Diagnose-Logging darf die Remoteverwaltung nicht blockieren.
 
 ---
 
@@ -118,8 +165,10 @@ Aktuelle Checks:
 
 - Remotezugriffsrichtlinie = NetSupport-only
 - AppData-Verzeichnis beschreibbar
-- `PCICTLUI.EXE` vorhanden
-- RSAT / ActiveDirectory-PowerShell-Modul vorhanden
+- konfigurierte `PCICTLUI.EXE` vorhanden
+- NetSupport-Produkt-/Dateiversion
+- bei defektem Pfad: alternative lokale NetSupport-Installation vorhanden
+- RSAT / ActiveDirectory-PowerShell-Modul
 - lokale CIM-/WSMan-Grundfunktion
 - Autostartzustand
 - Diagnoseprotokollzustand
@@ -136,7 +185,7 @@ Unter **Einstellungen → Diagnose und Support** steht **Supportpaket erstellen�
 
 Die Anonymisierung ist standardmäßig aktiviert.
 
-Das ZIP enthält eine eigens erzeugte, bereinigte Supportdarstellung:
+Das ZIP enthält:
 
 ```text
 README.txt
@@ -153,9 +202,11 @@ Wichtig:
 - Kennwörter/Credentials werden nicht aufgenommen
 - bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Logs und Verlauf ersetzt
 - Zielrechner erscheinen z. B. als `target-001`
-- Gruppen und Ansichten werden bei aktiver Anonymisierung abstrahiert
-- die Konfigurationsübersicht enthält `remoteAccessPolicy = NetSupport-only`
-- das Paket wird nur an den vom Benutzer ausgewählten Speicherort geschrieben
+- Gruppen und Ansichten werden abstrahiert
+- `configuration-summary.json` enthält `remoteAccessPolicy = NetSupport-only`
+- NetSupport-Produkt-/Dateiversion und Erkennungsstatus werden aufgenommen
+- der vollständige NetSupport-Installationspfad wird in der bereinigten Zusammenfassung nicht zusätzlich benötigt
+- das Paket wird nur an den ausgewählten Speicherort geschrieben
 
 Technische Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
@@ -200,17 +251,21 @@ Erfolg
 Fehler
 ```
 
-Die Datei wird semikolongetrennt und als UTF-8 mit BOM geschrieben, damit sie auf deutschsprachigen Windows-/Excel-Systemen zuverlässig geöffnet werden kann.
+Die Datei wird semikolongetrennt und als UTF-8 mit BOM geschrieben.
 
 ---
 
-## NetSupport-Pfad
+## Schutz vor falscher EXE
 
-Der Pfad zu `PCICTLUI.EXE` kann in der Einstellungsseite geändert werden.
+Selbst wenn `settings.json` manuell verändert wurde, startet `NetSupportProvider` nicht beliebige Programme.
 
-Nach dem Speichern aktualisiert das Hauptfenster die verfügbare NetSupport-Providerinstanz sofort. Ein Neustart ist dafür nicht erforderlich.
+Vor jeder Aktion wird geprüft:
 
-Ein ungewöhnlicher oder nicht vorhandener Pfad erzeugt vor dem Speichern eine Warnung, kann bei Bedarf trotzdem übernommen werden.
+- Pfad lässt sich vollständig auflösen
+- Datei existiert
+- Dateiname ist exakt `PCICTLUI.EXE`
+
+Ein anderer Dateiname wird mit Fehler abgewiesen.
 
 ---
 
@@ -236,20 +291,22 @@ Beispiel:
 
 Alte RDP-Felder aus früheren Entwicklungsständen werden beim Laden ignoriert und beim nächsten Speichern nicht mehr geschrieben.
 
-Der Windows-Autostart selbst wird nicht in `settings.json`, sondern im HKCU-Run-Key verwaltet.
+Der Windows-Autostart wird nicht in `settings.json`, sondern im HKCU-Run-Key verwaltet.
 
 ---
 
 ## Fehlerdiagnose
 
-Bei einem reproduzierbaren Problem sind typischerweise hilfreich:
+Bei einem reproduzierbaren Problem:
 
-1. betroffenen Testbuild/Commit notieren
-2. unter **Systemzustand** NetSupport-Pfad, RSAT und CIM prüfen
-3. Fehler reproduzieren
-4. Supportpaket mit aktivierter Anonymisierung erzeugen
-5. ZIP kurz auf unerwünschte interne Daten prüfen
-6. bei NetSupport-Problemen prüfen, ob `PCICTLUI.EXE` manuell mit demselben Ziel funktioniert
-7. bei AD/CIM prüfen, ob RSAT bzw. WSMan grundsätzlich verfügbar sind
+1. Testbuild/Commit notieren
+2. **NetSupport prüfen…** öffnen und Version/Pfad kontrollieren
+3. **Systemzustand** ausführen
+4. Fehler reproduzieren
+5. Supportpaket mit aktivierter Anonymisierung erzeugen
+6. ZIP kurz auf unerwünschte interne Daten prüfen
+7. bei NetSupport-Problemen `application.log` auf CLI und Prozess-ID prüfen
+8. bei Bedarf testen, ob dieselbe `PCICTLUI.EXE` außerhalb des Frontends mit demselben Ziel grundsätzlich funktioniert
+9. bei AD/CIM-Problemen RSAT bzw. WSMan getrennt prüfen
 
-Wenn kein Supportpaket benötigt wird, können alternativ `application.log` und die sichtbare Fehlermeldung separat betrachtet werden.
+Wenn kein Supportpaket benötigt wird, können alternativ `application.log` und die sichtbare Fehlermeldung betrachtet werden.
