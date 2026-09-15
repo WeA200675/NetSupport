@@ -6,6 +6,57 @@ Diese Datei hält die wesentlichen Entwicklungsschritte und Architekturentscheid
 
 ---
 
+## 2026-09-15 – Benannte NetSupport-Control-Profile (/N, optional /F)
+
+Die Anwendung kann jetzt vorhandene NetSupport-Manager-Control-Konfigurationen explizit beim Start von `PCICTLUI.EXE` verwenden.
+
+Neue Schicht:
+
+```text
+INetSupportProfileService
+   +--> NetSupportProfileService
+```
+
+Lokale Quelle:
+
+```text
+HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
+```
+
+Die Anwendung liest ausschließlich die vorhandenen Unterschlüsselnamen und schreibt **nicht** in diesen NetSupport-Schlüssel.
+
+Neue Konfiguration:
+
+```json
+{
+  "netSupportProfileName": "Helpdesk",
+  "netSupportLockProfile": true
+}
+```
+
+CLI-Verhalten:
+
+```text
+/n "Helpdesk"
+/f /n "Helpdesk"
+```
+
+Sicherheitsentscheidungen:
+
+- Profilnamen werden auf Länge, Anführungszeichen und Steuerzeichen geprüft
+- `/F` ist nur zusammen mit einem Profil zulässig
+- ein konfiguriertes Profil muss für den aktuellen Windows-Benutzer tatsächlich vorhanden sein
+- fehlt das Profil, wird der Remote-Start blockiert statt stillschweigend auf eine andere Konfiguration zurückzufallen
+- Profilpasswörter werden nicht gespeichert; eine Passwortabfrage bleibt vollständig bei NetSupport
+- der Systemzustand prüft das Profil separat
+- das Supportpaket enthält Profilstatus und `/F`-Status; bei Anonymisierung wird der Profilname zu `netsupport-profile`
+
+Die Einstellungen enthalten **Profile neu laden** und **Control auf dieses Profil festlegen (/F)**.
+
+Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
+
+---
+
 ## 2026-09-15 – Bevorzugte NetSupport-Aktion pro Rechner
 
 Gespeicherte Ziele können jetzt zusätzlich enthalten:
@@ -186,6 +237,7 @@ Lokale Checks:
 - Remotezugriffsrichtlinie = NetSupport-only
 - AppData-Verzeichnis beschreibbar
 - `PCICTLUI.EXE` / NetSupport-Installation
+- NetSupport-Control-Profil und `/F`-Konsistenz
 - ActiveDirectory-PowerShell-Modul / RSAT
 - lokale CIM-/WSMan-Grundfunktion
 - Windows-Autostart
@@ -247,6 +299,7 @@ Designentscheidungen:
 - Anonymisierung standardmäßig aktiv
 - bekannte Zielhosts/-namen werden durch `target-...` ersetzt
 - lokale Rechner-/Benutzer-/Domain-/Profilwerte werden ersetzt
+- NetSupport-Control-Profilnamen werden bei Anonymisierung durch `netsupport-profile` ersetzt
 - Gruppen/Ansichten werden abstrahiert
 - Original-`settings.json` wird nie in das ZIP kopiert
 - Kennwörter/Credentials, Bildschirm-, Zwischenablage- und Remote-Dateiinhalte werden nicht aufgenommen
@@ -328,6 +381,7 @@ In einer Zwischenphase wurde RDP als möglicher zweiter Provider technisch unter
 ```text
 IRemoteProvider
 INetSupportInstallationService
+INetSupportProfileService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
@@ -367,6 +421,7 @@ README.md
 docs/PROJECT_OVERVIEW.md
 docs/DOMAIN_REMOTE_POLICY.md
 docs/NETSUPPORT_INTEGRATION.md
+docs/NETSUPPORT_CONTROL_PROFILES.md
 docs/NETSUPPORT_PREFERRED_ACTIONS.md
 docs/DEVELOPMENT_LOG.md
 docs/TARGET_ORGANIZATION.md
@@ -381,7 +436,6 @@ docs/TESTING.md
 
 ## Nächste technische Optionen
 
-- benannte NetSupport-Control-Konfigurationen (`/N`, optional `/F`) bewusst anbinden
 - NetSupport-Installationsordner optional auf Begleitdateien prüfen
 - NetSupport-Startfehler von späteren Verbindungsfehlern besser unterscheiden
 - zusätzliche Domänen-/Rechnermetadaten
