@@ -14,7 +14,7 @@ Remotezugriff ausschließlich über NetSupport Manager
 
 RDP darf nicht als Fernwartungsweg angeboten oder gestartet werden.
 
-Vor jedem produktiven Test deshalb zuerst prüfen:
+Vor jedem produktiven Test zuerst prüfen:
 
 - kein RDP-Button sichtbar
 - keine RDP-Einstellungen vorhanden
@@ -27,7 +27,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 
 ## Testbuild beziehen
 
-Ein erfolgreicher GitHub-Actions-Lauf erzeugt das Artefakt:
+Ein erfolgreicher GitHub-Actions-Lauf erzeugt:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
@@ -40,7 +40,7 @@ Vorgehen:
 3. ZIP in einen Testordner entpacken
 4. `NetSupport.RemoteAdmin.exe` starten
 
-Der Build ist self-contained; eine separat installierte .NET-8-Laufzeit ist auf dem Test-PC nicht erforderlich.
+Der Build ist self-contained; eine separat installierte .NET-8-Laufzeit ist nicht erforderlich.
 
 ---
 
@@ -50,8 +50,8 @@ Prüfen:
 
 - Hauptfenster öffnet sich
 - Hinweis **NetSupport-only / RDP nicht angeboten** ist sichtbar
-- Schließen des Fensters beendet die Anwendung nicht, sondern minimiert in den Infobereich
-- Doppelklick auf das Tray-Symbol öffnet das Fenster wieder
+- Schließen minimiert in den Infobereich
+- Doppelklick auf das Tray-Symbol öffnet das Fenster
 - **Beenden** im Tray-Menü beendet die Anwendung vollständig
 
 ---
@@ -69,27 +69,47 @@ prüfen:
 - Remotezugriffsrichtlinie zeigt **NetSupport-only**
 - AppData ist beschreibbar
 - `PCICTLUI.EXE` wird gefunden oder verständlich als fehlend gemeldet
+- bei gültiger Datei werden Produkt-/Dateiversion soweit verfügbar angezeigt
+- bei absichtlich falschem konfiguriertem Pfad wird eine alternative lokale Installation als Hinweis erkannt, sofern vorhanden
 - RSAT/ActiveDirectory-Modul wird korrekt erkannt
 - lokales CIM/WSMan wird geprüft
 - Autostartzustand wird angezeigt
 - Diagnosezustand wird angezeigt
 - **Neu prüfen** funktioniert
 
-Die Seite darf keine RDP-Komponenten prüfen.
+Die Seite darf keine RDP-Komponenten prüfen und keine Remoteverbindung aufbauen.
 
 ---
 
-## 3. NetSupport-Pfad
+## 3. NetSupport-Installation und Pfad
 
-Unter **Einstellungen**:
+Unter **Einstellungen → NetSupport Manager**:
 
-1. gültige `PCICTLUI.EXE` auswählen
-2. speichern
-3. prüfen, dass NetSupport ohne Programmneustart als Provider verfügbar ist
-4. testweise ungültigen Pfad eingeben
-5. Warnung prüfen
+### Manuelle Auswahl
 
-Typischer Installationspfad:
+1. gültige `PCICTLUI.EXE` über **Durchsuchen…** auswählen
+2. prüfen, dass unter dem Feld **Gefunden** und eine Version erscheint
+3. speichern
+4. prüfen, dass NetSupport ohne Programmneustart als Provider verfügbar ist
+
+### Automatische Erkennung
+
+1. vorhandenen Pfad notieren
+2. Feld testweise leeren oder auf einen nicht vorhandenen Pfad setzen
+3. **Automatisch erkennen** drücken
+4. wenn NetSupport lokal installiert ist, muss eine gültige `PCICTLUI.EXE` übernommen werden
+5. prüfen, dass keine Laufwerkssuche bzw. kein langer Scan sichtbar stattfindet
+
+### Prüffenster
+
+1. **NetSupport prüfen…** öffnen
+2. Liste der Kandidaten prüfen
+3. bei vorhandener Installation sollen Quelle und Version sichtbar sein
+4. gültigen Kandidaten auswählen
+5. **Pfad übernehmen** verwenden
+6. prüfen, dass das Einstellungsfeld aktualisiert wird
+
+Typischer Pfad:
 
 ```text
 C:\Program Files (x86)\NetSupport\NetSupport Manager\PCICTLUI.EXE
@@ -99,7 +119,23 @@ Der tatsächliche Pfad kann je Installation abweichen.
 
 ---
 
-## 4. Direkte Zielverbindung
+## 4. Schutz vor falscher EXE
+
+Dieser Test prüft die Provider-Härtung.
+
+1. Anwendung beenden
+2. in einer Testkopie der lokalen `settings.json` den Wert `netSupportExecutable` absichtlich auf eine andere vorhandene EXE setzen
+3. Anwendung starten
+4. NetSupport-Aktion auslösen
+5. Start muss mit verständlicher Fehlermeldung abgewiesen werden
+6. das fremde Programm darf **nicht** gestartet werden
+7. anschließend den korrekten NetSupport-Pfad über **Automatisch erkennen** oder **NetSupport prüfen…** wiederherstellen
+
+Der Provider darf ausschließlich `PCICTLUI.EXE` starten.
+
+---
+
+## 5. Direkte Zielverbindung
 
 Mit einem bekannten Testrechner prüfen:
 
@@ -113,7 +149,7 @@ Bei einem absichtlich ungültigen Ziel muss die Anwendung selbst stabil bleiben.
 
 ---
 
-## 5. NetSupport-Schnellaktionen
+## 6. NetSupport-Schnellaktionen
 
 Für einen freigegebenen Test-PC einzeln prüfen:
 
@@ -128,12 +164,12 @@ Erwartung:
 
 - `PCICTLUI.EXE` startet
 - gewünschte NetSupport-Funktion wird verwendet
-- Schließen der jeweiligen Funktion verhält sich entsprechend der verwendeten NetSupport-CLI-Option
-- Fehler werden verständlich im Hauptfenster bzw. Dialog angezeigt
+- Fehler werden verständlich angezeigt
+- Diagnose enthält bei aktiviertem Logging die erzeugte CLI und nach erfolgreichem Prozessstart eine PID
 
 ---
 
-## 6. Domänenrichtlinien-Sperre
+## 7. Domänenrichtlinien-Sperre
 
 Mit einer alten `settings.json`, die beispielsweise enthält:
 
@@ -165,7 +201,7 @@ prüfen:
 
 ---
 
-## 7. Active Directory
+## 8. Active Directory
 
 Wenn RSAT verfügbar ist:
 
@@ -178,7 +214,7 @@ Wenn RSAT fehlt, muss eine verständliche Warnung erscheinen und die manuelle Ne
 
 ---
 
-## 8. Statusprüfung
+## 9. Statusprüfung
 
 Mit mehreren Zielen:
 
@@ -190,7 +226,7 @@ Hinweis: Ping ist nur ein Erreichbarkeitshinweis. Ein fehlgeschlagener Ping bewe
 
 ---
 
-## 9. Rechnerdetails
+## 10. Rechnerdetails
 
 Für einen erreichbaren Test-PC:
 
@@ -205,7 +241,7 @@ Bei blockiertem CIM/WSMan muss die Anwendung weiter nutzbar bleiben und die NetS
 
 ---
 
-## 10. Favoriten und Gruppen
+## 11. Favoriten und Gruppen
 
 Prüfen:
 
@@ -216,14 +252,14 @@ Prüfen:
 - Werte bleiben erhalten
 - **Nur Favoriten** funktioniert
 - Gruppenfilter funktioniert
-- Suchfeld findet auch Gruppennamen
+- Suchfeld findet Gruppennamen
 - Favoriten stehen oben
 
-Nicht gespeicherte Änderungen dürfen durch einen bloßen Verbindungsstart nicht automatisch dauerhaft werden.
+Nicht gespeicherte Änderungen dürfen durch einen bloßen Verbindungsstart nicht dauerhaft werden.
 
 ---
 
-## 11. Gespeicherte Ansichten
+## 12. Gespeicherte Ansichten
 
 Beispiele anlegen:
 
@@ -243,7 +279,7 @@ Prüfen:
 
 ---
 
-## 12. Verlauf
+## 13. Verlauf
 
 Mehrere NetSupport-Aktionen starten und prüfen:
 
@@ -257,7 +293,7 @@ Mehrere NetSupport-Aktionen starten und prüfen:
 
 ---
 
-## 13. CSV-Export
+## 14. CSV-Export
 
 **CSV exportieren** verwenden und in Excel/LibreOffice öffnen.
 
@@ -270,7 +306,7 @@ Prüfen:
 
 ---
 
-## 14. Autostart
+## 15. Autostart
 
 **Mit Windows starten** aktivieren.
 
@@ -292,7 +328,7 @@ Es dürfen keine HKLM- oder GPO-Änderungen erfolgen.
 
 ---
 
-## 15. Diagnoseprotokoll
+## 16. Diagnoseprotokoll
 
 Diagnose aktivieren und einige Aktionen ausführen.
 
@@ -306,6 +342,8 @@ Erwartete Inhalte:
 
 - Start/Ende
 - NetSupport-Aktionsstarts
+- erzeugte `PCICTLUI.EXE`-Kommandozeile
+- PID eines erfolgreich gestarteten NetSupport-Prozesses
 - Zielhostname
 - AD-/Statusvorgänge
 - Fehler
@@ -315,7 +353,7 @@ Nicht enthalten sein dürfen Kennwörter oder Sitzungsinhalte.
 
 ---
 
-## 16. Supportpaket
+## 17. Supportpaket
 
 Mit aktivierter Anonymisierung ZIP erzeugen.
 
@@ -334,6 +372,8 @@ Zusätzlich prüfen:
 
 - `settings.json` ist nicht enthalten
 - `configuration-summary.json` enthält `remoteAccessPolicy = NetSupport-only`
+- NetSupport-Produkt-/Dateiversion ist enthalten, sofern auslesbar
+- der Erkennungsstatus der NetSupport-Installation ist enthalten
 - Zielnamen sind bei Anonymisierung ersetzt
 - Kennwörter/Credentials sind nicht enthalten
 
@@ -345,7 +385,9 @@ Ein Build ist für den praktischen Pilotbetrieb geeignet, wenn:
 
 - GitHub Actions vollständig grün ist
 - RDP im Produkt weder sichtbar noch startbar ist
+- NetSupport-Installation auf den vorgesehenen Admin-PCs korrekt erkannt oder bewusst auswählbar ist
 - NetSupport Control/View auf mindestens zwei typischen Ziel-PCs funktioniert
+- eine manipulierte Fremd-EXE nicht über den NetSupport-Provider gestartet werden kann
 - AD-Liste und Filter funktionieren
 - Fehler eines optionalen Dienstes wie CIM die NetSupport-Fernwartung nicht blockieren
 - Diagnose/Supportpaket keine Credentials enthalten
