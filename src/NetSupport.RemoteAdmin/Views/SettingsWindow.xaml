@@ -1,0 +1,124 @@
+<Window x:Class="NetSupport.RemoteAdmin.Views.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Einstellungen" Height="780" Width="700"
+        MinHeight="620" MinWidth="620"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="Einstellungen" FontSize="24" FontWeight="SemiBold"/>
+            <TextBlock Text="NetSupport, Autostart und Diagnose" Opacity="0.65" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <GroupBox Header="Domänenrichtlinie">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Remotezugriff erfolgt ausschließlich über NetSupport Manager."
+                                   FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="RDP ist in der Domäne nicht als Fernwartungsweg zugelassen und wird von dieser Anwendung weder angeboten noch als Provider registriert."
+                                   TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Start und Bedienung" Margin="0,14,0,0">
+                    <StackPanel Margin="12">
+                        <CheckBox x:Name="AutoStartCheckBox" Content="Mit Windows starten" Margin="0,2,0,8"/>
+                        <CheckBox x:Name="StartMinimizedCheckBox" Content="Beim Start minimiert im Infobereich öffnen" Margin="0,2,0,8"/>
+                        <CheckBox x:Name="DiagnosticLoggingCheckBox" Content="Diagnoseprotokoll schreiben" Margin="0,2,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="NetSupport Manager" Margin="0,14,0,0">
+                    <StackPanel Margin="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="NetSupportPathTextBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                     ToolTip="Pfad zu PCICTLUI.EXE" TextChanged="NetSupportPathTextBox_OnTextChanged"/>
+                            <Button Grid.Column="1" Content="Durchsuchen…" Height="32" Margin="8,0,0,0" Padding="12,0"
+                                    Click="BrowseNetSupportButton_OnClick"/>
+                        </Grid>
+
+                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                            <Button Content="Automatisch erkennen" Height="32" Margin="0,0,5,0"
+                                    Click="AutoDetectNetSupportButton_OnClick"/>
+                            <Button Content="NetSupport prüfen…" Height="32" Margin="5,0,0,0"
+                                    Click="InspectNetSupportButton_OnClick"/>
+                        </UniformGrid>
+
+                        <TextBlock x:Name="NetSupportInfoTextBlock" TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,7,0,0"/>
+
+                        <Grid Margin="0,11,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="150"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Client-Port (TCP)" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                            <TextBox x:Name="NetSupportClientPortTextBox" Grid.Column="1" Width="110" HorizontalAlignment="Left"
+                                     Height="30" Padding="7,0" VerticalContentAlignment="Center" MaxLength="5"
+                                     ToolTip="Port für den diagnostischen NetSupport-Client-Erreichbarkeitscheck; Standard 5405"/>
+                        </Grid>
+                        <TextBlock Text="Standard ist TCP 5405. Der Wert wird nur für den Status-/Erreichbarkeitscheck verwendet und verändert keine NetSupport- oder Firewall-Konfiguration."
+                                   TextWrapping="Wrap" Opacity="0.58" FontSize="11" Margin="150,4,0,0"/>
+
+                        <Separator Margin="0,12,0,10"/>
+                        <TextBlock Text="Control-Konfiguration" FontWeight="SemiBold"/>
+                        <TextBlock Text="Optional ein vorhandenes NetSupport-Control-Profil verwenden. Die Profile werden nur aus der lokalen HKCU-Konfiguration gelesen."
+                                   TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,4,0,8"/>
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <ComboBox x:Name="NetSupportProfileComboBox" Height="32" IsEditable="True"
+                                      Padding="6,0" VerticalContentAlignment="Center"
+                                      ToolTip="NetSupport-Control-Profil; leer = Standardverhalten von NetSupport"/>
+                            <Button Grid.Column="1" Content="Profile neu laden" Height="32" Margin="8,0,0,0" Padding="12,0"
+                                    Click="RefreshNetSupportProfilesButton_OnClick"/>
+                        </Grid>
+
+                        <CheckBox x:Name="NetSupportLockProfileCheckBox"
+                                  Content="Control auf dieses Profil festlegen (/F)"
+                                  Margin="0,9,0,0"
+                                  ToolTip="Verwendet /F zusammen mit /N. NetSupport verhindert damit den Wechsel auf eine andere Control-Konfiguration."/>
+                        <TextBlock x:Name="NetSupportProfileInfoTextBlock" TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Diagnose und Support" Margin="0,14,0,0">
+                    <StackPanel Margin="12">
+                        <TextBlock x:Name="LogPathTextBlock" TextWrapping="Wrap" Opacity="0.75"/>
+                        <CheckBox x:Name="AnonymizeSupportBundleCheckBox" IsChecked="True"
+                                  Content="Supportpaket anonymisieren (empfohlen)" Margin="0,10,0,0"/>
+                        <TextBlock Text="Das Supportpaket enthält bereinigte System-, Konfigurations-, Verlaufs- und Logdaten. Passwörter/Credentials werden nie aufgenommen."
+                                   TextWrapping="Wrap" Opacity="0.58" FontSize="11" Margin="0,5,0,0"/>
+                        <UniformGrid Columns="3" Margin="0,10,0,0">
+                            <Button Content="Systemzustand" Height="32" Margin="0,0,5,0"
+                                    Click="SystemHealthButton_OnClick"/>
+                            <Button Content="Diagnoseordner öffnen" Height="32" Margin="5,0"
+                                    Click="OpenLogFolderButton_OnClick"/>
+                            <Button x:Name="CreateSupportBundleButton" Content="Supportpaket erstellen…" Height="32" Margin="5,0,0,0"
+                                    Click="CreateSupportBundleButton_OnClick"/>
+                        </UniformGrid>
+                    </StackPanel>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <DockPanel Grid.Row="2" Margin="0,18,0,0" LastChildFill="False">
+            <Button Content="Abbrechen" Width="105" Height="34" Margin="8,0,0,0" DockPanel.Dock="Right" IsCancel="True"/>
+            <Button Content="Speichern" Width="105" Height="34" DockPanel.Dock="Right" IsDefault="True" Click="SaveButton_OnClick"/>
+        </DockPanel>
+    </Grid>
+</Window>
