@@ -12,6 +12,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
 - [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md) – anonymisierbares Diagnose-/Supportpaket
+- [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md) – lokaler Systemzustand und Voraussetzungen des Admin-PCs
 - [`docs/TESTING.md`](docs/TESTING.md) – Testbuild und praktische Prüfschritte
 
 ## Aktueller Funktionsumfang
@@ -34,6 +35,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - optionaler Windows-Autostart pro Benutzer
 - optionales lokales Diagnoseprotokoll
 - anonymisierbares Supportpaket als ZIP
+- lokale Systemzustandsprüfung für Admin-PC-Voraussetzungen
 
 ### NetSupport Manager
 
@@ -88,8 +90,11 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - eingebetteten RDP-Viewer bevorzugen
 - externes RDP standardmäßig im Vollbild starten
 - NetSupport-Executable auswählen
+- **Systemzustand** des Admin-PCs prüfen
 - Diagnoseordner öffnen
 - anonymisierbares Supportpaket erstellen
+
+Die Systemzustandsseite prüft lokal unter anderem AppData-Schreibbarkeit, NetSupport-Executable, `mstsc.exe`, RDP-ActiveX-Registrierung, RSAT/ActiveDirectory PowerShell, lokales CIM/WSMan, Autostart und Diagnosezustand. Es werden dabei keine Domänenrechner gescannt.
 
 Windows-Autostart wird ausschließlich im Benutzerprofil über
 
@@ -109,7 +114,7 @@ Es rotiert bei ungefähr 2 MB nach `application.log.1`. Passwörter, RDP-Credent
 
 Das Supportpaket erzeugt eine ZIP-Datei mit bereinigten System-, Konfigurations-, History- und Logdaten. Die Original-`settings.json` sowie Passwörter/Credentials werden nicht aufgenommen. Die Anonymisierung von Host-/Benutzer-/Rechnerkennungen ist standardmäßig aktiviert.
 
-Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) und [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md).
+Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md), [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md) und [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md).
 
 ## Persistente Dateien
 
@@ -151,9 +156,10 @@ IRdpConnectionFileService
 IAutoStartService
 IDiagnosticLogService
 ISupportBundleService
+ISystemHealthService
 ```
 
-Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf, RDP-Verbindungsdateien, Autostart, Diagnose und Supportpaketerzeugung voneinander getrennt.
+Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf, RDP-Verbindungsdateien, Autostart, Diagnose, Supportpaketerzeugung und lokale Zustandsprüfung voneinander getrennt.
 
 ## Build
 
