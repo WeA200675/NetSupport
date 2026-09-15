@@ -1,6 +1,6 @@
 # Gespeicherte Ansichten und Verbindungsverlauf
 
-> Diese Datei beschreibt die wiederverwendbaren Listenfilter und den lokalen Verlauf von Remote-Verbindungsstarts in **NetSupport Remote Admin**.
+> Diese Datei beschreibt die wiederverwendbaren Listenfilter und den lokalen Verlauf von NetSupport-Aktionsstarts in **NetSupport Remote Admin**.
 
 ---
 
@@ -13,7 +13,7 @@ Bei einem größeren Rechnerbestand werden häufig dieselben Teilmengen benötig
 - eine bestimmte Rechnergruppe
 - ein Suchbegriff zusammen mit einer Gruppe
 
-Zusätzlich soll nachvollziehbar sein, welcher Rechner zuletzt mit welchem Remote-Provider gestartet wurde, ohne dafür Passwörter oder eine zentrale Audit-Datenbank aufzubauen.
+Zusätzlich soll nachvollziehbar sein, welcher Rechner zuletzt mit welcher NetSupport-Aktion gestartet wurde, ohne eine zweite zentrale Audit-Datenbank aufzubauen.
 
 ---
 
@@ -68,35 +68,36 @@ Der lokale Verlauf liegt absichtlich in einer eigenen Datei:
 
 Damit bleibt `settings.json` eine reine Konfigurationsdatei.
 
-Pro Verbindungsstart werden gespeichert:
+Pro NetSupport-Aktionsstart werden gespeichert:
 
 - Zeitpunkt
 - Hostname
 - optionaler Anzeigename
-- Provider-ID
+- Provider-ID (`netsupport`)
 - lesbarer Providername
 - Aktion, zum Beispiel `Control`, `View`, `FileTransfer`
-- Erfolg oder Fehler beim Starten
+- Erfolg oder Fehler beim Starten von `PCICTLUI.EXE`
 - bei einem Fehler die sichtbare Fehlermeldung
 
 Nicht gespeichert werden:
 
-- Passwörter
-- RDP-Credentials
+- Kennwörter oder Credentials
 - aktuelle IP-/CIM-Inventardaten
 - Bildschirminhalte
 - Tastatureingaben
-- Dateien aus der Remotesitzung
+- Inhalte übertragener Dateien
 
 ---
 
 ## Bedeutung von „Verbindungsstart“
 
-Der Verlauf dokumentiert, dass die Anwendung einen Remote-Provider erfolgreich gestartet beziehungsweise nicht starten konnte.
+Der Verlauf dokumentiert, dass die Anwendung `PCICTLUI.EXE` für eine NetSupport-Aktion erfolgreich gestartet beziehungsweise nicht starten konnte.
 
-Bei externen Programmen wie NetSupport `PCICTLUI.EXE` kann das Frontend nicht zuverlässig erkennen, wann der Benutzer die eigentliche Remotesitzung beendet oder ob die Gegenstelle nach dem Prozessstart später noch abgelehnt hat.
+Das Frontend kann nicht zuverlässig erkennen, ob der NetSupport-Client die Gegenstelle anschließend tatsächlich erreicht, wie lange die eigentliche Sitzung dauert oder wann sie beendet wird.
 
-Deshalb ist der Verlauf bewusst ein **Startverlauf** und kein revisionssicheres Session-Audit.
+Deshalb ist dieser lokale Verlauf bewusst ein **Startverlauf** und kein revisionssicheres Session-Audit.
+
+Für verbindliche Nachvollziehbarkeit bleibt die vorgesehene NetSupport-/Unternehmensprotokollierung maßgeblich.
 
 ---
 
@@ -142,7 +143,7 @@ Technische Eigenschaften:
 
 Das Format ist bewusst so gewählt, dass die Datei auf deutschsprachigen Windows-Systemen in Excel zuverlässig geöffnet werden kann.
 
-Der Export enthält dieselben sicherheitsbewussten Daten wie der JSON-Verlauf und insbesondere **keine Passwörter oder RDP-Credentials**.
+Der Export enthält keine Kennwörter oder Sitzungsinhalte.
 
 ---
 
@@ -158,17 +159,17 @@ Das Löschen betrifft nur:
 session-history.json
 ```
 
-Gespeicherte Rechner, Favoriten, Gruppen, RDP-Einstellungen und Ansichten bleiben erhalten.
+Gespeicherte Rechner, Favoriten, Gruppen und Ansichten bleiben erhalten.
 
 ---
 
 ## Fehlerrobustheit
 
-Der Verlauf ist eine Komfortfunktion und darf die Fernwartung nicht blockieren.
+Der Verlauf ist eine Komfort-/Diagnosefunktion und darf die Fernwartung nicht blockieren.
 
 Deshalb gilt:
 
-- Fehler beim Schreiben des Verlaufs verhindern keine Remote-Aktion.
+- Fehler beim Schreiben des Verlaufs verhindern keine NetSupport-Aktion.
 - Eine beschädigte oder nicht lesbare History-Datei verhindert keinen Programmstart.
 - Die History wird separat von der Hauptkonfiguration verarbeitet.
 - Schreibvorgänge werden serialisiert und über eine temporäre Datei ersetzt.
@@ -212,4 +213,4 @@ Services/JsonSessionHistoryService.cs
 
 Gespeicherte Ansichten sind Teil der persönlichen Bedienkonfiguration und gehören daher in `settings.json`.
 
-Der Verlauf ändert sich dagegen bei jeder Verbindung und wird deshalb separat gehalten. So lässt er sich löschen, exportieren oder später durch einen anderen History-/Audit-Provider ersetzen, ohne die eigentliche Zielkonfiguration zu verändern.
+Der Verlauf ändert sich dagegen bei jeder gestarteten NetSupport-Aktion und wird deshalb separat gehalten. So lässt er sich löschen oder exportieren, ohne die Zielkonfiguration zu verändern.
