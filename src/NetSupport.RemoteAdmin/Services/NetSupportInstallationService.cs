@@ -34,7 +34,8 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
 
         return paths
             .Select(pair => Inspect(pair.Key, pair.Value))
-            .OrderByDescending(candidate => candidate.Exists)
+            .OrderByDescending(candidate => candidate.IsUsable)
+            .ThenByDescending(candidate => candidate.Exists)
             .ThenBy(candidate => candidate.Source, StringComparer.OrdinalIgnoreCase)
             .ThenBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -45,6 +46,10 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
         var normalized = Environment.ExpandEnvironmentVariables(path.Trim().Trim('"'));
         var exists = File.Exists(normalized);
+        var isControlExecutable = string.Equals(
+            Path.GetFileName(normalized),
+            "PCICTLUI.EXE",
+            StringComparison.OrdinalIgnoreCase);
 
         if (!exists)
         {
@@ -52,7 +57,8 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
             {
                 Path = normalized,
                 Source = source,
-                Exists = false
+                Exists = false,
+                IsControlExecutable = isControlExecutable
             };
         }
 
@@ -64,6 +70,7 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
                 Path = normalized,
                 Source = source,
                 Exists = true,
+                IsControlExecutable = isControlExecutable,
                 ProductName = NullIfWhiteSpace(versionInfo.ProductName),
                 ProductVersion = NullIfWhiteSpace(versionInfo.ProductVersion),
                 FileVersion = NullIfWhiteSpace(versionInfo.FileVersion),
@@ -78,13 +85,14 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
                 Path = normalized,
                 Source = source,
                 Exists = true,
+                IsControlExecutable = isControlExecutable,
                 LastWriteTime = SafeGetLastWriteTime(normalized)
             };
         }
     }
 
     public string? FindBestExecutable(string? configuredPath = null) =>
-        Discover(configuredPath).FirstOrDefault(candidate => candidate.Exists)?.Path;
+        Discover(configuredPath).FirstOrDefault(candidate => candidate.IsUsable)?.Path;
 
     private static IReadOnlyList<(string Path, string Source)> ReadRegistryCandidates()
     {
