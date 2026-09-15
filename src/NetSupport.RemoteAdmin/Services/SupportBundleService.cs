@@ -191,6 +191,9 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             rdpUserNameConfigured = !string.IsNullOrWhiteSpace(target.RdpUserName),
             rdpDomainConfigured = !string.IsNullOrWhiteSpace(target.RdpDomain),
             rdpRedirectClipboard = target.RdpRedirectClipboard,
+            rdpRedirectDrives = target.RdpRedirectDrives,
+            rdpRedirectMicrophone = target.RdpRedirectMicrophone,
+            rdpAudioRedirectionMode = target.RdpAudioRedirectionMode,
             rdpAdminSession = target.RdpAdminSession,
             rdpUseMultiMonitor = target.RdpUseMultiMonitor,
             rdpSelectedMonitors = target.RdpSelectedMonitors
