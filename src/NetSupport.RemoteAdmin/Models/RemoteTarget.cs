@@ -44,13 +44,31 @@ public sealed class RemoteTarget
     public RemoteTargetDetails? Details { get; set; }
 
     [JsonIgnore]
-    public string StatusText => Status switch
+    public string StatusText
     {
-        HostStatus.Online => "Online",
-        // A failed ping does not prove that the computer is powered off; ICMP can be blocked.
-        HostStatus.Offline => "Nicht erreichbar",
-        _ => "Unbekannt"
-    };
+        get
+        {
+            if (NetSupportStatus == NetSupportReachabilityStatus.Unknown)
+            {
+                return Status switch
+                {
+                    HostStatus.Online => "Online",
+                    // A failed ping does not prove that the computer is powered off; ICMP can be blocked.
+                    HostStatus.Offline => "Nicht erreichbar",
+                    _ => "Unbekannt"
+                };
+            }
+
+            var pingText = Status switch
+            {
+                HostStatus.Online => "Ping erreichbar",
+                HostStatus.Offline => "Ping keine Antwort",
+                _ => "Ping nicht geprüft"
+            };
+
+            return $"{pingText} · {NetSupportStatusText}";
+        }
+    }
 
     [JsonIgnore]
     public string NetSupportStatusText => NetSupportStatus switch
