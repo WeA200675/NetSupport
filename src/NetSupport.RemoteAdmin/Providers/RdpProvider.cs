@@ -31,45 +31,33 @@ public sealed class RdpProvider(
             throw new ArgumentException("Für die Verbindung ist ein Rechnername oder eine IP-Adresse erforderlich.", nameof(target));
 
         var selectedMonitors = connectionFileService.NormalizeMonitorIds(target.RdpSelectedMonitors);
+        target.RdpSelectedMonitors = selectedMonitors;
 
-        // Targeted monitor selection is currently expressed through the documented
-        // selectedmonitors RDP-file setting. Normal sessions stay embedded when enabled.
+        // Targeted monitor selection currently uses mstsc/.rdp. All other sessions remain
+        // embedded when enabled; the external fallback also receives the same non-secret
+        // audio/device/clipboard preferences through a generated .rdp file.
         if (selectedMonitors is null && config.UseEmbeddedRdp && sessionLauncher.IsAvailable)
         {
             await sessionLauncher.LaunchAsync(target, cancellationToken);
             return;
         }
 
-        LaunchExternalClient(target, selectedMonitors);
+        LaunchExternalClient(target);
     }
 
-    private void LaunchExternalClient(RemoteTarget target, string? selectedMonitors)
+    private void LaunchExternalClient(RemoteTarget target)
     {
         var mstscPath = Path.Combine(Environment.SystemDirectory, "mstsc.exe");
         if (!File.Exists(mstscPath))
             throw new InvalidOperationException("Windows Remote Desktop (mstsc.exe) wurde nicht gefunden.");
 
+        var connectionFile = connectionFileService.CreateConnectionFile(target, config.UseFullScreenRdp);
         var psi = new ProcessStartInfo
         {
             FileName = mstscPath,
             UseShellExecute = true
         };
-
-        if (selectedMonitors is not null)
-        {
-            target.RdpSelectedMonitors = selectedMonitors;
-            var connectionFile = connectionFileService.CreateSelectedMonitorsFile(target, config.UseFullScreenRdp);
-            psi.ArgumentList.Add(connectionFile);
-        }
-        else
-        {
-            psi.ArgumentList.Add($"/v:{target.Host}");
-
-            if (target.RdpUseMultiMonitor)
-                psi.ArgumentList.Add("/multimon");
-            else if (config.UseFullScreenRdp)
-                psi.ArgumentList.Add("/f");
-        }
+        psi.ArgumentList.Add(connectionFile);
 
         if (target.RdpAdminSession)
             psi.ArgumentList.Add("/admin");
