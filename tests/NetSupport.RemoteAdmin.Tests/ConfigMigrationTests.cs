@@ -31,6 +31,7 @@ public sealed class ConfigMigrationTests
 
         ConfigNormalizer.Normalize(config);
 
+        Assert.Equal(ConfigNormalizer.CurrentSchemaVersion, config.SchemaVersion);
         var target = Assert.Single(config.Targets);
         Assert.Equal("netsupport", target.PreferredProviderId);
         Assert.Equal("Control", target.PreferredAction);
@@ -63,12 +64,28 @@ public sealed class ConfigMigrationTests
         """;
 
         var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions)!;
+        Assert.Equal(0, config.SchemaVersion);
+
         ConfigNormalizer.Normalize(config);
 
+        Assert.Equal(ConfigNormalizer.CurrentSchemaVersion, config.SchemaVersion);
         Assert.NotNull(config.Targets);
         Assert.Empty(config.Targets);
         Assert.NotNull(config.SavedViews);
         Assert.Empty(config.SavedViews);
+    }
+
+    [Fact]
+    public void Normalize_RejectsConfigurationFromNewerSchema()
+    {
+        var config = new AppConfig
+        {
+            SchemaVersion = ConfigNormalizer.CurrentSchemaVersion + 1
+        };
+
+        var exception = Assert.Throws<InvalidDataException>(() => ConfigNormalizer.Normalize(config));
+        Assert.Contains("Schema-Version", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains((ConfigNormalizer.CurrentSchemaVersion + 1).ToString(), exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -94,6 +111,8 @@ public sealed class ConfigMigrationTests
         """;
 
         var config = JsonSerializer.Deserialize<AppConfig>(legacyJson, JsonOptions)!;
+        Assert.Equal(0, config.SchemaVersion);
+
         ConfigNormalizer.Normalize(config);
         var migratedJson = JsonSerializer.Serialize(config, JsonOptions);
 
@@ -102,6 +121,7 @@ public sealed class ConfigMigrationTests
         Assert.DoesNotContain("rdpUserName", migratedJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("rdpDomain", migratedJson, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("rdpUseMultiMonitor", migratedJson, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains($"\"SchemaVersion\": {ConfigNormalizer.CurrentSchemaVersion}", migratedJson, StringComparison.Ordinal);
 
         var target = Assert.Single(config.Targets);
         Assert.Equal("netsupport", target.PreferredProviderId);
