@@ -11,6 +11,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
+- [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md) – anonymisierbares Diagnose-/Supportpaket
 - [`docs/TESTING.md`](docs/TESTING.md) – Testbuild und praktische Prüfschritte
 
 ## Aktueller Funktionsumfang
@@ -32,6 +33,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - eigene Einstellungsseite
 - optionaler Windows-Autostart pro Benutzer
 - optionales lokales Diagnoseprotokoll
+- anonymisierbares Supportpaket als ZIP
 
 ### NetSupport Manager
 
@@ -44,7 +46,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - Remote CMD
 - Dateiübertragung
 
-Der Pfad zu `PCICTLUI.EXE` kann inzwischen direkt in **Erweitert → Einstellungen** geändert werden. Die Providerliste wird danach ohne Neustart aktualisiert.
+Der Pfad zu `PCICTLUI.EXE` kann direkt in **Erweitert → Einstellungen** geändert werden. Die Providerliste wird danach ohne Neustart aktualisiert.
 
 ### Windows Remote Desktop
 
@@ -71,7 +73,7 @@ Für eine **gezielte Auswahl einzelner lokaler Monitore** gibt es zusätzlich ei
 
 Ohne eingetragene Monitor-IDs bleibt das bisherige eingebettete RDP-Verhalten erhalten.
 
-## Einstellungen und Betrieb
+## Einstellungen, Betrieb und Support
 
 Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 
@@ -81,6 +83,8 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - eingebetteten RDP-Viewer bevorzugen
 - externes RDP standardmäßig im Vollbild starten
 - NetSupport-Executable auswählen
+- Diagnoseordner öffnen
+- anonymisierbares Supportpaket erstellen
 
 Windows-Autostart wird ausschließlich im Benutzerprofil über
 
@@ -98,7 +102,9 @@ Das optionale Diagnoseprotokoll liegt unter:
 
 Es rotiert bei ungefähr 2 MB nach `application.log.1`. Passwörter, RDP-Credentials und Sitzungsinhalte werden nicht protokolliert.
 
-Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md).
+Das Supportpaket erzeugt eine ZIP-Datei mit bereinigten System-, Konfigurations-, History- und Logdaten. Die Original-`settings.json` sowie Passwörter/Credentials werden nicht aufgenommen. Die Anonymisierung von Host-/Benutzer-/Rechnerkennungen ist standardmäßig aktiviert.
+
+Details stehen in [`docs/OPERATIONS.md`](docs/OPERATIONS.md) und [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md).
 
 ## Persistente Dateien
 
@@ -139,9 +145,10 @@ IRdpSessionLauncher
 IRdpConnectionFileService
 IAutoStartService
 IDiagnosticLogService
+ISupportBundleService
 ```
 
-Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf, RDP-Verbindungsdateien, Autostart und Diagnose voneinander getrennt.
+Damit bleiben Remote-Backends, Rechnerquellen, Inventardaten, Verlauf, RDP-Verbindungsdateien, Autostart, Diagnose und Supportpaketerzeugung voneinander getrennt.
 
 ## Build
 
