@@ -208,6 +208,8 @@ Wichtig:
 - der vollständige NetSupport-Installationspfad wird in der bereinigten Zusammenfassung nicht zusätzlich benötigt
 - das Paket wird nur an den ausgewählten Speicherort geschrieben
 
+Die Anonymisierung des tatsächlich erzeugten ZIPs wird zusätzlich automatisiert getestet: bekannte Zielnamen, Hostnamen, Gruppen und der NetSupport-Profilname dürfen bei aktiver Anonymisierung nicht als Klartext enthalten sein; `settings.json` darf nicht als ZIP-Eintrag vorkommen.
+
 Technische Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 ---
@@ -269,7 +271,7 @@ Ein anderer Dateiname wird mit Fehler abgewiesen.
 
 ---
 
-## Konfigurationsdatei
+## Konfigurationsdatei, Migration und Recovery
 
 Die Programmeinstellungen liegen unter:
 
@@ -277,10 +279,17 @@ Die Programmeinstellungen liegen unter:
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
+Zusätzlich hält die Anwendung eine normalisierte Recovery-Kopie unter:
+
+```text
+%AppData%\NetSupportRemoteAdmin\settings.json.bak
+```
+
 Beispiel:
 
 ```json
 {
+  "schemaVersion": 1,
   "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE",
   "startMinimized": true,
   "diagnosticLoggingEnabled": true,
@@ -289,9 +298,54 @@ Beispiel:
 }
 ```
 
-Alte RDP-Felder aus früheren Entwicklungsständen werden beim Laden ignoriert und beim nächsten Speichern nicht mehr geschrieben.
+### Zentrale Normalisierung
+
+Vor der Nutzung und vor jedem Speichern normalisiert `ConfigNormalizer` die Konfiguration:
+
+- Remote-Provider wird auf `netsupport` festgelegt
+- ungültige/alte Standardaktionen fallen auf `Control` zurück
+- Zielnamen/Hosts und optionale Textwerte werden bereinigt
+- fehlende Listen werden repariert
+- unversionierte Altdateien werden auf die aktuelle Schema-Version gehoben
+- unbekannte frühere RDP-Felder gehören nicht mehr zum Datenmodell und werden beim nächsten Speichern nicht mehr geschrieben
+
+### Schema-Version
+
+Unversionierte bisherige Dateien werden als Schema `0` behandelt und aktuell auf Schema `1` migriert.
+
+Eine Konfigurationsdatei mit einer **höheren** Schema-Version als die laufende Anwendung wird absichtlich abgewiesen. Eine ältere EXE darf eine Konfiguration aus einer neueren Programmversion nicht stillschweigend überschreiben oder zurückmigrieren.
+
+### Atomares Speichern
+
+`settings.json` wird nicht mehr direkt während der Serialisierung überschrieben. Stattdessen wird zuerst vollständig in eine temporäre Datei im selben Ordner geschrieben und diese anschließend über die Zieldatei bewegt.
+
+Danach wird aus demselben bereits normalisierten Payload `settings.json.bak` geschrieben. Dadurch enthält auch das Backup keine unbekannten alten RDP-Felder.
+
+Bleiben durch einen abrupten Prozessabbruch temporäre Dateien zurück, werden diese beim nächsten Speichern nicht als Konfiguration verwendet.
+
+### Recovery
+
+Wenn `settings.json` beschädigt oder nicht mehr lesbar ist, versucht die Anwendung automatisch `settings.json.bak` zu laden und repariert daraus die Primärdatei.
+
+Fehlt die Primärdatei vollständig, aber ein gültiges Backup ist vorhanden, wird ebenfalls aus dem Backup wiederhergestellt.
+
+Sind Primärdatei **und** Backup unlesbar, erfolgt keine stille Rücksetzung auf Defaults; stattdessen wird ein klarer Konfigurationsfehler ausgelöst.
 
 Der Windows-Autostart wird nicht in `settings.json`, sondern im HKCU-Run-Key verwaltet.
+
+---
+
+## Reichweitenstatus
+
+Die Statusprüfung verwendet Ping/ICMP. Ein fehlgeschlagener Ping beweist nicht, dass ein Rechner ausgeschaltet ist, da ICMP durch Firewall oder Netzrichtlinien blockiert sein kann.
+
+Daher zeigt die Oberfläche für einen fehlgeschlagenen Ping bewusst:
+
+```text
+Nicht erreichbar
+```
+
+und nicht mehr die stärkere Aussage `Offline`.
 
 ---
 
