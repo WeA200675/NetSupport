@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
     private readonly IAutoStartService _autoStartService;
     private readonly IDiagnosticLogService _diagnosticLog;
     private readonly ISupportBundleService _supportBundleService;
+    private readonly ISystemHealthService _systemHealthService;
 
     public SettingsWindow(
         AppConfig config,
@@ -32,6 +33,7 @@ public partial class SettingsWindow : Window
             _configService,
             new JsonSessionHistoryService(_configService.ConfigDirectory),
             _diagnosticLog);
+        _systemHealthService = new SystemHealthService(_config, _configService, _autoStartService);
 
         AutoStartCheckBox.IsChecked = _autoStartService.IsEnabled;
         StartMinimizedCheckBox.IsChecked = _config.StartMinimized;
@@ -66,6 +68,15 @@ public partial class SettingsWindow : Window
 
         if (dialog.ShowDialog(this) == true)
             NetSupportPathTextBox.Text = dialog.FileName;
+    }
+
+    private void SystemHealthButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var window = new SystemHealthWindow(_systemHealthService, _diagnosticLog)
+        {
+            Owner = this
+        };
+        window.ShowDialog();
     }
 
     private void OpenLogFolderButton_OnClick(object sender, RoutedEventArgs e)
