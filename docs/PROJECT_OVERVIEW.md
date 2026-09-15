@@ -27,6 +27,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 - flüchtige Inventardaten bleiben flüchtig
 - Diagnose darf die Fernwartung nicht blockieren
 - Supportdaten werden gezielt und anonymisierbar erzeugt
+- lokale NetSupport-Installation wird nachvollziehbar statt durch Laufwerksscans erkannt
 - Architektur bleibt erweiterbar, obwohl aktuell nur NetSupport freigegeben ist
 
 ---
@@ -42,7 +43,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 7. NetSupport-Schnellaktion oder Standardverbindung starten.
 8. Unter **Zuletzt verwendet** Startversuche einsehen oder als CSV exportieren.
 9. Unter **Erweitert → Einstellungen** Start-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
-10. Bei Bedarf **Systemzustand** prüfen oder ein anonymisierbares Supportpaket erzeugen.
+10. Bei Bedarf **NetSupport prüfen…**, **Systemzustand** oder ein anonymisierbares Supportpaket verwenden.
 
 ---
 
@@ -76,13 +77,13 @@ entspricht.
 
 Frühere Entwicklungsstände enthielten testweise RDP-Unterstützung. Nach Klärung der Domänenvorgabe wurden RDP-Provider, ActiveX-Control, RDP-Sessionfenster und `.rdp`-Dateierzeugung aus dem aktiven Projekt entfernt.
 
-Alte RDP-Felder in vorhandenen `settings.json`-Dateien werden von `System.Text.Json` beim Einlesen ignoriert. Ein alter `preferredProviderId` wird auf `netsupport` normalisiert; beim nächsten Speichern wird nur noch das aktuelle Datenmodell geschrieben.
+Alte RDP-Felder in vorhandenen `settings.json`-Dateien werden beim Einlesen ignoriert. Ein alter `preferredProviderId` wird auf `netsupport` normalisiert; beim nächsten Speichern wird nur noch das aktuelle Datenmodell geschrieben.
 
 ---
 
 ## NetSupport Manager
 
-`NetSupportProvider` startet `PCICTLUI.EXE`.
+`NetSupportProvider` startet ausschließlich `PCICTLUI.EXE`.
 
 Aktuelle Schnellaktionen:
 
@@ -95,7 +96,46 @@ Aktuelle Schnellaktionen:
 | **Remote CMD** | Remote Command Prompt |
 | **Dateien** | File Transfer |
 
-Der Pfad zu `PCICTLUI.EXE` ist über die Einstellungsseite änderbar. Die Providerverfügbarkeit wird anschließend ohne Neustart neu bewertet.
+### Installationserkennung
+
+Neue Schicht:
+
+```text
+INetSupportInstallationService
+   +--> NetSupportInstallationService
+```
+
+Erkannt werden lokal:
+
+- konfigurierter Pfad
+- Program Files (x86)
+- Program Files
+- Windows-Uninstall-Registry in HKLM/HKCU und 32-/64-Bit-Sicht
+
+Es findet keine rekursive Laufwerkssuche statt.
+
+Unter **Erweitert → Einstellungen → NetSupport Manager** gibt es:
+
+- **Durchsuchen…**
+- **Automatisch erkennen**
+- **NetSupport prüfen…**
+
+Das Prüffenster zeigt Kandidaten, Quelle, Produkt-/Dateiversion und Hersteller. Ein gültiger Pfad kann bewusst übernommen werden.
+
+### Start-Härtung
+
+Vor jedem Prozessstart wird geprüft:
+
+- Pfad ist auflösbar
+- Datei existiert
+- Dateiname ist exakt `PCICTLUI.EXE`
+- Zielhost/IP ist für die kontrollierte NetSupport-CLI zulässig
+
+Eine manuell manipulierte Konfiguration kann dadurch nicht benutzt werden, um über den Remote-Provider ein beliebiges anderes Programm zu starten.
+
+Die optionale Diagnose protokolliert die erzeugte NetSupport-CLI und nach erfolgreichem `Process.Start` die Prozess-ID.
+
+Details: [`NETSUPPORT_INTEGRATION.md`](NETSUPPORT_INTEGRATION.md).
 
 ---
 
@@ -135,17 +175,6 @@ Benannte Ansichten speichern:
 - Gruppenfilter
 - Favoritenfilter
 
-Beispiel:
-
-```json
-{
-  "name": "Server",
-  "searchText": null,
-  "group": "Server",
-  "favoritesOnly": false
-}
-```
-
 Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
 
 ---
@@ -168,15 +197,12 @@ Voraussetzung: RSAT / ActiveDirectory-PowerShell-Modul.
 
 ## Rechnerdetails
 
-Details werden über `ITargetDetailsService` geladen.
-
-Aktuelle Implementierung:
-
 ```text
-PowerShellTargetDetailsService
-   +--> DNS
-   +--> Get-CimInstance Win32_ComputerSystem
-   +--> Get-CimInstance Win32_OperatingSystem
+ITargetDetailsService
+   +--> PowerShellTargetDetailsService
+           +--> DNS
+           +--> Get-CimInstance Win32_ComputerSystem
+           +--> Get-CimInstance Win32_OperatingSystem
 ```
 
 Angezeigt werden unter anderem:
@@ -200,14 +226,7 @@ CIM/WSMan-Fehler blockieren die NetSupport-Funktionen nicht.
 %AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
-Gespeichert werden:
-
-- Zeitpunkt
-- Ziel
-- Provider
-- Aktion
-- Start erfolgreich/fehlgeschlagen
-- Fehlertext bei fehlgeschlagenem Start
+Gespeichert werden Zeitpunkt, Ziel, Provider, Aktion, Start-Erfolg/-Fehler und optionaler Fehlertext.
 
 Der Verlauf ist auf 100 Einträge begrenzt und kann als semikolongetrennte UTF-8-CSV mit BOM exportiert werden.
 
@@ -220,7 +239,7 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - Mit Windows starten
 - beim Start minimiert öffnen
 - Diagnoseprotokoll aktivieren/deaktivieren
-- Pfad zu `PCICTLUI.EXE`
+- NetSupport-Control-Pfad auswählen/erkennen/prüfen
 - Systemzustand öffnen
 - Diagnoseordner öffnen
 - Supportpaket erzeugen
@@ -231,23 +250,19 @@ Autostart wird ausschließlich im Profil des aktuellen Benutzers verwaltet:
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 
-Wert:
-
-```text
-NetSupportRemoteAdmin
-```
-
 ---
 
 ## Systemzustand
 
-`ISystemHealthService` prüft ausschließlich den lokalen Admin-PC und scannt keine Domänenrechner.
+`ISystemHealthService` prüft ausschließlich den lokalen Admin-PC.
 
 Aktuelle Checks:
 
 - Remotezugriffsrichtlinie = NetSupport-only
 - AppData-Verzeichnis beschreibbar
-- `PCICTLUI.EXE` vorhanden
+- konfigurierter `PCICTLUI.EXE`-Pfad vorhanden
+- NetSupport-Produkt-/Dateiversion
+- alternative lokale NetSupport-Installation, falls der gespeicherte Pfad veraltet ist
 - ActiveDirectory-PowerShell-Modul / RSAT
 - lokale CIM-/WSMan-Grundfunktion
 - Autostartzustand
@@ -292,10 +307,12 @@ logs/
 
 Die originale `settings.json` wird nicht kopiert. Kennwörter, gespeicherte Credentials und Sitzungsinhalte werden nicht aufgenommen.
 
-Die Konfigurationsübersicht enthält außerdem explizit:
+`configuration-summary.json` enthält unter anderem:
 
 ```text
 remoteAccessPolicy = NetSupport-only
+NetSupport-Produkt-/Dateiversion
+NetSupport-Erkennungsstatus
 ```
 
 Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
@@ -334,6 +351,7 @@ MainWindow
    +--> RemoteProviderRegistry
    |       +--> NetSupportProvider --> PCICTLUI.EXE
    |
+   +--> INetSupportInstallationService --> NetSupportInstallationService
    +--> ITargetDiscoveryService --> DomainComputerDiscoveryService
    +--> ITargetDetailsService --> PowerShellTargetDetailsService
    +--> ISessionHistoryService --> JsonSessionHistoryService
@@ -349,6 +367,7 @@ Erweiterungspunkte:
 
 ```text
 IRemoteProvider
+INetSupportInstallationService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
@@ -358,7 +377,7 @@ ISupportBundleService
 ISystemHealthService
 ```
 
-Die Architektur bleibt erweiterbar. Ein zusätzlicher Remote-Provider darf in dieser Umgebung jedoch nur nach ausdrücklicher Freigabe durch die Domänen-/Sicherheitsvorgaben registriert werden.
+Ein zusätzlicher Remote-Provider darf in dieser Umgebung nur nach ausdrücklicher Freigabe durch die Domänen-/Sicherheitsvorgaben registriert werden.
 
 ---
 
@@ -381,9 +400,9 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
 ## Nächste sinnvolle Ausbaustufen
 
-- NetSupport-spezifische Status-/Diagnoseverbesserungen
-- bessere NetSupport-Prozess-/Startfehlertexte
-- optionales Erkennen der installierten NetSupport-Version
+- NetSupport-Installationsordner optional auf notwendige Begleitdateien prüfen
+- Startfehler von späteren NetSupport-Verbindungsfehlern besser unterscheiden
+- freigegebene NetSupport-Konfigurationsprofile nur bei klarer administrativer Vorgabe integrieren
 - zusätzliche Rechner-/Domänenmetadaten
 - Filter/Zeitraum für History-Export
 - weitere freigegebene Discovery-/Inventarquellen
@@ -394,5 +413,5 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
 ```text
 feature/extensible-remote-admin
-PR #1 – Add extensible remote admin frontend
+PR #1 – Add NetSupport-only remote admin frontend
 ```
