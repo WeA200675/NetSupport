@@ -1,8 +1,8 @@
 <Window x:Class="NetSupport.RemoteAdmin.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Einstellungen" Height="610" Width="680"
-        MinHeight="540" MinWidth="600"
+        Title="Einstellungen" Height="660" Width="700"
+        MinHeight="580" MinWidth="620"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip">
     <Grid Margin="20">
@@ -37,16 +37,27 @@
                 </GroupBox>
 
                 <GroupBox Header="NetSupport Manager" Margin="0,14,0,0">
-                    <Grid Margin="12">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBox x:Name="NetSupportPathTextBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
-                                 ToolTip="Pfad zu PCICTLUI.EXE"/>
-                        <Button Grid.Column="1" Content="Durchsuchen…" Height="32" Margin="8,0,0,0" Padding="12,0"
-                                Click="BrowseNetSupportButton_OnClick"/>
-                    </Grid>
+                    <StackPanel Margin="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="NetSupportPathTextBox" Height="32" Padding="8,0" VerticalContentAlignment="Center"
+                                     ToolTip="Pfad zu PCICTLUI.EXE" TextChanged="NetSupportPathTextBox_OnTextChanged"/>
+                            <Button Grid.Column="1" Content="Durchsuchen…" Height="32" Margin="8,0,0,0" Padding="12,0"
+                                    Click="BrowseNetSupportButton_OnClick"/>
+                        </Grid>
+
+                        <UniformGrid Columns="2" Margin="0,8,0,0">
+                            <Button Content="Automatisch erkennen" Height="32" Margin="0,0,5,0"
+                                    Click="AutoDetectNetSupportButton_OnClick"/>
+                            <Button Content="NetSupport prüfen…" Height="32" Margin="5,0,0,0"
+                                    Click="InspectNetSupportButton_OnClick"/>
+                        </UniformGrid>
+
+                        <TextBlock x:Name="NetSupportInfoTextBlock" TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,7,0,0"/>
+                    </StackPanel>
                 </GroupBox>
 
                 <GroupBox Header="Diagnose und Support" Margin="0,14,0,0">
