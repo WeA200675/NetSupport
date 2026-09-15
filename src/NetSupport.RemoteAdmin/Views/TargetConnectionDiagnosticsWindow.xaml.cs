@@ -25,7 +25,7 @@ public partial class TargetConnectionDiagnosticsWindow : Window
     {
         try
         {
-            Clipboard.SetText(_result.ToReportText());
+            System.Windows.Clipboard.SetText(_result.ToReportText());
         }
         catch (Exception ex)
         {
