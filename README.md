@@ -11,7 +11,8 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
 - [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md) – lokale Control-Profile, `/N` und optionale `/F`-Profilbindung
 - [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md) – bevorzugte NetSupport-Aktion pro Rechner und Doppelklickverhalten
-- [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md) – automatisierte CLI-/Sicherheitstests und ihre Grenzen
+- [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md) – automatisierte CLI-/Sicherheits-/Migrations-/Recovery-Tests und ihre Grenzen
+- [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md) – Schema-Version, Normalisierung, atomisches Speichern, Backup und Recovery
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standardaktion
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
@@ -25,6 +26,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 ### Hauptoberfläche
 
 - Tray-/Infobereich-Betrieb
+- pro Windows-Sitzung nur eine laufende Instanz
 - direkte Verbindung per Rechnername oder IP
 - Active-Directory-Rechnersuche über `Get-ADComputer`
 - Text-, Gruppen- und Favoritenfilter
@@ -32,7 +34,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - Favoriten und frei benennbare Rechnergruppen
 - bevorzugte NetSupport-Standardaktion pro gespeichertem Rechner
 - Doppelklick verwendet die zuletzt gespeicherte NetSupport-Aktion
-- parallele Online-/Offline-Prüfung
+- parallele Erreichbarkeitsprüfung; fehlgeschlagener Ping wird bewusst als **Nicht erreichbar** statt als sicher „offline“ angezeigt
 - Rechnerdetails über DNS + CIM/WSMan
 - lokaler Verlauf der gestarteten Remote-Aktionen
 - CSV-Export des Verlaufs
@@ -79,7 +81,7 @@ Der Startpfad validiert außerdem:
 - ausschließlich `PCICTLUI.EXE` darf als Remote-Backend gestartet werden
 - Rechnername/IP wird vor dem Prozessstart geprüft
 - IP-Ziele verwenden die dokumentierte `/c">Adresse"`-Form
-- optionale Profilnamen werden vor der rohen Kommandozeile validiert
+- optionale Profilnamen werden vor der rohen Kommandozeile validiert; Anführungszeichen, Steuerzeichen und Backslashes sind nicht zulässig
 - ein konfiguriertes Profil muss für den aktuellen Windows-Benutzer vorhanden sein
 - die tatsächlich erzeugte NetSupport-Befehlszeile und gestartete PID können im Diagnoseprotokoll nachvollzogen werden
 
@@ -127,7 +129,29 @@ Das optionale Diagnoseprotokoll liegt unter:
 
 Es rotiert bei ungefähr 2 MB nach `application.log.1`. Kennwörter und Sitzungsinhalte werden nicht protokolliert.
 
-Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion, lokalen Erkennungsstatus und den bereinigten Profilstatus, aber keine Credentials oder Original-`settings.json`.
+Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion, lokalen Erkennungsstatus und den bereinigten Profilstatus, aber keine Credentials oder Original-`settings.json`. Die Anonymisierung des tatsächlich erzeugten ZIPs wird automatisiert mitgetestet.
+
+## Konfiguration und Recovery
+
+Die Konfiguration wird zentral normalisiert und versioniert. Unversionierte Altdateien werden auf das aktuelle Schema migriert; eine Konfiguration aus einer neueren, noch nicht unterstützten Schema-Version wird bewusst nicht von einer älteren EXE überschrieben.
+
+Schreibvorgänge erfolgen über temporäre Dateien und anschließenden Austausch, statt `settings.json` während der JSON-Serialisierung zu truncaten.
+
+Primärdatei:
+
+```text
+%AppData%\NetSupportRemoteAdmin\settings.json
+```
+
+Normalisierte Recovery-Datei:
+
+```text
+%AppData%\NetSupportRemoteAdmin\settings.json.bak
+```
+
+Ist die Primärdatei beschädigt oder fehlt, wird ein gültiges Backup automatisch zur Wiederherstellung verwendet. Sind beide Dateien beschädigt, erfolgt keine stille Rücksetzung auf Defaults.
+
+Details: [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md).
 
 ## Systemzustand
 
@@ -151,6 +175,7 @@ Konfiguration:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
+%AppData%\NetSupportRemoteAdmin\settings.json.bak
 ```
 
 Lokaler Startverlauf:
@@ -198,7 +223,16 @@ dotnet build NetSupport.sln --configuration Release
 dotnet test NetSupport.sln --configuration Release --no-build
 ```
 
-Die automatisierte Testsuite prüft insbesondere die rohe NetSupport-CLI-Syntax, Host-/Profilvalidierung, `/F`/`/N`, alle Aktionsargumente und den Schutz davor, eine andere EXE als `PCICTLUI.EXE` über den Remote-Provider zu verwenden.
+Die automatisierte Testsuite prüft inzwischen insbesondere:
+
+- rohe NetSupport-CLI-Syntax und alle Aktionsargumente
+- Host-/Profilvalidierung, `/F`/`/N` und Fremd-EXE-Schutz
+- NetSupport-only-Migration alter Konfigurationen
+- Schema-Version und Schutz vor einem unbeabsichtigten Downgrade
+- atomisches Speichern sowie Backup-/Recovery-Verhalten
+- Anonymisierung des tatsächlich erzeugten Support-ZIPs
+- Single-Instance-Sperre
+- vorsichtige Statusanzeige für fehlgeschlagenen Ping
 
 Details: [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md).
 
