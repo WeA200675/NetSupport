@@ -12,6 +12,20 @@ Die Prüfung scannt **keine Domänenrechner** und verändert keine Remote-System
 
 ---
 
+## Remotezugriffsrichtlinie
+
+Der erste Check bestätigt die aktuelle Betriebsregel:
+
+```text
+NetSupport-only
+```
+
+RDP wird nicht als Remote-Provider registriert und ist kein Bestandteil der lokalen Zustandsprüfung.
+
+Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
+
+---
+
 ## Geprüfte Komponenten
 
 ### Anwendungsdaten
@@ -26,7 +40,7 @@ angelegt und beschrieben werden kann.
 
 Dazu wird kurz eine temporäre Testdatei erzeugt und direkt wieder gelöscht.
 
-Ein Fehler an dieser Stelle kann unter anderem Konfiguration, History, Diagnoseprotokoll, RDP-Dateien und Supportpakete beeinträchtigen.
+Ein Fehler an dieser Stelle kann unter anderem Konfiguration, History, Diagnoseprotokoll und Supportpakete beeinträchtigen.
 
 ---
 
@@ -47,40 +61,6 @@ Der Pfad kann unter **Erweitert → Einstellungen** geändert werden.
 
 ---
 
-### Windows Remote Desktop
-
-Geprüft wird:
-
-```text
-%SystemRoot%\System32\mstsc.exe
-```
-
-`mstsc.exe` wird als externer RDP-Fallback und für bestimmte RDP-Dateifunktionen verwendet.
-
----
-
-### Eingebettetes RDP-ActiveX
-
-Geprüft wird, ob Microsofts
-
-```text
-MsRdpClient12NotSafeForScripting
-```
-
-mit der CLSID
-
-```text
-{3F859AA3-C2D4-4FAA-B0E4-FD0C9C4E5E3A}
-```
-
-lokal registriert ist.
-
-Die Prüfung betrachtet 64-Bit- und 32-Bit-Registry-Ansichten.
-
-Wenn das Control fehlt, wird dies als **Hinweis/Warnung** behandelt, weil der externe `mstsc.exe`-Pfad weiterhin nutzbar sein kann.
-
----
-
 ### Active Directory / RSAT
 
 Über eine lokale, nicht interaktive Windows-PowerShell-Abfrage wird geprüft, ob das Modul
@@ -93,7 +73,7 @@ vorhanden ist.
 
 Dieses Modul wird für **Domäne laden** benötigt.
 
-Ein fehlendes Modul blockiert NetSupport/RDP nicht, sondern nur die AD-Discovery-Funktion.
+Ein fehlendes Modul blockiert die NetSupport-Schnellaktionen nicht, sondern nur die AD-Discovery-Funktion.
 
 ---
 
@@ -108,6 +88,8 @@ Get-CimInstance Win32_OperatingSystem
 Damit wird geprüft, ob die lokale CIM-/PowerShell-Grundlage funktioniert.
 
 Wichtig: Ein grüner lokaler Check garantiert **nicht**, dass ein entfernter Rechner per CIM erreichbar ist. Für Remote-CIM müssen zusätzlich Berechtigungen, Firewall, WSMan/WinRM und Zielkonfiguration stimmen.
+
+CIM/WSMan wird nur für zusätzliche Rechnerdetails verwendet. NetSupport selbst hängt davon nicht ab.
 
 ---
 
@@ -169,10 +151,11 @@ SettingsWindow
                    |
                    +--> SystemHealthService
                            +--> Dateisystem
-                           +--> Registry
+                           +--> NetSupport-Pfad
                            +--> powershell.exe
                            +--> ActiveDirectory-Modul
                            +--> lokales CIM
+                           +--> Autostart/Diagnosezustand
 ```
 
 Modelle:
@@ -194,4 +177,4 @@ Services/SystemHealthService.cs
 
 Der Systemzustand ist ein **lokaler Diagnosecheck**. Er führt keine Remote-Aktionen aus, speichert keine Credentials und ändert keine GPO-/HKLM-Einstellungen.
 
-Damit kann die Seite auch auf einem neuen Admin-PC gefahrlos verwendet werden, um vor dem ersten produktiven Einsatz fehlende Voraussetzungen zu erkennen.
+Damit kann die Seite auf einem neuen Admin-PC verwendet werden, um vor dem produktiven Einsatz fehlende Voraussetzungen zu erkennen.
