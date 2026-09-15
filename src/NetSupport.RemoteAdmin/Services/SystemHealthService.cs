@@ -31,7 +31,7 @@ public sealed class SystemHealthService(
 
     private static SystemHealthCheckResult CheckRemoteAccessPolicy() => Healthy(
         "Remotezugriffsrichtlinie",
-        "NetSupport-only ist aktiv; RDP wird nicht als Remote-Provider registriert.",
+        "NetSupport-only ist aktiv; nur NetSupport wird als Remote-Provider registriert.",
         "Domänenkonformer Remotezugriff erfolgt ausschließlich über NetSupport Manager.");
 
     private SystemHealthCheckResult CheckConfigDirectory()
@@ -67,9 +67,20 @@ public sealed class SystemHealthService(
                 "Pfad unter Erweitert → Einstellungen festlegen.");
         }
 
-        return File.Exists(config.NetSupportExecutable)
-            ? Healthy("NetSupport Manager", "PCICTLUI.EXE wurde gefunden.", config.NetSupportExecutable)
-            : Error("NetSupport Manager", "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.", config.NetSupportExecutable);
+        if (!File.Exists(config.NetSupportExecutable))
+        {
+            return Error(
+                "NetSupport Manager",
+                "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.",
+                config.NetSupportExecutable);
+        }
+
+        var version = TryGetFileVersion(config.NetSupportExecutable);
+        var details = string.IsNullOrWhiteSpace(version)
+            ? config.NetSupportExecutable
+            : $"{config.NetSupportExecutable}\nVersion: {version}";
+
+        return Healthy("NetSupport Manager", "PCICTLUI.EXE wurde gefunden.", details);
     }
 
     private SystemHealthCheckResult CheckAutoStart() => new()
@@ -137,6 +148,19 @@ public sealed class SystemHealthService(
             ? "Remote-Rechnerdetails können trotzdem abhängig von Firewall/Berechtigungen variieren."
             : result.StandardError.Trim();
         return Warning("CIM / WSMan", "Lokale CIM-Abfrage ist fehlgeschlagen.", details);
+    }
+
+    private static string? TryGetFileVersion(string path)
+    {
+        try
+        {
+            var info = FileVersionInfo.GetVersionInfo(path);
+            return string.IsNullOrWhiteSpace(info.ProductVersion) ? info.FileVersion : info.ProductVersion;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private static async Task<PowerShellResult> RunPowerShellAsync(
