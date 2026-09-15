@@ -26,6 +26,7 @@ public sealed class SupportBundleService : ISupportBundleService
     private readonly ISessionHistoryService _historyService;
     private readonly IDiagnosticLogService _diagnosticLog;
     private readonly INetSupportInstallationService _netSupportInstallationService = new NetSupportInstallationService();
+    private readonly INetSupportProfileService _netSupportProfileService = new NetSupportProfileService();
 
     public SupportBundleService(
         AppConfig config,
@@ -104,7 +105,7 @@ Remotezugriffsrichtlinie: NetSupport-only
 
 Enthalten:
 - system-info.json: lokale Laufzeit-/Windows-Informationen
-- configuration-summary.json: bereinigte Konfigurationsübersicht inklusive NetSupport-Version/Erkennungsstatus
+- configuration-summary.json: bereinigte Konfigurationsübersicht inklusive NetSupport-Version/Erkennungs-/Profilstatus
 - recent-history.json: bereinigter lokaler Startverlauf
 - recent-errors.txt: zuletzt bekannte Fehler aus Verlauf/Diagnoselog
 - logs/: vorhandene, beim Verpacken bereinigte Diagnoseprotokolle
@@ -213,6 +214,22 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             string.Equals(candidate.Source, "Konfiguriert", StringComparison.OrdinalIgnoreCase));
         var detectedNetSupport = netSupportCandidates.FirstOrDefault(candidate => candidate.IsUsable);
 
+        var configuredProfile = string.IsNullOrWhiteSpace(_config.NetSupportProfileName)
+            ? null
+            : _config.NetSupportProfileName.Trim();
+        bool? profileAvailable = null;
+        if (configuredProfile is not null)
+        {
+            try
+            {
+                profileAvailable = _netSupportProfileService.ProfileExists(configuredProfile);
+            }
+            catch
+            {
+                profileAvailable = false;
+            }
+        }
+
         var data = new
         {
             remoteAccessPolicy = "NetSupport-only",
@@ -228,6 +245,13 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             netSupportProductVersion = detectedNetSupport?.ProductVersion,
             netSupportFileVersion = detectedNetSupport?.FileVersion,
             netSupportCompanyName = detectedNetSupport?.CompanyName,
+            netSupportProfileConfigured = configuredProfile is not null,
+            netSupportProfileName = configuredProfile is null
+                ? null
+                : anonymized ? "netsupport-profile" : configuredProfile,
+            netSupportProfileAvailable = profileAvailable,
+            netSupportProfileLocked = _config.NetSupportLockProfile,
+            netSupportDiscoveredProfileCount = _netSupportProfileService.DiscoverProfiles().Count,
             targetCount = _config.Targets.Count,
             savedViewCount = _config.SavedViews.Count,
             targets,
@@ -358,6 +382,7 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
         AddAlias(aliases, Environment.UserDomainName, "local-domain");
         AddAlias(aliases, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "user-profile");
         AddAlias(aliases, _configService.ConfigDirectory, "config-directory");
+        AddAlias(aliases, _config.NetSupportProfileName, "netsupport-profile");
 
         return aliases;
     }
