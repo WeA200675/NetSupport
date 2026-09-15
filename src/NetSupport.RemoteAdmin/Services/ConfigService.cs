@@ -42,17 +42,6 @@ public sealed class ConfigService
 
     private static AppConfig CreateDefault() => new()
     {
-        NetSupportExecutable = FindNetSupportExecutable()
+        NetSupportExecutable = new NetSupportInstallationService().FindBestExecutable()
     };
-
-    private static string? FindNetSupportExecutable()
-    {
-        var candidates = new[]
-        {
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "NetSupport", "NetSupport Manager", "PCICTLUI.EXE"),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "NetSupport", "NetSupport Manager", "PCICTLUI.EXE")
-        };
-
-        return candidates.FirstOrDefault(File.Exists);
-    }
 }
