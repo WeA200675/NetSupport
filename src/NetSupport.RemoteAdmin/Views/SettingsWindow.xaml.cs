@@ -16,6 +16,7 @@ public partial class SettingsWindow : Window
     private readonly ISupportBundleService _supportBundleService;
     private readonly ISystemHealthService _systemHealthService;
     private readonly INetSupportInstallationService _netSupportInstallationService = new NetSupportInstallationService();
+    private readonly INetSupportProfileService _netSupportProfileService = new NetSupportProfileService();
 
     public SettingsWindow(
         AppConfig config,
@@ -40,6 +41,8 @@ public partial class SettingsWindow : Window
         StartMinimizedCheckBox.IsChecked = _config.StartMinimized;
         DiagnosticLoggingCheckBox.IsChecked = _config.DiagnosticLoggingEnabled;
         NetSupportPathTextBox.Text = _config.NetSupportExecutable ?? string.Empty;
+        NetSupportLockProfileCheckBox.IsChecked = _config.NetSupportLockProfile;
+        RefreshNetSupportProfiles(_config.NetSupportProfileName);
         LogPathTextBlock.Text = $"Protokoll: {_diagnosticLog.LogPath}";
         UpdateNetSupportSummary();
     }
@@ -114,6 +117,34 @@ public partial class SettingsWindow : Window
             _diagnosticLog.Error("NetSupport-Installationsprüfung fehlgeschlagen.", ex);
             System.Windows.MessageBox.Show(ex.Message, "NetSupport prüfen", MessageBoxButton.OK, MessageBoxImage.Error);
         }
+    }
+
+    private void RefreshNetSupportProfilesButton_OnClick(object sender, RoutedEventArgs e) =>
+        RefreshNetSupportProfiles(NetSupportProfileComboBox.Text);
+
+    private void RefreshNetSupportProfiles(string? preferredProfile)
+    {
+        var profiles = _netSupportProfileService.DiscoverProfiles();
+        NetSupportProfileComboBox.ItemsSource = profiles;
+        NetSupportProfileComboBox.Text = preferredProfile?.Trim() ?? string.Empty;
+
+        if (profiles.Count == 0)
+        {
+            NetSupportProfileInfoTextBlock.Text =
+                $"Keine lokalen Control-Profile unter HKCU\\{NetSupportProfileService.ConfigListRegistryPath} gefunden. Leer lassen, um NetSupports Standardverhalten zu verwenden.";
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredProfile) &&
+            !profiles.Any(profile => string.Equals(profile, preferredProfile.Trim(), StringComparison.OrdinalIgnoreCase)))
+        {
+            NetSupportProfileInfoTextBlock.Text =
+                $"{profiles.Count} Profil(e) gefunden. Das aktuell eingetragene Profil '{preferredProfile.Trim()}' ist lokal nicht vorhanden.";
+            return;
+        }
+
+        NetSupportProfileInfoTextBlock.Text =
+            $"{profiles.Count} lokale(s) Control-Profil(e) gefunden. Leer lassen = NetSupports Standardverhalten.";
     }
 
     private void NetSupportPathTextBox_OnTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e) =>
@@ -239,16 +270,56 @@ public partial class SettingsWindow : Window
             }
         }
 
+        string? profileName = null;
+        var profileInput = NetSupportProfileComboBox.Text.Trim();
+        if (!string.IsNullOrWhiteSpace(profileInput))
+        {
+            try
+            {
+                profileName = NetSupportProfileService.NormalizeProfileName(profileInput);
+            }
+            catch (ArgumentException ex)
+            {
+                System.Windows.MessageBox.Show(ex.Message, "NetSupport-Profil", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            if (!_netSupportProfileService.ProfileExists(profileName))
+            {
+                var result = System.Windows.MessageBox.Show(
+                    $"Das Control-Profil '{profileName}' wurde auf diesem Windows-Benutzerkonto derzeit nicht gefunden. Trotzdem speichern? Remote-Aktionen werden blockiert, bis dieses Profil in NetSupport Manager vorhanden ist.",
+                    "NetSupport-Profil",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+                if (result != MessageBoxResult.Yes)
+                    return;
+            }
+        }
+
+        var lockProfile = NetSupportLockProfileCheckBox.IsChecked == true;
+        if (lockProfile && profileName is null)
+        {
+            System.Windows.MessageBox.Show(
+                "'/F' kann nur zusammen mit einem ausgewählten NetSupport-Control-Profil verwendet werden.",
+                "NetSupport-Profil",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
         try
         {
             _config.StartMinimized = StartMinimizedCheckBox.IsChecked == true;
             _config.DiagnosticLoggingEnabled = DiagnosticLoggingCheckBox.IsChecked == true;
             _config.NetSupportExecutable = string.IsNullOrWhiteSpace(netSupportPath) ? null : netSupportPath;
+            _config.NetSupportProfileName = profileName;
+            _config.NetSupportLockProfile = lockProfile;
 
             _autoStartService.SetEnabled(AutoStartCheckBox.IsChecked == true);
             await _configService.SaveAsync(_config);
 
-            _diagnosticLog.Info("Einstellungen gespeichert. Remotezugriffsrichtlinie bleibt NetSupport-only.");
+            _diagnosticLog.Info(
+                $"Einstellungen gespeichert. Remotezugriffsrichtlinie bleibt NetSupport-only. Control-Profil: {(profileName ?? "Standard")}; Profilbindung: {lockProfile}.");
             DialogResult = true;
             Close();
         }
