@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Providers;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace NetSupport.RemoteAdmin;
 
@@ -203,13 +204,13 @@ public partial class MainWindow
             : $"{target.Host} gespeichert · Standardaktion {GetActionDisplayName(GetEditorPreferredAction())}.";
     }
 
-    private static Button? FindButtonByContent(DependencyObject root, string content)
+    private static WpfButton? FindButtonByContent(DependencyObject root, string content)
     {
         var count = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(root, i);
-            if (child is Button button && string.Equals(button.Content?.ToString(), content, StringComparison.Ordinal))
+            if (child is WpfButton button && string.Equals(button.Content?.ToString(), content, StringComparison.Ordinal))
                 return button;
 
             var nested = FindButtonByContent(child, content);
