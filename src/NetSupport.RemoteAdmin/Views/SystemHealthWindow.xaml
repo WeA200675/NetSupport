@@ -1,0 +1,69 @@
+<Window x:Class="NetSupport.RemoteAdmin.Views.SystemHealthWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Systemzustand" Width="820" Height="640"
+        MinWidth="680" MinHeight="500"
+        WindowStartupLocation="CenterOwner">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0">
+            <TextBlock Text="Systemzustand" FontSize="24" FontWeight="SemiBold"/>
+            <TextBlock Text="Lokale Voraussetzungen des Admin-PCs – ohne Scan der Domänenrechner"
+                       Opacity="0.65" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" Margin="0,16,0,12" Padding="12" BorderBrush="#DDD" BorderThickness="1" CornerRadius="4">
+            <DockPanel>
+                <Button x:Name="RefreshButton" Content="Neu prüfen" Width="110" Height="32"
+                        DockPanel.Dock="Right" Click="RefreshButton_OnClick"/>
+                <StackPanel>
+                    <TextBlock x:Name="SummaryTextBlock" Text="Prüfung wird vorbereitet …" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="CheckedAtTextBlock" Margin="0,3,0,0" Opacity="0.6" FontSize="11"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <ListBox Grid.Row="2" x:Name="ChecksListBox" BorderThickness="0" HorizontalContentAlignment="Stretch">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderBrush="#E2E2E2" BorderThickness="0,0,0,1" Padding="8,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="36"/>
+                                <ColumnDefinition Width="190"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Text="{Binding StatusIcon}" FontSize="20" FontWeight="SemiBold"
+                                       VerticalAlignment="Top" HorizontalAlignment="Center"/>
+
+                            <StackPanel Grid.Column="1" Margin="6,0,12,0">
+                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding StatusText}" Margin="0,3,0,0" Opacity="0.6" FontSize="11"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"/>
+                                <TextBlock Text="{Binding Details}" Margin="0,4,0,0" Opacity="0.62"
+                                           FontSize="11" TextWrapping="Wrap"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <DockPanel Grid.Row="3" Margin="0,14,0,0">
+            <TextBlock Text="Hinweis: Ein grüner lokaler CIM-Check garantiert nicht, dass Firewall/Berechtigungen zu jedem Zielrechner passen."
+                       Opacity="0.58" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center"/>
+            <Button Content="Schließen" Width="105" Height="34" DockPanel.Dock="Right" Margin="16,0,0,0"
+                    IsCancel="True"/>
+        </DockPanel>
+    </Grid>
+</Window>
