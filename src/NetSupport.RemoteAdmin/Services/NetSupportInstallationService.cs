@@ -119,7 +119,10 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
                 foreach (var subKeyName in uninstallKey.GetSubKeyNames())
                 {
                     using var appKey = uninstallKey.OpenSubKey(subKeyName, writable: false);
-                    var displayName = appKey?.GetValue("DisplayName") as string;
+                    if (appKey is null)
+                        continue;
+
+                    var displayName = appKey.GetValue("DisplayName") as string;
                     if (string.IsNullOrWhiteSpace(displayName) ||
                         !displayName.Contains("NetSupport Manager", StringComparison.OrdinalIgnoreCase))
                     {
