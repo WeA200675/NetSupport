@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using NetSupport.RemoteAdmin.Services;
 using WpfOpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using WpfSaveFileDialog = Microsoft.Win32.SaveFileDialog;
 
 namespace NetSupport.RemoteAdmin.Views;
 
@@ -12,6 +13,7 @@ public partial class SettingsWindow : Window
     private readonly ConfigService _configService;
     private readonly IAutoStartService _autoStartService;
     private readonly IDiagnosticLogService _diagnosticLog;
+    private readonly ISupportBundleService _supportBundleService;
 
     public SettingsWindow(
         AppConfig config,
@@ -25,6 +27,11 @@ public partial class SettingsWindow : Window
         _configService = configService;
         _autoStartService = autoStartService;
         _diagnosticLog = diagnosticLog;
+        _supportBundleService = new SupportBundleService(
+            _config,
+            _configService,
+            new JsonSessionHistoryService(_configService.ConfigDirectory),
+            _diagnosticLog);
 
         AutoStartCheckBox.IsChecked = _autoStartService.IsEnabled;
         StartMinimizedCheckBox.IsChecked = _config.StartMinimized;
@@ -74,7 +81,45 @@ public partial class SettingsWindow : Window
         }
         catch (Exception ex)
         {
+            _diagnosticLog.Error("Diagnoseordner konnte nicht geöffnet werden.", ex);
             System.Windows.MessageBox.Show(ex.Message, "Diagnoseordner", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void CreateSupportBundleButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new WpfSaveFileDialog
+        {
+            Title = "Supportpaket speichern",
+            Filter = "ZIP-Archiv (*.zip)|*.zip|Alle Dateien (*.*)|*.*",
+            DefaultExt = ".zip",
+            AddExtension = true,
+            FileName = $"NetSupport-RemoteAdmin-Support-{DateTime.Now:yyyyMMdd-HHmm}.zip"
+        };
+
+        if (dialog.ShowDialog(this) != true)
+            return;
+
+        try
+        {
+            CreateSupportBundleButton.IsEnabled = false;
+            var anonymize = AnonymizeSupportBundleCheckBox.IsChecked != false;
+            await _supportBundleService.CreateAsync(dialog.FileName, anonymize);
+
+            System.Windows.MessageBox.Show(
+                $"Supportpaket erstellt:\n{dialog.FileName}\n\nAnonymisierung: {(anonymize ? "aktiv" : "deaktiviert")}",
+                "Supportpaket",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            _diagnosticLog.Error("Supportpaket konnte nicht erstellt werden.", ex);
+            System.Windows.MessageBox.Show(ex.Message, "Supportpaket", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        finally
+        {
+            CreateSupportBundleButton.IsEnabled = true;
         }
     }
 
