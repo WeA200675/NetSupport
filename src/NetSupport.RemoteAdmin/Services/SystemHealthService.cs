@@ -13,6 +13,7 @@ public sealed class SystemHealthService(
     IAutoStartService autoStartService) : ISystemHealthService
 {
     private readonly INetSupportInstallationService _netSupportInstallationService = new NetSupportInstallationService();
+    private readonly INetSupportProfileService _netSupportProfileService = new NetSupportProfileService();
 
     public async Task<IReadOnlyList<SystemHealthCheckResult>> CheckAsync(
         CancellationToken cancellationToken = default)
@@ -22,6 +23,7 @@ public sealed class SystemHealthService(
             CheckRemoteAccessPolicy(),
             CheckConfigDirectory(),
             CheckNetSupport(),
+            CheckNetSupportProfile(),
             CheckAutoStart(),
             CheckDiagnostics()
         };
@@ -109,6 +111,59 @@ public sealed class SystemHealthService(
             "NetSupport Manager",
             "PCICTLUI.EXE ist nicht konfiguriert und konnte lokal nicht automatisch gefunden werden.",
             "Pfad unter Erweitert → Einstellungen festlegen oder NetSupport Manager Control installieren.");
+    }
+
+    private SystemHealthCheckResult CheckNetSupportProfile()
+    {
+        if (string.IsNullOrWhiteSpace(config.NetSupportProfileName))
+        {
+            if (config.NetSupportLockProfile)
+            {
+                return Error(
+                    "NetSupport Control-Profil",
+                    "Profilbindung (/F) ist aktiviert, aber kein Control-Profil ist konfiguriert.",
+                    "Unter Erweitert → Einstellungen ein vorhandenes Profil auswählen oder die Profilbindung deaktivieren.");
+            }
+
+            var profiles = _netSupportProfileService.DiscoverProfiles();
+            return new SystemHealthCheckResult
+            {
+                Name = "NetSupport Control-Profil",
+                Level = SystemHealthLevel.Info,
+                Summary = "Kein festes Control-Profil konfiguriert; NetSupport verwendet sein Standardverhalten.",
+                Details = profiles.Count == 0
+                    ? $"Keine Profile unter HKCU\\{NetSupportProfileService.ConfigListRegistryPath} gefunden."
+                    : $"{profiles.Count} lokale(s) Profil(e) verfügbar: {string.Join(", ", profiles)}"
+            };
+        }
+
+        string profile;
+        try
+        {
+            profile = NetSupportProfileService.NormalizeProfileName(config.NetSupportProfileName);
+        }
+        catch (ArgumentException ex)
+        {
+            return Error(
+                "NetSupport Control-Profil",
+                "Der konfigurierte Profilname ist ungültig.",
+                ex.Message);
+        }
+
+        if (!_netSupportProfileService.ProfileExists(profile))
+        {
+            return Error(
+                "NetSupport Control-Profil",
+                $"Das konfigurierte Profil '{profile}' wurde für den aktuellen Windows-Benutzer nicht gefunden.",
+                $"Erwartet unter HKCU\\{NetSupportProfileService.ConfigListRegistryPath}. Remote-Aktionen werden absichtlich blockiert, damit kein anderes Profil stillschweigend verwendet wird.");
+        }
+
+        return Healthy(
+            "NetSupport Control-Profil",
+            $"Control-Profil '{profile}' ist verfügbar.",
+            config.NetSupportLockProfile
+                ? "Profilbindung ist aktiv (/F + /N); ein Profilwechsel im Control wird eingeschränkt."
+                : "Profil wird mit /N geladen; /F ist nicht aktiviert.");
     }
 
     private SystemHealthCheckResult CheckAutoStart() => new()
