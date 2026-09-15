@@ -36,9 +36,25 @@ public sealed class RemoteTarget
     public string? RdpDomain { get; set; }
 
     /// <summary>
-    /// Enables clipboard redirection for embedded RDP sessions.
+    /// Enables clipboard redirection for RDP sessions.
     /// </summary>
     public bool RdpRedirectClipboard { get; set; } = true;
+
+    /// <summary>
+    /// Enables local drive redirection for RDP sessions. Disabled by default.
+    /// </summary>
+    public bool RdpRedirectDrives { get; set; }
+
+    /// <summary>
+    /// Enables redirection of the default local microphone into the RDP session.
+    /// Disabled by default.
+    /// </summary>
+    public bool RdpRedirectMicrophone { get; set; }
+
+    /// <summary>
+    /// RDP audio output mode: 0 = play locally, 1 = play remotely, 2 = do not play.
+    /// </summary>
+    public int RdpAudioRedirectionMode { get; set; }
 
     /// <summary>
     /// Requests the administrative RDP session for the target when supported.
