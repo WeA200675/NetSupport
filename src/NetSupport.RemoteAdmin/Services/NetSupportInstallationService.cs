@@ -86,8 +86,9 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
     public string? FindBestExecutable(string? configuredPath = null) =>
         Discover(configuredPath).FirstOrDefault(candidate => candidate.Exists)?.Path;
 
-    private static IEnumerable<(string Path, string Source)> ReadRegistryCandidates()
+    private static IReadOnlyList<(string Path, string Source)> ReadRegistryCandidates()
     {
+        var result = new List<(string Path, string Source)>();
         var roots = new[]
         {
             (RegistryHive.LocalMachine, RegistryView.Registry64),
@@ -98,12 +99,12 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
 
         foreach (var (hive, view) in roots)
         {
-            RegistryKey? baseKey = null;
-            RegistryKey? uninstallKey = null;
             try
             {
-                baseKey = RegistryKey.OpenBaseKey(hive, view);
-                uninstallKey = baseKey.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", writable: false);
+                using var baseKey = RegistryKey.OpenBaseKey(hive, view);
+                using var uninstallKey = baseKey.OpenSubKey(
+                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
+                    writable: false);
                 if (uninstallKey is null)
                     continue;
 
@@ -120,9 +121,9 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
                     var installLocation = appKey.GetValue("InstallLocation") as string;
                     if (!string.IsNullOrWhiteSpace(installLocation))
                     {
-                        yield return (
+                        result.Add((
                             Path.Combine(installLocation.Trim().Trim('"'), "PCICTLUI.EXE"),
-                            $"Registry {hive}/{view}");
+                            $"Registry {hive}/{view}"));
                     }
 
                     var displayIcon = appKey.GetValue("DisplayIcon") as string;
@@ -130,7 +131,7 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
                     if (!string.IsNullOrWhiteSpace(iconPath) &&
                         string.Equals(Path.GetFileName(iconPath), "PCICTLUI.EXE", StringComparison.OrdinalIgnoreCase))
                     {
-                        yield return (iconPath, $"Registry {hive}/{view} (DisplayIcon)");
+                        result.Add((iconPath, $"Registry {hive}/{view} (DisplayIcon)"));
                     }
                 }
             }
@@ -138,12 +139,9 @@ public sealed class NetSupportInstallationService : INetSupportInstallationServi
             {
                 // Registry discovery is best effort. Known file-system paths remain available.
             }
-            finally
-            {
-                uninstallKey?.Dispose();
-                baseKey?.Dispose();
-            }
         }
+
+        return result;
     }
 
     private static string? NormalizeDisplayIcon(string? value)
