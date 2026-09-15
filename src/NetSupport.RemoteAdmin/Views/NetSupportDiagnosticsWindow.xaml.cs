@@ -31,7 +31,8 @@ public partial class NetSupportDiagnosticsWindow : Window
     {
         var candidates = _installationService.Discover(_configuredPath);
         CandidatesListBox.ItemsSource = candidates;
-        CandidatesListBox.SelectedItem = candidates.FirstOrDefault(candidate => candidate.Exists);
+        CandidatesListBox.SelectedItem = candidates.FirstOrDefault(candidate => candidate.IsUsable)
+                                             ?? candidates.FirstOrDefault();
         UpdateSelectionState();
     }
 
@@ -40,12 +41,12 @@ public partial class NetSupportDiagnosticsWindow : Window
 
     private void UpdateSelectionState()
     {
-        UseSelectedButton.IsEnabled = CandidatesListBox.SelectedItem is NetSupportInstallationCandidate { Exists: true };
+        UseSelectedButton.IsEnabled = CandidatesListBox.SelectedItem is NetSupportInstallationCandidate { IsUsable: true };
     }
 
     private void UseSelectedButton_OnClick(object sender, RoutedEventArgs e)
     {
-        if (CandidatesListBox.SelectedItem is not NetSupportInstallationCandidate { Exists: true } candidate)
+        if (CandidatesListBox.SelectedItem is not NetSupportInstallationCandidate { IsUsable: true } candidate)
             return;
 
         SelectedExecutablePath = candidate.Path;
