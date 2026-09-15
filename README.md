@@ -8,7 +8,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md) – NetSupport-only-Domänenrichtlinie und Migration älterer Konfigurationen
-- [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – PCICTLUI-CLI, Zielvalidierung und NetSupport-Startpfad
+- [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
@@ -51,9 +51,20 @@ Unterstützte Schnellaktionen:
 - **Remote CMD**
 - **Dateiübertragung**
 
-Der Pfad zu `PCICTLUI.EXE` kann unter **Erweitert → Einstellungen** geändert werden. Die Providerverfügbarkeit wird danach ohne Neustart neu bewertet.
+Unter **Erweitert → Einstellungen → NetSupport Manager** stehen jetzt zur Verfügung:
 
-Der Startpfad validiert Rechnername/IP vor dem Prozessstart und verwendet für IP-Ziele die von NetSupport dokumentierte `/c">Adresse"`-Form. Die optionale Diagnose protokolliert die tatsächlich erzeugte NetSupport-Befehlszeile. Der Systemzustand zeigt zusätzlich die aus `PCICTLUI.EXE` auslesbare Version.
+- **Durchsuchen…** für manuelle Auswahl
+- **Automatisch erkennen** über Standardpfade und lokale Installationsregistrierung
+- **NetSupport prüfen…** mit Kandidaten, Quelle, Produkt-/Dateiversion und Hersteller
+
+Die Erkennung durchsucht keine Laufwerke rekursiv und baut keine Remoteverbindung auf.
+
+Der Startpfad validiert außerdem:
+
+- ausschließlich `PCICTLUI.EXE` darf als Remote-Backend gestartet werden
+- Rechnername/IP wird vor dem Prozessstart geprüft
+- IP-Ziele verwenden die dokumentierte `/c">Adresse"`-Form
+- die tatsächlich erzeugte NetSupport-Befehlszeile und gestartete PID können im Diagnoseprotokoll nachvollzogen werden
 
 Details: [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md).
 
@@ -78,7 +89,8 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - Mit Windows starten
 - beim Start minimiert im Infobereich öffnen
 - Diagnoseprotokoll aktivieren/deaktivieren
-- NetSupport-Executable auswählen
+- NetSupport-Executable auswählen oder automatisch erkennen
+- NetSupport-Installation/Version prüfen
 - **Systemzustand** des Admin-PCs prüfen
 - Diagnoseordner öffnen
 - anonymisierbares Supportpaket erstellen
@@ -97,7 +109,7 @@ Das optionale Diagnoseprotokoll liegt unter:
 
 Es rotiert bei ungefähr 2 MB nach `application.log.1`. Kennwörter und Sitzungsinhalte werden nicht protokolliert.
 
-Das Supportpaket erzeugt eine ZIP-Datei mit bereinigten System-, Konfigurations-, History- und Logdaten. Die Original-`settings.json` und Credentials werden nicht aufgenommen. Die Anonymisierung von Host-/Benutzer-/Rechnerkennungen ist standardmäßig aktiviert.
+Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion und den lokalen Erkennungsstatus, aber keine Credentials oder Original-`settings.json`.
 
 ## Systemzustand
 
@@ -106,6 +118,7 @@ Die lokale Zustandsprüfung kontrolliert unter anderem:
 - NetSupport-only-Remotezugriffsrichtlinie
 - AppData-Schreibbarkeit
 - Pfad/Verfügbarkeit und Version von `PCICTLUI.EXE`
+- alternative NetSupport-Installation, falls der konfigurierte Pfad veraltet ist
 - RSAT / ActiveDirectory PowerShell
 - lokales CIM / WSMan
 - Windows-Autostart
@@ -137,6 +150,7 @@ Diagnose:
 
 ```text
 IRemoteProvider
+INetSupportInstallationService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
