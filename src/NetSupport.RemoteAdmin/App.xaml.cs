@@ -29,12 +29,10 @@ public partial class App : System.Windows.Application
 
             diagnosticLog.Info("Anwendung gestartet. Remotezugriffsrichtlinie: NetSupport-only; RDP ist nicht registriert.");
 
-            // Domain policy: RDP is not an approved remote-control mechanism in this environment.
-            // Only NetSupport is registered as an executable remote provider. Keeping this decision
-            // in application composition prevents old RDP preferences from re-enabling RDP.
+            // Domain policy: only NetSupport is registered as an executable remote provider.
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
-                new NetSupportProvider(config)
+                new NetSupportProvider(config, diagnosticLog)
             });
 
             var discovery = new DomainComputerDiscoveryService();
