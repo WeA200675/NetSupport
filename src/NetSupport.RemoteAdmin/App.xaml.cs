@@ -19,8 +19,6 @@ public partial class App : System.Windows.Application
                 configService.ConfigDirectory,
                 () => config.DiagnosticLoggingEnabled);
             var autoStartService = new WindowsAutoStartService();
-            var rdpSessionLauncher = new EmbeddedRdpSessionLauncher(config, configService);
-            var rdpConnectionFileService = new RdpConnectionFileService(configService.ConfigDirectory);
 
             DispatcherUnhandledException += (_, args) =>
                 diagnosticLog.Error("Unbehandelte UI-Ausnahme.", args.Exception);
@@ -29,12 +27,14 @@ public partial class App : System.Windows.Application
             TaskScheduler.UnobservedTaskException += (_, args) =>
                 diagnosticLog.Error("Nicht beobachtete Task-Ausnahme.", args.Exception);
 
-            diagnosticLog.Info("Anwendung gestartet.");
+            diagnosticLog.Info("Anwendung gestartet. Remotezugriffsrichtlinie: NetSupport-only; RDP ist nicht registriert.");
 
+            // Domain policy: RDP is not an approved remote-control mechanism in this environment.
+            // Only NetSupport is registered as an executable remote provider. Keeping this decision
+            // in application composition prevents old RDP preferences from re-enabling RDP.
             var registry = new RemoteProviderRegistry(new IRemoteProvider[]
             {
-                new NetSupportProvider(config),
-                new RdpProvider(config, rdpSessionLauncher, rdpConnectionFileService)
+                new NetSupportProvider(config)
             });
 
             var discovery = new DomainComputerDiscoveryService();
@@ -49,7 +49,6 @@ public partial class App : System.Windows.Application
                 availability,
                 detailsService,
                 historyService,
-                rdpConnectionFileService,
                 autoStartService,
                 diagnosticLog);
             MainWindow = window;
