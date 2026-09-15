@@ -12,6 +12,8 @@ public sealed class SystemHealthService(
     ConfigService configService,
     IAutoStartService autoStartService) : ISystemHealthService
 {
+    private readonly INetSupportInstallationService _netSupportInstallationService = new NetSupportInstallationService();
+
     public async Task<IReadOnlyList<SystemHealthCheckResult>> CheckAsync(
         CancellationToken cancellationToken = default)
     {
@@ -59,28 +61,48 @@ public sealed class SystemHealthService(
 
     private SystemHealthCheckResult CheckNetSupport()
     {
-        if (string.IsNullOrWhiteSpace(config.NetSupportExecutable))
+        if (!string.IsNullOrWhiteSpace(config.NetSupportExecutable))
         {
-            return Error(
-                "NetSupport Manager",
-                "PCICTLUI.EXE ist nicht konfiguriert.",
-                "Pfad unter Erweitert → Einstellungen festlegen.");
-        }
+            var configured = _netSupportInstallationService.Inspect(config.NetSupportExecutable, "Konfiguriert");
+            if (configured.Exists)
+            {
+                return Healthy(
+                    "NetSupport Manager",
+                    "Die konfigurierte PCICTLUI.EXE wurde gefunden.",
+                    FormatNetSupportDetails(configured));
+            }
 
-        if (!File.Exists(config.NetSupportExecutable))
-        {
+            var alternativePath = _netSupportInstallationService.FindBestExecutable(config.NetSupportExecutable);
+            if (!string.IsNullOrWhiteSpace(alternativePath) &&
+                !string.Equals(alternativePath, configured.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                var alternative = _netSupportInstallationService.Inspect(alternativePath, "Automatisch erkannt");
+                return Warning(
+                    "NetSupport Manager",
+                    "Der konfigurierte Pfad ist ungültig, aber eine andere NetSupport-Installation wurde gefunden.",
+                    $"Konfiguriert: {configured.Path}\nGefunden: {FormatNetSupportDetails(alternative)}");
+            }
+
             return Error(
                 "NetSupport Manager",
                 "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.",
-                config.NetSupportExecutable);
+                configured.Path);
         }
 
-        var version = TryGetFileVersion(config.NetSupportExecutable);
-        var details = string.IsNullOrWhiteSpace(version)
-            ? config.NetSupportExecutable
-            : $"{config.NetSupportExecutable}\nVersion: {version}";
+        var detectedPath = _netSupportInstallationService.FindBestExecutable();
+        if (!string.IsNullOrWhiteSpace(detectedPath))
+        {
+            var detected = _netSupportInstallationService.Inspect(detectedPath, "Automatisch erkannt");
+            return Warning(
+                "NetSupport Manager",
+                "NetSupport wurde lokal gefunden, ist aber noch nicht als Control-Pfad gespeichert.",
+                FormatNetSupportDetails(detected));
+        }
 
-        return Healthy("NetSupport Manager", "PCICTLUI.EXE wurde gefunden.", details);
+        return Error(
+            "NetSupport Manager",
+            "PCICTLUI.EXE ist nicht konfiguriert und konnte lokal nicht automatisch gefunden werden.",
+            "Pfad unter Erweitert → Einstellungen festlegen oder NetSupport Manager Control installieren.");
     }
 
     private SystemHealthCheckResult CheckAutoStart() => new()
@@ -150,17 +172,22 @@ public sealed class SystemHealthService(
         return Warning("CIM / WSMan", "Lokale CIM-Abfrage ist fehlgeschlagen.", details);
     }
 
-    private static string? TryGetFileVersion(string path)
+    private static string FormatNetSupportDetails(NetSupportInstallationCandidate candidate)
     {
-        try
+        var details = new List<string> { candidate.Path };
+        if (!string.IsNullOrWhiteSpace(candidate.ProductName))
+            details.Add($"Produkt: {candidate.ProductName}");
+        if (!string.IsNullOrWhiteSpace(candidate.ProductVersion))
+            details.Add($"Produktversion: {candidate.ProductVersion}");
+        if (!string.IsNullOrWhiteSpace(candidate.FileVersion) &&
+            !string.Equals(candidate.FileVersion, candidate.ProductVersion, StringComparison.OrdinalIgnoreCase))
         {
-            var info = FileVersionInfo.GetVersionInfo(path);
-            return string.IsNullOrWhiteSpace(info.ProductVersion) ? info.FileVersion : info.ProductVersion;
+            details.Add($"Dateiversion: {candidate.FileVersion}");
         }
-        catch
-        {
-            return null;
-        }
+        if (!string.IsNullOrWhiteSpace(candidate.CompanyName))
+            details.Add($"Hersteller: {candidate.CompanyName}");
+        details.Add($"Quelle: {candidate.Source}");
+        return string.Join('\n', details);
     }
 
     private static async Task<PowerShellResult> RunPowerShellAsync(
