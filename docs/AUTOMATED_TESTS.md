@@ -6,9 +6,7 @@
 
 ## Ziel
 
-Die produktive NetSupport-Anbindung erzeugt bewusst eine rohe Kommandozeile für `PCICTLUI.EXE`, weil NetSupport für IP-Ziele eine besondere Syntax verwendet.
-
-Deshalb werden die sicherheitskritischen Regeln automatisiert geprüft, bevor GitHub Actions einen Windows-Testbuild veröffentlicht.
+Sicherheits- und Persistenzregeln werden vor jedem veröffentlichten Windows-Testbuild automatisiert geprüft.
 
 CI-Reihenfolge:
 
@@ -20,11 +18,9 @@ Publish Windows x64
 Upload Artifact
 ```
 
-Ein fehlgeschlagener Test verhindert damit Publish und Artifact-Upload.
+Ein fehlgeschlagener Build oder Test verhindert damit Publish und Artifact-Upload.
 
----
-
-## Testprojekt
+Testprojekt:
 
 ```text
 tests/NetSupport.RemoteAdmin.Tests/
@@ -37,104 +33,122 @@ xUnit
 .NET 8 / Windows
 ```
 
-Das Testprojekt referenziert die produktive Anwendung. Für die isolierte interne Kommandozeilenlogik wird ausschließlich dem Test-Assembly `NetSupport.RemoteAdmin.Tests` interner Zugriff gewährt.
-
----
-
-## Isolierte Kommandozeilenlogik
-
-Die testbare Logik liegt in:
-
-```text
-Providers/NetSupportCommandLine.cs
-```
-
-`NetSupportProvider` verwendet dieselbe Klasse im produktiven Prozessstart.
-
-Damit testen wir nicht eine nachgebaute Kopie der Regeln, sondern genau die Logik, die später die Argumentzeichenfolge für `PCICTLUI.EXE` erzeugt.
-
-Die Tests starten **kein** NetSupport und bauen **keine** Remoteverbindung auf.
+Die Tests starten **keine echte NetSupport-Remoteverbindung** und verändern keine NetSupport-Control-Profile oder Active-Directory-Objekte.
 
 ---
 
 ## Aktuell automatisiert geprüft
 
-### Zielrechner / `/C`
+### NetSupport-Kommandozeile
 
-Akzeptiert werden unter anderem:
-
-```text
-PC-001
-PC-001.example.local
-10.20.30.40
-```
-
-Für IPv4 wird die erwartete NetSupport-Syntax exakt geprüft:
+Die produktive Logik liegt in:
 
 ```text
-/c">10.20.30.40"
+Providers/NetSupportCommandLine.cs
 ```
 
-Abgewiesen werden unter anderem:
+Geprüft werden unter anderem:
 
-```text
-leere Werte
--bad
-PC 001
-PC-001" /a
-Zeilenumbrüche
-PC-001&calc
-```
+- Rechnername/FQDN und exakte IPv4-`/C`-Syntax
+- Ablehnung unsicherer Zielwerte und typischer Kommandozeilen-Injection-Werte
+- alle sechs NetSupport-Aktionsargumente
+- `/N` und `/F /N`
+- `/F` ohne Profil -> Fehler
+- Profilnamen mit Quote, Steuerzeichen, Backslash oder Überlänge -> Fehler
+- kombinierte Argumentzeichenfolge aus Profil, Ziel und Aktion
+- ausschließlich vorhandene `PCICTLUI.EXE` als erlaubte Remote-Executable
+- vorhandene Fremd-EXE und fehlende `PCICTLUI.EXE` -> Fehler
 
-Dadurch werden typische Kommandozeilen-Injection-Versuche vor `Process.Start` abgefangen.
-
-### NetSupport-Aktionen
-
-Für alle aktuell unterstützten Aktionen wird die exakte Argumentabbildung geprüft:
-
-```text
-Control        -> /vc /e
-View           -> /v /e
-Chat           -> /a /ea
-Inventory      -> /i /ei
-CommandPrompt  -> /m /em
-FileTransfer   -> /x /ex
-```
-
-### Control-Profile
+### Konfigurationsmigration und Persistenz
 
 Geprüft werden:
 
-- kein Profil + `/F` aus -> keine Profilargumente
-- `/F` ohne `/N` -> Fehler
-- `/N "Profil"`
-- `/F /N "Profil"`
-- Profilnamen mit Leerzeichen
-- Anführungszeichen im Profilnamen -> Fehler
-- Steuerzeichen im Profilnamen -> Fehler
-- mehr als 128 Zeichen -> Fehler
-- führende/trailing Leerzeichen werden normalisiert
+- NetSupport-only-Normalisierung alter Providerwerte
+- ungültige bevorzugte Aktionen -> `Control`
+- Reparatur fehlender Listen
+- Schema-Versionierung
+- Ablehnung einer Konfiguration aus einer neueren Schema-Version
+- alte RDP-Felder verschwinden beim erneuten Serialisieren
+- gültiger benutzerdefinierter NetSupport-Client-Port bleibt erhalten
+- ungültiger Port fällt auf TCP 5405 zurück
+- atomisches Speichern ohne übrig gebliebene Temp-Dateien
+- normalisierte Primär- und Backup-Datei
+- Recovery aus `settings.json.bak`
+- klare Fehlermeldung, wenn Primärdatei und Backup beide beschädigt sind
 
-Zusätzlich gibt es einen End-to-End-Test der **erzeugten Argumentzeichenfolge** aus Profil + IP + Control-Aktion.
+### NetSupport-Erreichbarkeit
 
-### Schutz der ausführbaren Datei
+`NetSupportReachabilityService` wird ohne echte Domänenrechner getestet:
 
-Mit temporären lokalen Testdateien wird geprüft:
+- lokaler temporärer TCP-Listener -> erreichbar
+- geschlossener lokaler TCP-Port -> nicht erreichbar
+- gültiger Portbereich 1..65535
+- ungültige Ports werden abgewiesen
+- Standardwert TCP 5405 ist gültig
 
-- vorhandene Datei namens `PCICTLUI.EXE` wird akzeptiert
-- vorhandene Fremd-EXE wie `notepad.exe` wird abgewiesen
-- nicht vorhandene `PCICTLUI.EXE` wird abgewiesen
+Die Diagnose ist bewusst nicht gleichbedeutend mit einer vollständigen NetSupport-Anmeldung und blockiert keinen echten Start von `PCICTLUI.EXE`.
 
-Dabei wird keine Testdatei ausgeführt.
+### Ping-/NetSupport-Statusdarstellung
+
+Geprüft werden Kombinationen wie:
+
+```text
+Ping erreichbar · NetSupport erreichbar
+Ping erreichbar · NetSupport nicht erreichbar
+Ping keine Antwort · NetSupport erreichbar
+Ping keine Antwort · NetSupport nicht erreichbar
+```
+
+Damit darf ein fehlgeschlagener Ping nicht fälschlich als Beweis für einen ausgeschalteten Rechner dargestellt werden.
+
+### Active-Directory-Ergebnisverarbeitung
+
+Die JSON-Verarbeitung der Domänensuche wird isoliert geprüft:
+
+- leerer Output -> leere Liste
+- Einzelobjekt und Array
+- `DNSHostName` wird bevorzugt
+- fehlender `DNSHostName` fällt auf `Name` zurück
+- Werte werden getrimmt
+- doppelte Hosts werden unabhängig von Groß-/Kleinschreibung entfernt
+- unbrauchbare Einträge ohne Host/Name werden übersprungen
+
+Die Tests greifen nicht auf ein echtes Active Directory zu.
+
+### Supportpaket / Datenschutz
+
+Für ein tatsächlich erzeugtes temporäres Support-ZIP wird geprüft:
+
+- `settings.json` wird nicht aufgenommen
+- bekannte Rechnernamen/Hosts werden bei aktiver Anonymisierung entfernt
+- Gruppen-/Ansichtsnamen werden abstrahiert
+- NetSupport-Profilname wird anonymisiert
+- keine Felder für Passwort, Credential oder Token werden eingeführt
+
+### Lokaler Verlauf und CSV
+
+Geprüft werden:
+
+- maximal 100 Verlaufseinträge
+- beschädigte History-Datei blockiert die Anwendung nicht
+- CSV-Export neutralisiert Zellen, die mit `=`, `+`, `-` oder `@` als Tabellenkalkulationsformel interpretiert werden könnten
+- CR/LF wird sauber in Text umgewandelt
+
+### Single Instance
+
+Geprüft werden:
+
+- innerhalb derselben Windows-Sitzung kann nur eine Instanz den Mutex besitzen
+- nach Dispose kann eine neue Instanz übernehmen
 
 ---
 
 ## Letzte bestätigte CI-Validierung
 
-Der erste vollständig erfolgreiche Lauf mit aktivem Test-Gate war GitHub Actions **#555** auf Head:
+GitHub Actions **#643** auf Head:
 
 ```text
-a8dae0eb55d439e1eeb3766866a02875b0d47aef
+b1577f228e6e917fbb2ae7c16a5c08f19e235568
 ```
 
 Ergebnis:
@@ -143,36 +157,34 @@ Ergebnis:
 Build succeeded
 0 Warnungen
 0 Fehler
-29 Tests insgesamt
-29 bestanden
+84 Tests insgesamt
+84 bestanden
 0 fehlgeschlagen
 ```
 
-Danach wurden im selben Lauf auch self-contained Windows-x64-Publish und Artifact-Upload erfolgreich ausgeführt.
+Danach wurden self-contained Windows-x64-Publish und Artifact-Upload erfolgreich ausgeführt.
 
-Artefakt dieses Laufs:
+Artefakt:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
-SHA-256: f420abff5f663a717fd8e23f218d9ad966034450ec6adf42d720fb1005625015
+SHA-256: 7e5e337ea1c75076779a939edd99900011ce688b7ef5e915316dd6c627f78d2e
 ```
-
-Spätere reine Dokumentationscommits ändern diese getestete Programmlogik nicht; der jeweils aktuelle Head wird dennoch erneut durch denselben vollständigen CI-Ablauf geschickt.
 
 ---
 
 ## Was diese Tests bewusst nicht beweisen
 
-Automatisierte Unit-Tests können nicht bestätigen, dass eine konkrete NetSupport-Version auf einem echten Admin-PC eine Remote-Sitzung erfolgreich aufbaut.
+Automatisierte Tests können nicht bestätigen, dass eine konkrete NetSupport-Version auf einem echten Admin-PC eine Remote-Sitzung erfolgreich aufbaut.
 
-Weiterhin praktisch zu testen sind daher insbesondere:
+Praktisch zu testen bleiben insbesondere:
 
 - lokale NetSupport-Installation und Lizenzierung
 - tatsächliche `/C`-/`/VC`-/`/N`-/`/F`-Interpretation der eingesetzten NetSupport-Version
-- Client-Erreichbarkeit
-- NetSupport-Berechtigungen/Sicherheitsprofile
+- NetSupport-Client-Port/Firewall im realen Netz
+- NetSupport-Berechtigungen und Sicherheitsprofile
 - Profilpasswort-Dialoge innerhalb NetSupport
-- AD/RSAT in der realen Domäne
+- RSAT bzw. LDAP gegen die reale Domäne
 - CIM/WSMan auf echten Zielrechnern
 
 Dafür bleibt [`TESTING.md`](TESTING.md) maßgeblich.
@@ -181,8 +193,6 @@ Dafür bleibt [`TESTING.md`](TESTING.md) maßgeblich.
 
 ## Sicherheitsprinzip
 
-Die Tests dürfen selbst keine Fernwartung starten und keine NetSupport-Registryprofile verändern.
+Automatisierte Tests dürfen keine Fernwartung starten, keine Active-Directory-Objekte verändern und keine NetSupport-Registryprofile schreiben.
 
-Sie prüfen ausschließlich deterministische Eingabevalidierung, Argumenterzeugung und lokale Pfadregeln.
-
-Damit sind die Tests eine zusätzliche Schutzschicht; sie ersetzen nicht die NetSupport-eigene Sitzungsprotokollierung oder die Freigabe des Testbuilds auf einem administrativen Pilot-PC.
+Sie sind eine zusätzliche Schutzschicht für deterministische Eingabevalidierung, Persistenz, Datenschutz und lokale Diagnose. Sie ersetzen nicht die NetSupport-eigene Sitzungsprotokollierung oder einen Pilot-Test auf einem vorgesehenen Admin-PC.
