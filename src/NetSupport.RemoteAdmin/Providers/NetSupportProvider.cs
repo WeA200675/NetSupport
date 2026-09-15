@@ -11,6 +11,8 @@ public sealed partial class NetSupportProvider(
     AppConfig config,
     IDiagnosticLogService diagnosticLog) : IRemoteProvider
 {
+    private readonly INetSupportProfileService _profileService = new NetSupportProfileService();
+
     public string Id => "netsupport";
     public string DisplayName => "NetSupport Manager";
 
@@ -31,6 +33,7 @@ public sealed partial class NetSupportProvider(
             try
             {
                 _ = GetValidatedExecutablePath();
+                ValidateConfiguredProfile();
                 return true;
             }
             catch
@@ -45,13 +48,17 @@ public sealed partial class NetSupportProvider(
         cancellationToken.ThrowIfCancellationRequested();
 
         var executablePath = GetValidatedExecutablePath();
+        var profileArguments = BuildProfileArguments();
 
         if (!SupportedActions.Contains(action))
             throw new NotSupportedException($"Die Aktion '{action}' wird von NetSupport nicht unterstützt.");
 
         var connectArgument = BuildConnectArgument(target.Host);
         var actionArguments = string.Join(' ', GetActionArguments(action));
-        var arguments = $"{connectArgument} {actionArguments}".Trim();
+        var arguments = string.Join(
+            ' ',
+            new[] { profileArguments, connectArgument, actionArguments }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
 
         // NetSupport documents an unusual compact /c\">address\" syntax for IP connections.
         // ProcessStartInfo.ArgumentList can re-escape embedded quotes, so pass the validated
@@ -93,6 +100,43 @@ public sealed partial class NetSupportProvider(
         }
 
         return $"/c {trimmed}";
+    }
+
+    private string BuildProfileArguments()
+    {
+        var profile = ValidateConfiguredProfile();
+        if (profile is null)
+            return string.Empty;
+
+        // /F is only meaningful together with /N. Quoting allows profile names containing spaces
+        // while the profile-name validator prevents additional command-line syntax from being injected.
+        return config.NetSupportLockProfile
+            ? $"/f /n \"{profile}\""
+            : $"/n \"{profile}\"";
+    }
+
+    private string? ValidateConfiguredProfile()
+    {
+        if (string.IsNullOrWhiteSpace(config.NetSupportProfileName))
+        {
+            if (config.NetSupportLockProfile)
+            {
+                throw new InvalidOperationException(
+                    "NetSupport-Profilbindung (/F) ist aktiviert, aber es wurde kein Control-Profil ausgewählt.");
+            }
+
+            return null;
+        }
+
+        var profile = NetSupportProfileService.NormalizeProfileName(config.NetSupportProfileName);
+        if (!_profileService.ProfileExists(profile))
+        {
+            throw new InvalidOperationException(
+                $"Das konfigurierte NetSupport-Control-Profil '{profile}' wurde unter HKCU\\{NetSupportProfileService.ConfigListRegistryPath} nicht gefunden. " +
+                "Bitte das Profil in NetSupport Manager anlegen oder unter Erweitert → Einstellungen ein vorhandenes Profil auswählen.");
+        }
+
+        return profile;
     }
 
     private string GetValidatedExecutablePath()
