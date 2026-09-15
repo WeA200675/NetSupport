@@ -83,6 +83,7 @@ public sealed class NetSupportCommandLineTests
     [Theory]
     [InlineData("Help\"desk")]
     [InlineData("Help\nDesk")]
+    [InlineData("Help\\Desk")]
     public void ProfileNameValidation_RejectsCommandLineBreakingCharacters(string profileName)
     {
         Assert.False(NetSupportProfileService.IsSafeProfileName(profileName));
