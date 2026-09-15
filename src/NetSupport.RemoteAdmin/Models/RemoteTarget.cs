@@ -35,6 +35,9 @@ public sealed class RemoteTarget
     public HostStatus Status { get; set; } = HostStatus.Unknown;
 
     [JsonIgnore]
+    public NetSupportReachabilityStatus NetSupportStatus { get; set; } = NetSupportReachabilityStatus.Unknown;
+
+    [JsonIgnore]
     public DateTimeOffset? LastStatusCheck { get; set; }
 
     [JsonIgnore]
@@ -50,6 +53,14 @@ public sealed class RemoteTarget
     };
 
     [JsonIgnore]
+    public string NetSupportStatusText => NetSupportStatus switch
+    {
+        NetSupportReachabilityStatus.Reachable => "NetSupport erreichbar",
+        NetSupportReachabilityStatus.Unreachable => "NetSupport nicht erreichbar",
+        _ => "NetSupport nicht geprüft"
+    };
+
+    [JsonIgnore]
     public string FavoriteMarker => IsFavorite ? "★" : string.Empty;
 
     public override string ToString() => string.IsNullOrWhiteSpace(Name) ? Host : $"{Name} ({Host})";
@@ -60,4 +71,11 @@ public enum HostStatus
     Unknown,
     Online,
     Offline
+}
+
+public enum NetSupportReachabilityStatus
+{
+    Unknown,
+    Reachable,
+    Unreachable
 }
