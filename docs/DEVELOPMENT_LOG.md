@@ -32,9 +32,10 @@ IRdpSessionLauncher
 IRdpConnectionFileService
 IAutoStartService
 IDiagnosticLogService
+ISupportBundleService
 ```
 
-Dadurch bleiben Hauptfenster, Remote-Technologien, Discovery, Inventardaten, Verlauf, RDP-Dateierzeugung, Autostart und Diagnose voneinander getrennt.
+Dadurch bleiben Hauptfenster, Remote-Technologien, Discovery, Inventardaten, Verlauf, Betrieb, Diagnose und Supportpaketerzeugung voneinander getrennt.
 
 ---
 
@@ -132,6 +133,8 @@ Datei:
 Pro Remote-Aktion werden Zeitpunkt, Ziel, Provider, Aktion und Start-Erfolg/Fehler erfasst. Der Verlauf ist auf 100 Einträge begrenzt und enthält keine Credentials oder Bildschirminhalte.
 
 Bei NetSupport handelt es sich bewusst um einen Provider-Startverlauf und nicht um ein revisionssicheres Session-Audit.
+
+Später wurde ein semikolongetrennter UTF-8/BOM-CSV-Export ergänzt.
 
 ---
 
@@ -240,101 +243,79 @@ Die Dateien liegen unter:
 
 Sie enthalten keine Passwörter. Der Zielwert wird gegen Zeilenumbrüche geprüft, und der Dateiname wird aus einem Hash des Hosts erzeugt.
 
-### Microsoft-Dokumentation
-
-Während dieser Phase wurde geprüft, dass aktuelle Microsoft-Dokumentation `SelectedMonitors` inzwischen auch als benannte Eigenschaft von `IMsRdpExtendedSettings` aufführt.
-
-Die bestehende ActiveX-Kapselung verzichtet bewusst auf generierte MSTSCLib-Interop-Assemblies. Für diese Phase wurde deshalb der transparente `.rdp`-Dateipfad gewählt. Eine spätere typisierte Anbindung von `IMsRdpExtendedSettings.SelectedMonitors` kann die gezielte Auswahl zusätzlich in den eingebetteten Viewer bringen.
+Aktuelle Microsoft-Dokumentation führt `SelectedMonitors` zusätzlich als benannte Eigenschaft von `IMsRdpExtendedSettings`. Die bestehende ActiveX-Kapselung verzichtet bewusst auf generierte MSTSCLib-Interop-Assemblies; deshalb wurde für diese Phase der transparente `.rdp`-Dateipfad gewählt.
 
 Details: `docs/RDP_SELECTED_MONITORS.md`.
 
 ---
 
-## Betriebsphase: Einstellungen, Autostart, Diagnose und Export
+## Betriebsphase: Einstellungen, Autostart und Diagnose
 
-Nach den Remote-Funktionen wurde ein eigener Betriebsblock ergänzt, damit die Anwendung auf Admin-PCs ohne manuelle JSON-Pflege nutzbar ist.
-
-### Einstellungsfenster
-
-Neue WPF-Ansicht:
-
-```text
-Views/SettingsWindow.xaml
-```
-
-Dort können geändert werden:
-
-- Windows-Autostart
-- Start minimiert
-- Diagnoseprotokoll
-- Embedded RDP
-- externer RDP-Vollbildmodus
-- Pfad zu `PCICTLUI.EXE`
-
-Nach einer Änderung des NetSupport-Pfads wird die Providerliste im Hauptfenster sofort neu ausgewertet.
-
-### Windows-Autostart
-
-Neue Schicht:
+Ergänzt wurden:
 
 ```text
 IAutoStartService
    +--> WindowsAutoStartService
-```
 
-Verwendet wird ausschließlich:
-
-```text
-HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-```
-
-Es werden keine maschinenweiten Einstellungen und keine GPOs verändert.
-
-### Diagnoseprotokoll
-
-Neue Schicht:
-
-```text
 IDiagnosticLogService
    +--> DiagnosticLogService
 ```
 
-Pfad:
+Neue Funktionen:
 
-```text
-%AppData%\NetSupportRemoteAdmin\logs\application.log
-```
+- eigenes Einstellungsfenster
+- NetSupport-Pfad ohne Neustart ändern
+- Autostart nur über `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`
+- Start minimiert
+- Embedded-RDP-/Vollbildoptionen
+- optionales Diagnoseprotokoll
+- Logrotation bei ungefähr 2 MB
+- History-CSV-Export
+- best-effort Erfassung unbehandelter UI-/Task-/AppDomain-Fehler
 
-Das Log rotiert bei ungefähr 2 MB nach `application.log.1`.
-
-Erfasst werden betriebliche Ereignisse und Fehler. Credentials, Passwörter und Sitzungsinhalte dürfen nicht an den Logger übergeben werden. Logging-Fehler werden intern verworfen, damit Diagnose niemals die Remoteverwaltung blockiert.
-
-Zusätzlich werden unbehandelte WPF-/AppDomain-/Task-Ausnahmen best-effort protokolliert.
-
-### CSV-Export des Startverlaufs
-
-`ISessionHistoryService` erhielt `ExportCsvAsync(...)`.
-
-Der Export verwendet:
-
-- Semikolon als Trennzeichen
-- UTF-8 mit BOM
-- Escaping für Sonderzeichen
-- lokalen Zeitstempel
-
-Damit lässt sich der Verlauf auf deutschsprachigen Windows-/Excel-Systemen direkt auswerten.
+Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte werden nicht protokolliert.
 
 Details: `docs/OPERATIONS.md`.
 
-### CI-Korrekturen
+---
 
-Der erste Build dieser Phase fand drei rein technische Compilerprobleme:
+## Supportphase: anonymisierbares Diagnosepaket
 
-- `OpenFileDialog` mehrdeutig zwischen WinForms und WPF
-- `SaveFileDialog` mehrdeutig zwischen WinForms und WPF
-- fehlender `System.IO`-Import für `Path`
+Neue Schicht:
 
-Die Dialogtypen wurden explizit auf `Microsoft.Win32` aliasiert und der fehlende Import ergänzt.
+```text
+ISupportBundleService
+   +--> SupportBundleService
+```
+
+Ziel war ein Support-ZIP, das für Fehlersuche brauchbar ist, aber nicht einfach komplette lokale Konfigurationsdateien kopiert.
+
+Das Paket enthält:
+
+```text
+README.txt
+system-info.json
+configuration-summary.json
+recent-history.json
+recent-errors.txt
+logs/
+```
+
+Designentscheidungen:
+
+- Anonymisierung standardmäßig aktiv
+- bekannte Zielhosts/-namen werden durch `target-...` ersetzt
+- lokale Rechner-/Benutzer-/Domain-/Profilwerte werden ersetzt
+- bekannte RDP-Benutzer-/Domainwerte werden beim Bereinigen von Logs ebenfalls ersetzt
+- Gruppen/Ansichten werden in der Konfigurationsübersicht abstrahiert
+- RDP-Benutzername/Domain erscheinen dort nur als `konfiguriert: ja/nein`
+- Original-`settings.json` wird nie in das ZIP kopiert
+- Passwörter/Credentials, Bildschirm-, Zwischenablage- und Remote-Dateiinhalte werden nicht aufgenommen
+- temporäre Paketdaten werden nach ZIP-Erzeugung best-effort entfernt
+
+Die UI liegt unter **Erweitert → Einstellungen → Diagnose und Support**.
+
+Details: `docs/SUPPORT_BUNDLE.md`.
 
 ---
 
@@ -364,6 +345,7 @@ docs/RDP_SELECTED_MONITORS.md
 docs/TARGET_ORGANIZATION.md
 docs/SAVED_VIEWS_AND_HISTORY.md
 docs/OPERATIONS.md
+docs/SUPPORT_BUNDLE.md
 docs/TESTING.md
 ```
 
@@ -375,6 +357,5 @@ docs/TESTING.md
 - weitere RDP-Redirects (Audio/Laufwerke)
 - weitere Tastatur-/Sondertastenaktionen
 - detailliertere Fehlertexte
-- Filter/Zeitraum für History-Export
-- optionales Diagnosepaket für Supportfälle
-- weitere Discovery-, Details-, History- und Remote-Provider
+- Filter/Zeitraum für Verlauf/CSV
+- weitere Discovery-, Details-, History-, Support- und Remote-Provider
