@@ -2,220 +2,109 @@
 
 Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Windows-/Domänenrechnern über **NetSupport Manager**.
 
-> **Domänenvorgabe:** RDP ist in dieser Umgebung als Fernwartungsweg deaktiviert und wird von dieser Anwendung nicht angeboten. Remotezugriff erfolgt ausschließlich über NetSupport Manager.
+> **Domänenvorgabe:** Remotezugriff erfolgt ausschließlich über NetSupport Manager. RDP wird von dieser Anwendung weder angeboten noch als Provider registriert.
 
-## Dokumentation
+## Funktionsumfang
 
-- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
-- [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md) – NetSupport-only-Domänenrichtlinie und Migration älterer Konfigurationen
-- [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
-- [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md) – lokale Control-Profile, `/N` und optionale `/F`-Profilbindung
-- [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md) – bevorzugte NetSupport-Aktion pro Rechner und Doppelklickverhalten
-- [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md) – automatisierte CLI-/Sicherheits-/Migrations-/Recovery-Tests und ihre Grenzen
-- [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md) – Schema-Version, Normalisierung, atomisches Speichern, Backup und Recovery
-- [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
-- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standardaktion
-- [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
-- [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
-- [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md) – anonymisierbares Diagnose-/Supportpaket
-- [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md) – lokaler Systemzustand des Admin-PCs
-- [`docs/TESTING.md`](docs/TESTING.md) – Testbuild und praktische Prüfschritte
+- Tray-/Infobereich-Betrieb und Single-Instance-Schutz pro Windows-Sitzung
+- direkte Zielwahl per Rechnername oder IP
+- Active-Directory-Rechnersuche: bevorzugt RSAT/`Get-ADComputer`, read-only LDAP-Fallback ohne zwingendes RSAT
+- Text-, Gruppen- und Favoritenfilter sowie gespeicherte Ansichten
+- bevorzugte NetSupport-Aktion pro gespeichertem Rechner
+- Schnellaktionen: **Steuern**, **Nur ansehen**, **Chat**, **Inventar**, **Remote CMD**, **Dateiübertragung**
+- parallele Ping- und NetSupport-TCP-Erreichbarkeitsdiagnose
+- konfigurierbarer NetSupport-Client-Port, Standard TCP 5405
+- zusätzliche Rechnerdetails über DNS + CIM/WSMan
+- lokaler Startverlauf, maximal 100 Einträge, plus gehärteter CSV-Export
+- Windows-Autostart pro Benutzer
+- optionales rotierendes Diagnoseprotokoll
+- anonymisierbares Supportpaket
+- lokale Systemzustandsprüfung
+- schema-versionierte, atomisch geschriebene Konfiguration mit Backup/Recovery
+- automatisierte Windows-CI-Tests vor jedem veröffentlichten Testartefakt
 
-## Aktueller Funktionsumfang
+## NetSupport-only
 
-### Hauptoberfläche
-
-- Tray-/Infobereich-Betrieb
-- pro Windows-Sitzung nur eine laufende Instanz
-- direkte Verbindung per Rechnername oder IP
-- Active-Directory-Rechnersuche über `Get-ADComputer`
-- Text-, Gruppen- und Favoritenfilter
-- gespeicherte Filteransichten
-- Favoriten und frei benennbare Rechnergruppen
-- bevorzugte NetSupport-Standardaktion pro gespeichertem Rechner
-- Doppelklick verwendet die zuletzt gespeicherte NetSupport-Aktion
-- parallele Erreichbarkeitsprüfung; fehlgeschlagener Ping wird bewusst als **Nicht erreichbar** statt als sicher „offline“ angezeigt
-- Rechnerdetails über DNS + CIM/WSMan
-- lokaler Verlauf der gestarteten Remote-Aktionen
-- CSV-Export des Verlaufs
-- eigene Einstellungsseite
-- optionaler Windows-Autostart pro Benutzer
-- optionales lokales Diagnoseprotokoll
-- anonymisierbares Supportpaket als ZIP
-- lokale Systemzustandsprüfung für Admin-PC-Voraussetzungen
-
-### NetSupport Manager
-
-`PCICTLUI.EXE` wird als einziges Remote-Control-Backend verwendet.
-
-Unterstützte Schnell- und Standardaktionen:
-
-- **Steuern**
-- **Nur ansehen**
-- **Chat**
-- **Inventar**
-- **Remote CMD**
-- **Dateiübertragung**
-
-Für einen gespeicherten Rechner kann unter **Erweitert → Aktion** eine bevorzugte Aktion gewählt werden. **Speichern / Aktualisieren** schreibt sie als lesbares `preferredAction` in die lokale Konfiguration. Fehlt der Wert oder ist er ungültig, bleibt **Steuern / Control** der Fallback. Eine noch nicht gespeicherte Auswahl kann über den Standard-Button testweise gestartet werden; Doppelklick verwendet dagegen bewusst die zuletzt gespeicherte Aktion.
-
-Details: [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md).
-
-Unter **Erweitert → Einstellungen → NetSupport Manager** stehen außerdem zur Verfügung:
-
-- **Durchsuchen…** für manuelle Auswahl
-- **Automatisch erkennen** über Standardpfade und lokale Installationsregistrierung
-- **NetSupport prüfen…** mit Kandidaten, Quelle, Produkt-/Dateiversion und Hersteller
-- vorhandenes lokales **Control-Profil** auswählen
-- Profile aus `HKCU\Software\NetSupport Ltd\PCICTL\ConfigList` neu laden
-- optional **Control auf dieses Profil festlegen (/F)**
-
-Ein konfiguriertes Control-Profil wird beim Start mit `/N` an NetSupport übergeben. Mit aktivierter Profilbindung kommt `/F` hinzu. Fehlt das konfigurierte Profil lokal, wird der Remote-Start absichtlich blockiert, statt stillschweigend ein anderes Profil zu verwenden.
-
-Details: [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md).
-
-Die Installationserkennung durchsucht keine Laufwerke rekursiv und baut keine Remoteverbindung auf.
-
-Der Startpfad validiert außerdem:
-
-- ausschließlich `PCICTLUI.EXE` darf als Remote-Backend gestartet werden
-- Rechnername/IP wird vor dem Prozessstart geprüft
-- IP-Ziele verwenden die dokumentierte `/c">Adresse"`-Form
-- optionale Profilnamen werden vor der rohen Kommandozeile validiert; Anführungszeichen, Steuerzeichen und Backslashes sind nicht zulässig
-- ein konfiguriertes Profil muss für den aktuellen Windows-Benutzer vorhanden sein
-- die tatsächlich erzeugte NetSupport-Befehlszeile und gestartete PID können im Diagnoseprotokoll nachvollzogen werden
-
-Details: [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md).
-
-## Domänenrichtlinie
-
-Die Anwendung registriert im produktiven Startpfad nur den Provider
+Der produktive Startpfad registriert nur:
 
 ```text
 netsupport
 ```
 
-und blockiert andere Provider vor dem Start zusätzlich im Hauptfenster.
+Frühere RDP-Felder aus alten Entwicklungsständen werden beim Laden ignoriert und beim erneuten Speichern nicht mehr geschrieben. Alte Providerpräferenzen werden zentral auf `netsupport` normalisiert.
 
-Frühere Entwicklungsstände enthielten testweise RDP-Komponenten. Diese wurden nach Klärung der Domänenvorgabe aus dem aktiven Projekt entfernt. Alte RDP-Felder in bestehenden `settings.json`-Dateien werden beim Laden ignoriert und beim nächsten Speichern nicht mehr geschrieben.
+## NetSupport Manager
 
-Details: [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md).
+Als Remote-Backend darf ausschließlich eine vorhandene `PCICTLUI.EXE` gestartet werden.
 
-## Einstellungen, Betrieb und Support
+Der Startpfad validiert unter anderem:
 
-Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
+- Rechnername/IP vor `Process.Start`
+- exakte NetSupport-IP-Syntax
+- alle unterstützten Aktionsargumente
+- optionales lokales Control-Profil über `/N`
+- optionale feste Profilbindung über `/F /N`
+- Profilname und Vorhandensein des Profils für den aktuellen Windows-Benutzer
+- Executable-Pfad und Dateiname
 
-- Mit Windows starten
-- beim Start minimiert im Infobereich öffnen
-- Diagnoseprotokoll aktivieren/deaktivieren
-- NetSupport-Executable auswählen oder automatisch erkennen
-- NetSupport-Installation/Version prüfen
-- lokales NetSupport-Control-Profil auswählen und optional mit `/F` binden
-- **Systemzustand** des Admin-PCs prüfen
-- Diagnoseordner öffnen
-- anonymisierbares Supportpaket erstellen
+Ein fehlendes konfiguriertes Profil blockiert den Start bewusst, statt stillschweigend ein anderes NetSupport-Profil zu verwenden. Profilpasswörter bleiben vollständig innerhalb NetSupport.
 
-Windows-Autostart wird ausschließlich im Benutzerprofil verwaltet:
+## Erreichbarkeitsdiagnose
 
-```text
-HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-```
-
-Das optionale Diagnoseprotokoll liegt unter:
+**Status prüfen** kombiniert zwei unabhängige Hinweise:
 
 ```text
-%AppData%\NetSupportRemoteAdmin\logs\application.log
+Ping/ICMP
+NetSupport TCP <konfigurierter Port>
 ```
 
-Es rotiert bei ungefähr 2 MB nach `application.log.1`. Kennwörter und Sitzungsinhalte werden nicht protokolliert.
-
-Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion, lokalen Erkennungsstatus und den bereinigten Profilstatus, aber keine Credentials oder Original-`settings.json`. Die Anonymisierung des tatsächlich erzeugten ZIPs wird automatisiert mitgetestet.
-
-## Konfiguration und Recovery
-
-Die Konfiguration wird zentral normalisiert und versioniert. Unversionierte Altdateien werden auf das aktuelle Schema migriert; eine Konfiguration aus einer neueren, noch nicht unterstützten Schema-Version wird bewusst nicht von einer älteren EXE überschrieben.
-
-Schreibvorgänge erfolgen über temporäre Dateien und anschließenden Austausch, statt `settings.json` während der JSON-Serialisierung zu truncaten.
-
-Primärdatei:
+Beispiel:
 
 ```text
-%AppData%\NetSupportRemoteAdmin\settings.json
+Ping keine Antwort · NetSupport erreichbar
 ```
 
-Normalisierte Recovery-Datei:
+Dadurch wird ein ICMP-Block nicht fälschlich als ausgeschalteter PC dargestellt. Ein fehlgeschlagener Portcheck ist ebenfalls nur Diagnose und blockiert **keinen** Start von `PCICTLUI.EXE`.
 
-```text
-%AppData%\NetSupportRemoteAdmin\settings.json.bak
-```
+## Active Directory
 
-Ist die Primärdatei beschädigt oder fehlt, wird ein gültiges Backup automatisch zur Wiederherstellung verwendet. Sind beide Dateien beschädigt, erfolgt keine stille Rücksetzung auf Defaults.
+**Domäne laden** nutzt:
 
-Details: [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md).
+1. `Get-ADComputer`, wenn RSAT/ActiveDirectory PowerShell vorhanden ist.
+2. Sonst einen read-only LDAP-Fallback über `LDAP://RootDSE` und `System.DirectoryServices.DirectorySearcher`.
 
-## Systemzustand
+Gelesen werden nur `Name`, `DNSHostName` und `Description`. Die Abfrage ist auf 30 Sekunden begrenzt und verändert keine AD-Objekte oder Gruppenrichtlinien.
 
-Die lokale Zustandsprüfung kontrolliert unter anderem:
+Details: [`docs/ACTIVE_DIRECTORY_DISCOVERY.md`](docs/ACTIVE_DIRECTORY_DISCOVERY.md).
 
-- NetSupport-only-Remotezugriffsrichtlinie
-- AppData-Schreibbarkeit
-- Pfad/Verfügbarkeit und Version von `PCICTLUI.EXE`
-- alternative NetSupport-Installation, falls der konfigurierte Pfad veraltet ist
-- konfiguriertes NetSupport-Control-Profil und optionale `/F`-Bindung
-- RSAT / ActiveDirectory PowerShell
-- lokales CIM / WSMan
-- Windows-Autostart
-- Diagnosezustand
-
-Es werden dabei keine Domänenrechner gescannt und keine Remote-Einstellungen verändert.
-
-## Persistente Dateien
-
-Konfiguration:
+## Persistenz
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
 %AppData%\NetSupportRemoteAdmin\settings.json.bak
-```
-
-Lokaler Startverlauf:
-
-```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-Diagnose:
-
-```text
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-## Erweiterungspunkte
+Die Konfiguration wird normalisiert, schema-versioniert und atomisch gespeichert. Bei einer beschädigten Primärdatei kann aus dem normalisierten Backup repariert werden. Eine Konfiguration aus einer neueren Schema-Version wird von einer älteren Anwendung bewusst nicht überschrieben.
 
-```text
-IRemoteProvider
-INetSupportInstallationService
-INetSupportProfileService
-ITargetDiscoveryService
-ITargetDetailsService
-ISessionHistoryService
-IAutoStartService
-IDiagnosticLogService
-ISupportBundleService
-ISystemHealthService
-```
+## Datenschutz und Diagnose
 
-Die Provider-Abstraktion bleibt für saubere Architektur erhalten. In dieser Domäne ist aktuell jedoch ausschließlich `NetSupportProvider` freigegeben und registriert.
+Das Supportpaket enthält keine originale `settings.json`, keine bewusst gespeicherten Credentials und keine Sitzungs-/Bildschirminhalte. Bei aktiver Anonymisierung werden bekannte Ziel-, Benutzer-, Domain-, Gruppen- und Profilnamen ersetzt.
 
-## Build und automatisierte Tests
+Der konfigurierte NetSupport-Client-Port wird als Diagnosewert aufgenommen; das Paket führt selbst keinen Portscan aus.
 
-Voraussetzungen:
+Der CSV-Verlauf neutralisiert außerdem Werte, die Tabellenkalkulationen als Formel interpretieren könnten.
 
-- Windows 10/11
+## Build
+
+Voraussetzungen für Entwicklung:
+
+- Windows
 - .NET 8 SDK
-- NetSupport Manager Control für praktische Remote-Tests
-- optional: RSAT ActiveDirectory PowerShell für Domänensuche
-- optional: CIM/WSMan-Zugriff für Rechnerdetails
+- für praktische Remote-Tests: NetSupport Manager Control
+- optional RSAT; ohne RSAT kann in einer passenden Domänenumgebung der LDAP-Fallback verwendet werden
+- optional CIM/WSMan für zusätzliche Rechnerdetails
 
 ```powershell
 dotnet restore NetSupport.sln
@@ -223,31 +112,32 @@ dotnet build NetSupport.sln --configuration Release
 dotnet test NetSupport.sln --configuration Release --no-build
 ```
 
-Die automatisierte Testsuite prüft inzwischen insbesondere:
-
-- rohe NetSupport-CLI-Syntax und alle Aktionsargumente
-- Host-/Profilvalidierung, `/F`/`/N` und Fremd-EXE-Schutz
-- NetSupport-only-Migration alter Konfigurationen
-- Schema-Version und Schutz vor einem unbeabsichtigten Downgrade
-- atomisches Speichern sowie Backup-/Recovery-Verhalten
-- Anonymisierung des tatsächlich erzeugten Support-ZIPs
-- Single-Instance-Sperre
-- vorsichtige Statusanzeige für fehlgeschlagenen Ping
-
-Details: [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md).
-
-## CI-Testbuild
-
-Erfolgreiche GitHub-Actions-Läufe führen in dieser Reihenfolge aus:
+CI-Reihenfolge:
 
 ```text
 Restore → Build → Test → Publish → Artifact Upload
 ```
 
-Erst wenn die automatisierten Tests grün sind, wird ein self-contained Windows-x64-Build veröffentlicht:
+Der veröffentlichte Testbuild heißt:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
 ```
 
-Damit kann der aktuelle Stand auf einem Windows-x64-Admin-PC ohne separat installierte .NET-8-Laufzeit praktisch getestet werden.
+## Dokumentation
+
+- [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md)
+- [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md)
+- [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md)
+- [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md)
+- [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md)
+- [`docs/ACTIVE_DIRECTORY_DISCOVERY.md`](docs/ACTIVE_DIRECTORY_DISCOVERY.md)
+- [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md)
+- [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md)
+- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md)
+- [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md)
+- [`docs/OPERATIONS.md`](docs/OPERATIONS.md)
+- [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md)
+- [`docs/SYSTEM_HEALTH.md`](docs/SYSTEM_HEALTH.md)
+- [`docs/TESTING.md`](docs/TESTING.md)
+- [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md)
