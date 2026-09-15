@@ -8,8 +8,9 @@ using NetSupport.RemoteAdmin.Models;
 namespace NetSupport.RemoteAdmin.Services;
 
 /// <summary>
-/// Creates minimal .rdp files for features that are most reliably expressed through
-/// documented RDP file properties, currently selectedmonitors. No credentials are written.
+/// Creates minimal credential-free .rdp files for the external Windows client.
+/// The file carries the same non-secret redirection and monitor preferences that
+/// the embedded ActiveX client applies directly.
 /// </summary>
 public sealed class RdpConnectionFileService : IRdpConnectionFileService
 {
@@ -43,25 +44,31 @@ public sealed class RdpConnectionFileService : IRdpConnectionFileService
         return string.Join(',', result);
     }
 
-    public string CreateSelectedMonitorsFile(RemoteTarget target, bool fullScreen)
+    public string CreateConnectionFile(RemoteTarget target, bool fullScreen)
     {
         ArgumentNullException.ThrowIfNull(target);
 
         var host = RequireSingleLine(target.Host, "Zielrechner");
-        var monitorIds = NormalizeMonitorIds(target.RdpSelectedMonitors)
-                         ?? throw new InvalidOperationException("Für die gezielte Monitorwahl sind Monitor-IDs erforderlich.");
+        var monitorIds = NormalizeMonitorIds(target.RdpSelectedMonitors);
+        var useMultiMonitor = monitorIds is not null || target.RdpUseMultiMonitor;
+        var audioMode = NormalizeAudioMode(target.RdpAudioRedirectionMode);
 
         Directory.CreateDirectory(_directory);
-        var path = Path.Combine(_directory, $"selected-{StableId(host)}.rdp");
+        var path = Path.Combine(_directory, $"connection-{StableId(host)}.rdp");
 
-        var lines = new[]
+        var lines = new List<string>
         {
             $"full address:s:{host}",
             $"screen mode id:i:{(fullScreen ? 2 : 1)}",
-            "use multimon:i:1",
-            $"selectedmonitors:s:{monitorIds}",
-            $"redirectclipboard:i:{(target.RdpRedirectClipboard ? 1 : 0)}"
+            $"use multimon:i:{(useMultiMonitor ? 1 : 0)}",
+            $"redirectclipboard:i:{(target.RdpRedirectClipboard ? 1 : 0)}",
+            $"audiomode:i:{audioMode}",
+            $"audiocapturemode:i:{(target.RdpRedirectMicrophone ? 1 : 0)}",
+            target.RdpRedirectDrives ? "drivestoredirect:s:*" : "drivestoredirect:s:"
         };
+
+        if (monitorIds is not null)
+            lines.Add($"selectedmonitors:s:{monitorIds}");
 
         File.WriteAllLines(path, lines, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
         return path;
@@ -100,6 +107,8 @@ public sealed class RdpConnectionFileService : IRdpConnectionFileService
 
         return trimmed;
     }
+
+    private static int NormalizeAudioMode(int value) => value is >= 0 and <= 2 ? value : 0;
 
     private static string StableId(string value)
     {
