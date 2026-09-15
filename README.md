@@ -6,8 +6,8 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
-- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – eingebettetes RDP, Events, Sicherheit und Multi-Monitor
-- [`docs/RDP_SELECTED_MONITORS.md`](docs/RDP_SELECTED_MONITORS.md) – gezielte Auswahl bestimmter RDP-Monitore
+- [`docs/RDP_SESSION.md`](docs/RDP_SESSION.md) – eingebettetes RDP, Events, Sicherheit, Audio/Redirects und Multi-Monitor
+- [`docs/RDP_SELECTED_MONITORS.md`](docs/RDP_SELECTED_MONITORS.md) – gezielte Auswahl bestimmter RDP-Monitore und externer RDP-Dateipfad
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
@@ -59,6 +59,9 @@ Normalerweise kann RDP in einem eigenen Fenster der Anwendung eingebettet werden
 - Auto-Reconnect-Anzeige
 - SmartSizing
 - Zwischenablage
+- Laufwerksumleitung (standardmäßig aus)
+- Mikrofonumleitung (standardmäßig aus)
+- Audioausgabe lokal / remote / aus
 - Admin-Sitzung
 - Benutzername/Domäne ohne Passwortspeicherung
 - Remote Alt+Tab, Start und Task-Manager
@@ -69,9 +72,11 @@ Für eine **gezielte Auswahl einzelner lokaler Monitore** gibt es zusätzlich ei
 1. **IDs anzeigen** startet `mstsc.exe /l`.
 2. Gewünschte IDs, z. B. `0,1`, unter **Erweitert → Gezielte RDP-Monitore** eintragen.
 3. **Speichern / Aktualisieren**.
-4. Beim nächsten RDP-Start erzeugt das Tool eine minimale `.rdp`-Datei mit `selectedmonitors` und startet den Windows-RDP-Client.
+4. Beim nächsten RDP-Start erzeugt das Tool eine credential-freie `.rdp`-Datei mit `selectedmonitors` und startet den Windows-RDP-Client.
 
-Ohne eingetragene Monitor-IDs bleibt das bisherige eingebettete RDP-Verhalten erhalten.
+Ohne eingetragene Monitor-IDs bleibt das eingebettete RDP-Verhalten erhalten, sofern es global aktiviert ist.
+
+Der normale externe `mstsc.exe`-Fallback verwendet ebenfalls eine erzeugte `.rdp`-Datei. Dadurch werden Zwischenablage, Audio, Mikrofon, Laufwerke und Multi-Monitor auch im externen Pfad konsistent übertragen, ohne Benutzernamen oder Kennwörter in die Datei zu schreiben.
 
 ## Einstellungen, Betrieb und Support
 
@@ -126,7 +131,7 @@ Diagnose:
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-Generierte RDP-Dateien für gezielte Monitorwahl:
+Generierte externe RDP-Verbindungen:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\rdp\
