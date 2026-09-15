@@ -11,6 +11,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
 - [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md) – lokale Control-Profile, `/N` und optionale `/F`-Profilbindung
 - [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md) – bevorzugte NetSupport-Aktion pro Rechner und Doppelklickverhalten
+- [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md) – automatisierte CLI-/Sicherheitstests und ihre Grenzen
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standardaktion
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
@@ -181,27 +182,38 @@ ISystemHealthService
 
 Die Provider-Abstraktion bleibt für saubere Architektur erhalten. In dieser Domäne ist aktuell jedoch ausschließlich `NetSupportProvider` freigegeben und registriert.
 
-## Build
+## Build und automatisierte Tests
 
 Voraussetzungen:
 
 - Windows 10/11
 - .NET 8 SDK
-- NetSupport Manager Control
+- NetSupport Manager Control für praktische Remote-Tests
 - optional: RSAT ActiveDirectory PowerShell für Domänensuche
 - optional: CIM/WSMan-Zugriff für Rechnerdetails
 
 ```powershell
 dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
+dotnet test NetSupport.sln --configuration Release --no-build
 ```
+
+Die automatisierte Testsuite prüft insbesondere die rohe NetSupport-CLI-Syntax, Host-/Profilvalidierung, `/F`/`/N`, alle Aktionsargumente und den Schutz davor, eine andere EXE als `PCICTLUI.EXE` über den Remote-Provider zu verwenden.
+
+Details: [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md).
 
 ## CI-Testbuild
 
-Erfolgreiche GitHub-Actions-Läufe veröffentlichen zusätzlich einen self-contained Windows-x64-Build:
+Erfolgreiche GitHub-Actions-Läufe führen in dieser Reihenfolge aus:
+
+```text
+Restore → Build → Test → Publish → Artifact Upload
+```
+
+Erst wenn die automatisierten Tests grün sind, wird ein self-contained Windows-x64-Build veröffentlicht:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
 ```
 
-Damit kann der aktuelle Stand auf einem Windows-x64-Admin-PC ohne separat installierte .NET-8-Laufzeit getestet werden.
+Damit kann der aktuelle Stand auf einem Windows-x64-Admin-PC ohne separat installierte .NET-8-Laufzeit praktisch getestet werden.
