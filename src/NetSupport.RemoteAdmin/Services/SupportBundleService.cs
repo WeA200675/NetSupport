@@ -235,6 +235,7 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
             remoteAccessPolicy = "NetSupport-only",
             startMinimized = _config.StartMinimized,
             diagnosticLoggingEnabled = _config.DiagnosticLoggingEnabled,
+            netSupportClientPort = _config.NetSupportClientPort,
             netSupportExecutableConfigured = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable),
             netSupportExecutableExists = configuredNetSupport?.IsUsable == true,
             netSupportExecutableFileName = string.IsNullOrWhiteSpace(_config.NetSupportExecutable)
