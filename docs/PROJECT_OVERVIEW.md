@@ -29,6 +29,7 @@ Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 - Supportdaten werden gezielt und anonymisierbar erzeugt
 - lokale NetSupport-Installation wird nachvollziehbar statt durch Laufwerksscans erkannt
 - vorhandene NetSupport-Control-Profile bleiben Quelle der eigentlichen Control-Konfiguration
+- sicherheitskritische rohe NetSupport-CLI-Regeln werden automatisiert getestet
 - Architektur bleibt erweiterbar, obwohl aktuell nur NetSupport freigegeben ist
 
 ---
@@ -65,6 +66,8 @@ App
   +--> RemoteProviderRegistry
           |
           +--> NetSupportProvider
+                  |
+                  +--> NetSupportCommandLine
                   |
                   +--> PCICTLUI.EXE
 ```
@@ -203,9 +206,11 @@ Vor jedem Prozessstart wird geprüft:
 
 Eine manuell manipulierte Konfiguration kann dadurch nicht benutzt werden, um über den Remote-Provider ein beliebiges anderes Programm zu starten oder ein erwartetes Profil stillschweigend zu umgehen.
 
+Die rohe Argumenterzeugung ist in `NetSupportCommandLine` gekapselt. `NetSupportProvider` verwendet genau diese Logik im produktiven Prozessstart; die automatisierten Tests prüfen dieselbe Klasse isoliert, ohne `PCICTLUI.EXE` zu starten.
+
 Die optionale Diagnose protokolliert die erzeugte NetSupport-CLI und nach erfolgreichem `Process.Start` die Prozess-ID.
 
-Details: [`NETSUPPORT_INTEGRATION.md`](NETSUPPORT_INTEGRATION.md).
+Details: [`NETSUPPORT_INTEGRATION.md`](NETSUPPORT_INTEGRATION.md) und [`AUTOMATED_TESTS.md`](AUTOMATED_TESTS.md).
 
 ---
 
@@ -367,13 +372,41 @@ Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 ---
 
+## Automatisierte Tests
+
+Eigenes Testprojekt:
+
+```text
+tests/NetSupport.RemoteAdmin.Tests/
+```
+
+Die Tests prüfen aktuell insbesondere:
+
+- exakte `/C`-Syntax für Rechnernamen und IP-Adressen
+- Abweisung typischer Host-/CLI-Injection-Werte
+- alle sechs NetSupport-Aktionsargumente
+- `/N`-Profilargumente und `/F` + `/N`
+- `/F` ohne Profil -> Fehler
+- Profilnamen mit Quotes/Steuerzeichen/mehr als 128 Zeichen -> Fehler
+- kombinierte rohe Argumentzeichenfolge aus Profil + Ziel + Aktion
+- nur vorhandene `PCICTLUI.EXE` wird als Start-Executable akzeptiert
+- vorhandene Fremd-EXE und fehlende `PCICTLUI.EXE` werden abgewiesen
+
+Die Tests starten kein NetSupport und verändern keine NetSupport-Registryprofile.
+
+Details: [`AUTOMATED_TESTS.md`](AUTOMATED_TESTS.md).
+
+---
+
 ## Architektur
 
 ```text
 MainWindow
    |
    +--> RemoteProviderRegistry
-   |       +--> NetSupportProvider --> PCICTLUI.EXE
+   |       +--> NetSupportProvider
+   |               +--> NetSupportCommandLine
+   |               +--> PCICTLUI.EXE
    |
    +--> MainWindow.PreferredAction.cs
    +--> INetSupportInstallationService --> NetSupportInstallationService
@@ -387,6 +420,10 @@ MainWindow
    +--> ISystemHealthService --> SystemHealthService
    +--> HostAvailabilityService
    +--> ConfigService
+
+NetSupport.RemoteAdmin.Tests
+   +--> NetSupportCommandLine
+   +--> NetSupportProfileService validation
 ```
 
 Erweiterungspunkte:
@@ -413,15 +450,26 @@ Ein zusätzlicher Remote-Provider darf in dieser Umgebung nur nach ausdrücklich
 ```powershell
 dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
+dotnet test NetSupport.sln --configuration Release --no-build
 ```
 
-GitHub Actions erzeugt zusätzlich einen self-contained Windows-x64-Testbuild:
+GitHub Actions führt aus:
+
+```text
+Restore → Build → Test → Publish → Artifact Upload
+```
+
+Ein fehlgeschlagener automatisierter Test verhindert damit die Veröffentlichung des CI-Testbuilds.
+
+Bei vollständig grünem Lauf wird anschließend ein self-contained Windows-x64-Testbuild erzeugt:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
 ```
 
-Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
+Automatisierte Sicherheitsprüfungen: [`AUTOMATED_TESTS.md`](AUTOMATED_TESTS.md).
+
+Praktische Prüfschritte auf einem echten Admin-/NetSupport-PC: [`TESTING.md`](TESTING.md).
 
 ---
 
@@ -431,6 +479,7 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 - Startfehler von späteren NetSupport-Verbindungsfehlern besser unterscheiden
 - zusätzliche Rechner-/Domänenmetadaten
 - Filter/Zeitraum für History-Export
+- weitere deterministische NetSupport-Regeln in Unit-Tests überführen
 
 ---
 
