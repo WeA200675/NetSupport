@@ -6,6 +6,15 @@ namespace NetSupport.RemoteAdmin.Views;
 
 public partial class RdpSessionWindow : Window
 {
+    private sealed record AudioModeOption(int Value, string Name);
+
+    private static readonly IReadOnlyList<AudioModeOption> AudioModes = new[]
+    {
+        new AudioModeOption(0, "Auf diesem Computer"),
+        new AudioModeOption(1, "Auf dem Remotecomputer"),
+        new AudioModeOption(2, "Kein Audio")
+    };
+
     private readonly RemoteTarget _target;
     private readonly RdpActiveXControl _rdpControl = new();
     private WindowState _previousWindowState = WindowState.Normal;
@@ -26,6 +35,11 @@ public partial class RdpSessionWindow : Window
         ClipboardCheckBox.IsChecked = target.RdpRedirectClipboard;
         AdminSessionCheckBox.IsChecked = target.RdpAdminSession;
         MultiMonitorCheckBox.IsChecked = target.RdpUseMultiMonitor;
+        DriveRedirectionCheckBox.IsChecked = target.RdpRedirectDrives;
+        MicrophoneRedirectionCheckBox.IsChecked = target.RdpRedirectMicrophone;
+        AudioModeComboBox.ItemsSource = AudioModes;
+        AudioModeComboBox.SelectedItem = AudioModes.First(option =>
+            option.Value == NormalizeAudioMode(target.RdpAudioRedirectionMode));
 
         _rdpControl.Connecting += (_, _) => SetStatus($"Verbinde mit {_target.Host} …");
         _rdpControl.Connected += (_, _) => SetStatus($"Transport zu {_target.Host} hergestellt – Anmeldung läuft …");
@@ -55,12 +69,18 @@ public partial class RdpSessionWindow : Window
             var redirectClipboard = ClipboardCheckBox.IsChecked == true;
             var adminSession = AdminSessionCheckBox.IsChecked == true;
             var useMultiMonitor = MultiMonitorCheckBox.IsChecked == true;
+            var redirectDrives = DriveRedirectionCheckBox.IsChecked == true;
+            var redirectMicrophone = MicrophoneRedirectionCheckBox.IsChecked == true;
+            var audioMode = (AudioModeComboBox.SelectedItem as AudioModeOption)?.Value ?? 0;
 
             _target.RdpUserName = string.IsNullOrWhiteSpace(userName) ? null : userName;
             _target.RdpDomain = string.IsNullOrWhiteSpace(domain) ? null : domain;
             _target.RdpRedirectClipboard = redirectClipboard;
             _target.RdpAdminSession = adminSession;
             _target.RdpUseMultiMonitor = useMultiMonitor;
+            _target.RdpRedirectDrives = redirectDrives;
+            _target.RdpRedirectMicrophone = redirectMicrophone;
+            _target.RdpAudioRedirectionMode = audioMode;
 
             _rdpControl.ConnectTo(
                 _target.Host,
@@ -70,7 +90,10 @@ public partial class RdpSessionWindow : Window
                 domain,
                 redirectClipboard,
                 adminSession,
-                useMultiMonitor);
+                useMultiMonitor,
+                redirectDrives,
+                redirectMicrophone,
+                audioMode);
 
             // SmartSizing is intended for a single desktop surface. Multi-monitor sessions
             // use the native monitor layout instead.
@@ -208,4 +231,6 @@ public partial class RdpSessionWindow : Window
         WindowState = WindowState.Maximized;
         FullscreenButton.Content = "Fenstermodus";
     }
+
+    private static int NormalizeAudioMode(int value) => value is >= 0 and <= 2 ? value : 0;
 }
