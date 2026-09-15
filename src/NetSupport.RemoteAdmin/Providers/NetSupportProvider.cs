@@ -1,12 +1,15 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Text.RegularExpressions;
 using NetSupport.RemoteAdmin.Models;
 using NetSupport.RemoteAdmin.Services;
 
 namespace NetSupport.RemoteAdmin.Providers;
 
-public sealed class NetSupportProvider(AppConfig config) : IRemoteProvider
+public sealed partial class NetSupportProvider(
+    AppConfig config,
+    IDiagnosticLogService diagnosticLog) : IRemoteProvider
 {
     public string Id => "netsupport";
     public string DisplayName => "NetSupport Manager";
@@ -29,28 +32,57 @@ public sealed class NetSupportProvider(AppConfig config) : IRemoteProvider
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!IsAvailable)
-            throw new InvalidOperationException("NetSupport Manager (PCICTLUI.EXE) wurde nicht gefunden. Bitte den Pfad in settings.json setzen.");
-
-        if (string.IsNullOrWhiteSpace(target.Host))
-            throw new ArgumentException("Für die Verbindung ist ein Rechnername oder eine IP-Adresse erforderlich.", nameof(target));
+        {
+            throw new InvalidOperationException(
+                "NetSupport Manager (PCICTLUI.EXE) wurde nicht gefunden. Bitte den Pfad unter Erweitert → Einstellungen prüfen.");
+        }
 
         if (!SupportedActions.Contains(action))
             throw new NotSupportedException($"Die Aktion '{action}' wird von NetSupport nicht unterstützt.");
 
+        var connectArgument = BuildConnectArgument(target.Host);
+        var actionArguments = string.Join(' ', GetActionArguments(action));
+        var arguments = $"{connectArgument} {actionArguments}".Trim();
+
+        // NetSupport documents an unusual compact /c\">address\" syntax for IP connections.
+        // ProcessStartInfo.ArgumentList can re-escape embedded quotes, so pass the validated
+        // command line directly to PCICTLUI.EXE instead of asking .NET to reconstruct it.
         var psi = new ProcessStartInfo
         {
             FileName = config.NetSupportExecutable!,
-            UseShellExecute = true
+            Arguments = arguments,
+            UseShellExecute = false,
+            WorkingDirectory = Path.GetDirectoryName(config.NetSupportExecutable!)
+                               ?? Environment.CurrentDirectory
         };
 
-        var connectTarget = IPAddress.TryParse(target.Host, out _) ? $">{target.Host}" : target.Host;
-        psi.ArgumentList.Add($"/c\"{connectTarget}\"");
-
-        foreach (var argument in GetActionArguments(action))
-            psi.ArgumentList.Add(argument);
-
+        diagnosticLog.Info($"NetSupport CLI: {Path.GetFileName(psi.FileName)} {arguments}");
         _ = Process.Start(psi) ?? throw new InvalidOperationException("NetSupport konnte nicht gestartet werden.");
         return Task.CompletedTask;
+    }
+
+    internal static string BuildConnectArgument(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host))
+            throw new ArgumentException("Für die Verbindung ist ein Rechnername oder eine IP-Adresse erforderlich.", nameof(host));
+
+        var trimmed = host.Trim();
+        if (trimmed.Length > 253 || trimmed.Contains('"') || trimmed.Contains('\r') || trimmed.Contains('\n'))
+            throw new ArgumentException("Der Rechnername enthält ungültige Zeichen.", nameof(host));
+
+        if (IPAddress.TryParse(trimmed, out var address))
+            return $"/c\">{address}\"";
+
+        // The UI is intended for domain computer/DNS names, not arbitrary command-line text.
+        // Restrict the value before placing it into NetSupport's raw command line.
+        if (!DomainHostNameRegex().IsMatch(trimmed))
+        {
+            throw new ArgumentException(
+                "Der Rechnername ist ungültig. Erlaubt sind Buchstaben, Ziffern, Punkt, Bindestrich und Unterstrich.",
+                nameof(host));
+        }
+
+        return $"/c {trimmed}";
     }
 
     private static IEnumerable<string> GetActionArguments(RemoteAction action) => action switch
@@ -63,4 +95,7 @@ public sealed class NetSupportProvider(AppConfig config) : IRemoteProvider
         RemoteAction.FileTransfer => ["/x", "/ex"],
         _ => throw new ArgumentOutOfRangeException(nameof(action), action, null)
     };
+
+    [GeneratedRegex(@"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,251}[A-Za-z0-9_])?$", RegexOptions.CultureInvariant)]
+    private static partial Regex DomainHostNameRegex();
 }
