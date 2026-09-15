@@ -1,6 +1,7 @@
 using System.Windows;
 using NetSupport.RemoteAdmin.Controls;
 using NetSupport.RemoteAdmin.Models;
+using NetSupport.RemoteAdmin.Services;
 
 namespace NetSupport.RemoteAdmin.Views;
 
@@ -41,15 +42,31 @@ public partial class RdpSessionWindow : Window
         AudioModeComboBox.SelectedItem = AudioModes.First(option =>
             option.Value == NormalizeAudioMode(target.RdpAudioRedirectionMode));
 
-        _rdpControl.Connecting += (_, _) => SetStatus($"Verbinde mit {_target.Host} …");
+        _rdpControl.Connecting += (_, _) =>
+        {
+            ClearDiagnosticDetails();
+            SetStatus($"Verbinde mit {_target.Host} …");
+        };
         _rdpControl.Connected += (_, _) => SetStatus($"Transport zu {_target.Host} hergestellt – Anmeldung läuft …");
-        _rdpControl.LoginCompleted += (_, _) => SetStatus($"Verbunden mit {_target.Host}");
+        _rdpControl.LoginCompleted += (_, _) =>
+        {
+            ClearDiagnosticDetails();
+            SetStatus($"Verbunden mit {_target.Host}");
+        };
         _rdpControl.Disconnected += (_, e) => OnDisconnected(e);
-        _rdpControl.FatalError += (_, e) => SetStatus($"RDP-Fehler {e.ErrorCode}");
+        _rdpControl.FatalError += (_, e) =>
+        {
+            SetStatus($"RDP-Fehler {e.ErrorCode}");
+            SetDiagnosticDetails($"Fataler Fehler des Microsoft-RDP-Controls. Fehlercode: {e.ErrorCode}");
+        };
         _rdpControl.RemoteDesktopSizeChanged += (_, e) =>
             SetStatus($"Verbunden mit {_target.Host} · Remote {e.Width}×{e.Height}");
         _rdpControl.AutoReconnecting += (_, e) => OnAutoReconnecting(e);
-        _rdpControl.AutoReconnected += (_, _) => SetStatus($"Automatisch wieder verbunden mit {_target.Host}");
+        _rdpControl.AutoReconnected += (_, _) =>
+        {
+            ClearDiagnosticDetails();
+            SetStatus($"Automatisch wieder verbunden mit {_target.Host}");
+        };
 
         RdpHost.Child = _rdpControl;
         Loaded += (_, _) => Connect();
@@ -61,6 +78,7 @@ public partial class RdpSessionWindow : Window
         try
         {
             _disconnectRequestedByUser = false;
+            ClearDiagnosticDetails();
             StatusTextBlock.Text = $"Verbinde mit {_target.Host} …";
 
             var width = Math.Max(800, (int)Math.Round(RdpHost.ActualWidth));
@@ -105,6 +123,7 @@ public partial class RdpSessionWindow : Window
         catch (Exception ex)
         {
             StatusTextBlock.Text = "RDP-Verbindung konnte nicht gestartet werden.";
+            SetDiagnosticDetails(ex.Message);
             System.Windows.MessageBox.Show(
                 ex.Message,
                 "Eingebettetes RDP",
@@ -139,15 +158,14 @@ public partial class RdpSessionWindow : Window
     {
         if (_disconnectRequestedByUser)
         {
+            ClearDiagnosticDetails();
             SetStatus("Getrennt");
             return;
         }
 
-        var details = string.IsNullOrWhiteSpace(e.Description)
-            ? $"Grund {e.Reason}, erweitert {e.ExtendedReason}"
-            : e.Description;
-
-        SetStatus($"Verbindung getrennt: {details}");
+        var message = RdpDisconnectMessageFormatter.Format(e);
+        SetStatus($"Verbindung getrennt: {message.Summary}");
+        SetDiagnosticDetails(message.Details);
     }
 
     private void OnAutoReconnecting(RdpAutoReconnectingEventArgs e)
@@ -170,6 +188,24 @@ public partial class RdpSessionWindow : Window
 
         _ = Dispatcher.InvokeAsync(() => StatusTextBlock.Text = text);
     }
+
+    private void SetDiagnosticDetails(string? details)
+    {
+        void Apply()
+        {
+            var hasDetails = !string.IsNullOrWhiteSpace(details);
+            SessionDetailTextBlock.Text = hasDetails ? details : string.Empty;
+            SessionDetailTextBlock.Visibility = hasDetails ? Visibility.Visible : Visibility.Collapsed;
+            CopyDetailsButton.Visibility = hasDetails ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            _ = Dispatcher.InvokeAsync(Apply);
+    }
+
+    private void ClearDiagnosticDetails() => SetDiagnosticDetails(null);
 
     private void RunRemoteAction(RdpRemoteAction action, string successText)
     {
@@ -195,7 +231,26 @@ public partial class RdpSessionWindow : Window
     {
         _disconnectRequestedByUser = true;
         _rdpControl.DisconnectSession();
+        ClearDiagnosticDetails();
         StatusTextBlock.Text = "Getrennt";
+    }
+
+    private void CopyDetailsButton_OnClick(object sender, RoutedEventArgs e)
+    {
+        var details = SessionDetailTextBlock.Text;
+        if (string.IsNullOrWhiteSpace(details))
+            return;
+
+        var text = $"RDP-Ziel: {_target.Host}\nStatus: {StatusTextBlock.Text}\nDetails: {details}";
+        try
+        {
+            System.Windows.Clipboard.SetText(text);
+            SetStatus("RDP-Fehlerdetails in die Zwischenablage kopiert.");
+        }
+        catch (Exception ex)
+        {
+            SetStatus($"Fehlerdetails konnten nicht kopiert werden: {ex.Message}");
+        }
     }
 
     private void SmartSizingCheckBox_OnChanged(object sender, RoutedEventArgs e)
@@ -211,6 +266,9 @@ public partial class RdpSessionWindow : Window
 
     private void StartScreenButton_OnClick(object sender, RoutedEventArgs e) =>
         RunRemoteAction(RdpRemoteAction.StartScreen, "Start-Aktion an Remotesitzung gesendet");
+
+    private void ActionCenterButton_OnClick(object sender, RoutedEventArgs e) =>
+        RunRemoteAction(RdpRemoteAction.ActionCenter, "Action Center (Win+A) an Remotesitzung gesendet");
 
     private void TaskManagerButton_OnClick(object sender, RoutedEventArgs e) =>
         RunRemoteAction(RdpRemoteAction.TaskManager, "Task-Manager-Aktion an Remotesitzung gesendet");
