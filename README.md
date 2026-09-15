@@ -8,6 +8,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md) – NetSupport-only-Domänenrichtlinie und Migration älterer Konfigurationen
+- [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – PCICTLUI-CLI, Zielvalidierung und NetSupport-Startpfad
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
@@ -51,6 +52,10 @@ Unterstützte Schnellaktionen:
 - **Dateiübertragung**
 
 Der Pfad zu `PCICTLUI.EXE` kann unter **Erweitert → Einstellungen** geändert werden. Die Providerverfügbarkeit wird danach ohne Neustart neu bewertet.
+
+Der Startpfad validiert Rechnername/IP vor dem Prozessstart und verwendet für IP-Ziele die von NetSupport dokumentierte `/c">Adresse"`-Form. Die optionale Diagnose protokolliert die tatsächlich erzeugte NetSupport-Befehlszeile. Der Systemzustand zeigt zusätzlich die aus `PCICTLUI.EXE` auslesbare Version.
+
+Details: [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md).
 
 ## Domänenrichtlinie
 
@@ -100,7 +105,7 @@ Die lokale Zustandsprüfung kontrolliert unter anderem:
 
 - NetSupport-only-Remotezugriffsrichtlinie
 - AppData-Schreibbarkeit
-- Pfad/Verfügbarkeit von `PCICTLUI.EXE`
+- Pfad/Verfügbarkeit und Version von `PCICTLUI.EXE`
 - RSAT / ActiveDirectory PowerShell
 - lokales CIM / WSMan
 - Windows-Autostart
