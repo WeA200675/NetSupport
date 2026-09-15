@@ -26,6 +26,8 @@ internal static class ConfigNormalizer
 
         config.NetSupportExecutable = NullIfWhiteSpace(config.NetSupportExecutable);
         config.NetSupportProfileName = NullIfWhiteSpace(config.NetSupportProfileName);
+        if (config.NetSupportClientPort is < 1 or > 65535)
+            config.NetSupportClientPort = NetSupportReachabilityService.DefaultClientPort;
 
         foreach (var target in config.Targets)
         {
