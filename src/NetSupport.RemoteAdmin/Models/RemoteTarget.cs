@@ -44,7 +44,8 @@ public sealed class RemoteTarget
     public string StatusText => Status switch
     {
         HostStatus.Online => "Online",
-        HostStatus.Offline => "Offline",
+        // A failed ping does not prove that the computer is powered off; ICMP can be blocked.
+        HostStatus.Offline => "Nicht erreichbar",
         _ => "Unbekannt"
     };
 
