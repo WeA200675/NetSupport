@@ -4,6 +4,20 @@
 
 ---
 
+## Remotezugriffsrichtlinie
+
+Für diese Domäne gilt:
+
+```text
+Remotezugriff = NetSupport Manager
+```
+
+RDP ist als Fernwartungsweg deaktiviert und wird von dieser Anwendung nicht angeboten.
+
+Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
+
+---
+
 ## Einstellungsfenster
 
 Das Hauptfenster enthält unter **Erweitert → Einstellungen** eine eigene Einstellungsseite.
@@ -13,13 +27,12 @@ Dort können aktuell geändert bzw. ausgeführt werden:
 - **Mit Windows starten**
 - **Beim Start minimiert im Infobereich öffnen**
 - **Diagnoseprotokoll schreiben**
-- **Eingebetteten RDP-Viewer bevorzugen**
-- **Externes RDP standardmäßig im Vollbild starten**
 - Pfad zu `PCICTLUI.EXE`
+- **Systemzustand**
 - **Diagnoseordner öffnen**
 - **Supportpaket erstellen…**
 
-Für diese Standardoptionen ist dadurch keine manuelle Bearbeitung von `settings.json` mehr erforderlich.
+Für diese Standardoptionen ist keine manuelle Bearbeitung von `settings.json` erforderlich.
 
 ---
 
@@ -59,7 +72,7 @@ Das Protokoll erfasst für die Fehlersuche unter anderem:
 
 - Programmstart und Programmende
 - Änderungen wichtiger Einstellungen
-- Start von Remote-Aktionen
+- Start von NetSupport-Aktionen
 - Provider und Aktion
 - Zielhostname
 - Active-Directory-Ladevorgänge und Fehler
@@ -67,19 +80,19 @@ Das Protokoll erfasst für die Fehlersuche unter anderem:
 - Fehler bei Rechnerdetails
 - Fehler beim lokalen Verbindungsverlauf
 - unbehandelte UI-/Task-Ausnahmen
+- blockierte Starts eines nicht zugelassenen Providers
 
 ### Datenschutz und Sicherheit
 
 Bewusst nicht protokolliert werden:
 
-- Passwörter
-- RDP-Credentials
+- Passwörter oder gespeicherte Credentials
 - Bildschirm- oder Sitzungsinhalte
 - Zwischenablageinhalte
 - Remote-Dateiinhalte
-- CIM-/Inventardaten wie Seriennummern oder komplette Datensätze
+- komplette CIM-/Inventardatensätze
 
-Hostnamen und die gestartete Verwaltungsaktion sind dagegen Teil der betrieblichen Diagnose.
+Hostnamen und die gestartete Verwaltungsaktion sind Teil der betrieblichen Diagnose.
 
 ### Rotation
 
@@ -91,9 +104,29 @@ Die vorherige Datei wird als
 application.log.1
 ```
 
-erhalten. Damit wächst das Diagnoseverzeichnis nicht unbegrenzt durch eine einzelne Logdatei.
+erhalten.
 
 Ein Fehler im Diagnose-Logging darf die Remoteverwaltung niemals blockieren.
+
+---
+
+## Systemzustand
+
+Unter **Einstellungen → Diagnose und Support → Systemzustand** kann der Admin-PC lokal geprüft werden.
+
+Aktuelle Checks:
+
+- Remotezugriffsrichtlinie = NetSupport-only
+- AppData-Verzeichnis beschreibbar
+- `PCICTLUI.EXE` vorhanden
+- RSAT / ActiveDirectory-PowerShell-Modul vorhanden
+- lokale CIM-/WSMan-Grundfunktion
+- Autostartzustand
+- Diagnoseprotokollzustand
+
+Es werden dabei keine Zielrechner gescannt.
+
+Details: [`SYSTEM_HEALTH.md`](SYSTEM_HEALTH.md).
 
 ---
 
@@ -117,11 +150,11 @@ logs/
 Wichtig:
 
 - die Original-`settings.json` wird nicht kopiert
-- RDP-Passwörter/Credentials werden nicht aufgenommen
-- RDP-Benutzername/Domain werden in der Konfigurationsübersicht nur als `konfiguriert: ja/nein` abgebildet
+- Kennwörter/Credentials werden nicht aufgenommen
 - bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Logs und Verlauf ersetzt
 - Zielrechner erscheinen z. B. als `target-001`
 - Gruppen und Ansichten werden bei aktiver Anonymisierung abstrahiert
+- die Konfigurationsübersicht enthält `remoteAccessPolicy = NetSupport-only`
 - das Paket wird nur an den vom Benutzer ausgewählten Speicherort geschrieben
 
 Technische Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
@@ -130,7 +163,7 @@ Technische Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 ## Lokaler Verbindungsverlauf
 
-Der bestehende Startverlauf liegt separat unter:
+Der Startverlauf liegt separat unter:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
@@ -146,7 +179,7 @@ Er enthält maximal 100 Einträge mit:
 - Erfolg/Fehler des Startversuchs
 - optionaler Fehlermeldung
 
-Dieser Verlauf ist ein lokaler Bedien-/Startverlauf und **kein Compliance-Audit** einer vollständigen Remote-Sitzung.
+Dieser Verlauf ist ein lokaler Bedien-/Startverlauf und **kein Ersatz für die eigentliche NetSupport-/Unternehmensprotokollierung** einer Remote-Sitzung.
 
 ---
 
@@ -154,7 +187,7 @@ Dieser Verlauf ist ein lokaler Bedien-/Startverlauf und **kein Compliance-Audit*
 
 Im Bereich **Zuletzt verwendet** steht **CSV exportieren** zur Verfügung.
 
-Der Export enthält die vollständigen aktuell gespeicherten History-Einträge mit folgenden Spalten:
+Der Export enthält:
 
 ```text
 Zeitpunkt
@@ -169,41 +202,41 @@ Fehler
 
 Die Datei wird semikolongetrennt und als UTF-8 mit BOM geschrieben, damit sie auf deutschsprachigen Windows-/Excel-Systemen zuverlässig geöffnet werden kann.
 
-Auch der CSV-Export enthält keine Passwörter oder gespeicherten RDP-Anmeldeinformationen.
-
 ---
 
 ## NetSupport-Pfad
 
 Der Pfad zu `PCICTLUI.EXE` kann in der Einstellungsseite geändert werden.
 
-Nach dem Speichern aktualisiert das Hauptfenster die verfügbaren Provider sofort. Ein Neustart ist dafür nicht erforderlich.
+Nach dem Speichern aktualisiert das Hauptfenster die verfügbare NetSupport-Providerinstanz sofort. Ein Neustart ist dafür nicht erforderlich.
 
-Ein ungewöhnlicher oder nicht vorhandener Pfad erzeugt vor dem Speichern eine Warnung, kann aber bei Bedarf trotzdem übernommen werden.
+Ein ungewöhnlicher oder nicht vorhandener Pfad erzeugt vor dem Speichern eine Warnung, kann bei Bedarf trotzdem übernommen werden.
 
 ---
 
 ## Konfigurationsdatei
 
-Die normalen Programmeinstellungen liegen weiterhin unter:
+Die Programmeinstellungen liegen unter:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
 ```
 
-Die Einstellungsseite schreibt unter anderem:
+Beispiel:
 
 ```json
 {
+  "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE",
   "startMinimized": true,
-  "useEmbeddedRdp": true,
-  "useFullScreenRdp": false,
   "diagnosticLoggingEnabled": true,
-  "netSupportExecutable": "C:\\Program Files (x86)\\NetSupport\\NetSupport Manager\\PCICTLUI.EXE"
+  "targets": [],
+  "savedViews": []
 }
 ```
 
-Der Windows-Autostart selbst wird nicht in `settings.json`, sondern im oben beschriebenen HKCU-Run-Key verwaltet.
+Alte RDP-Felder aus früheren Entwicklungsständen werden beim Laden ignoriert und beim nächsten Speichern nicht mehr geschrieben.
+
+Der Windows-Autostart selbst wird nicht in `settings.json`, sondern im HKCU-Run-Key verwaltet.
 
 ---
 
@@ -212,10 +245,11 @@ Der Windows-Autostart selbst wird nicht in `settings.json`, sondern im oben besc
 Bei einem reproduzierbaren Problem sind typischerweise hilfreich:
 
 1. betroffenen Testbuild/Commit notieren
-2. Fehler reproduzieren
-3. Supportpaket mit aktivierter Anonymisierung erzeugen
-4. ZIP kurz auf unerwünschte interne Daten prüfen
-5. bei RDP unterscheiden, ob eingebettetes RDP oder `mstsc.exe` verwendet wurde
-6. bei AD/CIM prüfen, ob RSAT bzw. WSMan grundsätzlich verfügbar sind
+2. unter **Systemzustand** NetSupport-Pfad, RSAT und CIM prüfen
+3. Fehler reproduzieren
+4. Supportpaket mit aktivierter Anonymisierung erzeugen
+5. ZIP kurz auf unerwünschte interne Daten prüfen
+6. bei NetSupport-Problemen prüfen, ob `PCICTLUI.EXE` manuell mit demselben Ziel funktioniert
+7. bei AD/CIM prüfen, ob RSAT bzw. WSMan grundsätzlich verfügbar sind
 
 Wenn kein Supportpaket benötigt wird, können alternativ `application.log` und die sichtbare Fehlermeldung separat betrachtet werden.
