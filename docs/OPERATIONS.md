@@ -1,6 +1,6 @@
 # Betrieb, Einstellungen und Diagnose
 
-> Diese Datei beschreibt die betriebliche Nutzung von **NetSupport Remote Admin**: Einstellungen, Autostart, Diagnoseprotokoll und Export des lokalen Verbindungsverlaufs.
+> Diese Datei beschreibt die betriebliche Nutzung von **NetSupport Remote Admin**: Einstellungen, Autostart, Diagnoseprotokoll, Supportpaket und Export des lokalen Verbindungsverlaufs.
 
 ---
 
@@ -8,7 +8,7 @@
 
 Das Hauptfenster enthält unter **Erweitert → Einstellungen** eine eigene Einstellungsseite.
 
-Dort können aktuell geändert werden:
+Dort können aktuell geändert bzw. ausgeführt werden:
 
 - **Mit Windows starten**
 - **Beim Start minimiert im Infobereich öffnen**
@@ -16,6 +16,8 @@ Dort können aktuell geändert werden:
 - **Eingebetteten RDP-Viewer bevorzugen**
 - **Externes RDP standardmäßig im Vollbild starten**
 - Pfad zu `PCICTLUI.EXE`
+- **Diagnoseordner öffnen**
+- **Supportpaket erstellen…**
 
 Für diese Standardoptionen ist dadurch keine manuelle Bearbeitung von `settings.json` mehr erforderlich.
 
@@ -92,6 +94,37 @@ application.log.1
 erhalten. Damit wächst das Diagnoseverzeichnis nicht unbegrenzt durch eine einzelne Logdatei.
 
 Ein Fehler im Diagnose-Logging darf die Remoteverwaltung niemals blockieren.
+
+---
+
+## Supportpaket
+
+Unter **Einstellungen → Diagnose und Support** steht **Supportpaket erstellen…** zur Verfügung.
+
+Die Anonymisierung ist standardmäßig aktiviert.
+
+Das ZIP enthält eine eigens erzeugte, bereinigte Supportdarstellung:
+
+```text
+README.txt
+system-info.json
+configuration-summary.json
+recent-history.json
+recent-errors.txt
+logs/
+```
+
+Wichtig:
+
+- die Original-`settings.json` wird nicht kopiert
+- RDP-Passwörter/Credentials werden nicht aufgenommen
+- RDP-Benutzername/Domain werden in der Konfigurationsübersicht nur als `konfiguriert: ja/nein` abgebildet
+- bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Logs und Verlauf ersetzt
+- Zielrechner erscheinen z. B. als `target-001`
+- Gruppen und Ansichten werden bei aktiver Anonymisierung abstrahiert
+- das Paket wird nur an den vom Benutzer ausgewählten Speicherort geschrieben
+
+Technische Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 ---
 
@@ -180,9 +213,9 @@ Bei einem reproduzierbaren Problem sind typischerweise hilfreich:
 
 1. betroffenen Testbuild/Commit notieren
 2. Fehler reproduzieren
-3. `application.log` prüfen
-4. den relevanten Zeitraum zusammen mit der sichtbaren Fehlermeldung betrachten
+3. Supportpaket mit aktivierter Anonymisierung erzeugen
+4. ZIP kurz auf unerwünschte interne Daten prüfen
 5. bei RDP unterscheiden, ob eingebettetes RDP oder `mstsc.exe` verwendet wurde
 6. bei AD/CIM prüfen, ob RSAT bzw. WSMan grundsätzlich verfügbar sind
 
-Vor dem Teilen eines Logs sollte trotzdem geprüft werden, ob lokale Hostnamen oder interne Strukturen als vertraulich behandelt werden müssen.
+Wenn kein Supportpaket benötigt wird, können alternativ `application.log` und die sichtbare Fehlermeldung separat betrachtet werden.
