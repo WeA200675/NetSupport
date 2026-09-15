@@ -24,6 +24,13 @@ public sealed class RemoteTarget
     /// </summary>
     public string? PreferredProviderId { get; set; }
 
+    /// <summary>
+    /// Preferred NetSupport action for the target's standard/double-click connection.
+    /// Stored as a readable action name (for example Control, View or CommandPrompt).
+    /// A missing or invalid value falls back to Control.
+    /// </summary>
+    public string? PreferredAction { get; set; }
+
     [JsonIgnore]
     public HostStatus Status { get; set; } = HostStatus.Unknown;
 
