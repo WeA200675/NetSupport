@@ -8,7 +8,7 @@
 
 **NetSupport Remote Admin** ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
 
-NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf, Betriebseinstellungen und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
+NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf, Betriebseinstellungen, Diagnose/Support und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
 
 Wichtige Prinzipien:
 
@@ -20,6 +20,7 @@ Wichtige Prinzipien:
 - flüchtige Inventardaten bleiben flüchtig
 - dokumentierte Windows-/Microsoft-Schnittstellen vor undokumentierten Workarounds
 - Diagnose darf die eigentliche Remoteverwaltung niemals blockieren
+- Supportdaten werden gezielt erzeugt statt komplette Konfigurationsdateien blind zu archivieren
 
 ---
 
@@ -34,6 +35,7 @@ Wichtige Prinzipien:
 7. Direkte Schnellaktion oder **Standardverbindung starten** verwenden.
 8. Unter **Zuletzt verwendet** jüngste Startversuche einsehen oder als CSV exportieren.
 9. Unter **Erweitert → Einstellungen** Start-, RDP-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
+10. Bei Bedarf ein anonymisierbares Supportpaket als ZIP erzeugen.
 
 ---
 
@@ -158,6 +160,43 @@ rotiert.
 Erfasst werden unter anderem Programmstart/-ende, Remote-Aktionsstarts, Provider/Aktion/Zielhost, AD-Ladevorgänge, Statusprüfungen und Fehler. Nicht protokolliert werden Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte.
 
 Details: [`OPERATIONS.md`](OPERATIONS.md).
+
+---
+
+## Supportpaket
+
+`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche.
+
+Aktuelle Implementierung:
+
+```text
+ISupportBundleService
+   +--> SupportBundleService
+           +--> AppConfig (bereinigte Zusammenfassung)
+           +--> ISessionHistoryService
+           +--> IDiagnosticLogService
+           +--> System-/Runtime-Informationen
+           +--> ZIP-Erzeugung
+```
+
+Standardmäßig ist die Anonymisierung aktiviert.
+
+Das ZIP enthält:
+
+```text
+README.txt
+system-info.json
+configuration-summary.json
+recent-history.json
+recent-errors.txt
+logs/
+```
+
+Die originale `settings.json` wird nicht kopiert. RDP-Passwörter/Credentials, Sitzungsinhalte, Zwischenablageinhalte und Remote-Dateiinhalte werden nicht aufgenommen.
+
+Bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Verlauf und Logs ersetzt. Ziele erscheinen z. B. als `target-001`. Gruppen und Ansichten werden in der Konfigurationsübersicht abstrahiert. RDP-Benutzername/Domain werden dort nur als `konfiguriert: ja/nein` dargestellt.
+
+Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 ---
 
@@ -320,6 +359,8 @@ Enthält unter anderem:
 %AppData%\NetSupportRemoteAdmin\rdp\
 ```
 
+Support-ZIPs werden nicht automatisch im AppData-Verzeichnis abgelegt, sondern nur am vom Benutzer gewählten Zielpfad.
+
 Nicht gespeichert werden RDP-Passwörter oder andere Credentials.
 
 ---
@@ -356,6 +397,9 @@ MainWindow
    +--> IDiagnosticLogService
    |       +--> DiagnosticLogService --> logs/application.log
    |
+   +--> ISupportBundleService
+   |       +--> SupportBundleService --> anonymisiertes ZIP
+   |
    +--> HostAvailabilityService
    +--> ConfigService
 ```
@@ -371,6 +415,7 @@ IRdpSessionLauncher
 IRdpConnectionFileService
 IAutoStartService
 IDiagnosticLogService
+ISupportBundleService
 ```
 
 ---
@@ -401,8 +446,7 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 - weitere Tastatur-/Sondertastenfunktionen
 - detailliertere RDP-Fehlertexte
 - Filter/Zeitraum für den History-Export
-- optional Diagnosepaket für Supportfälle erzeugen
-- weitere Discovery-, Details-, History- und Remote-Provider
+- weitere Discovery-, Details-, History-, Support- und Remote-Provider
 
 ---
 
