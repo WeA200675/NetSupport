@@ -82,7 +82,7 @@ public partial class MainWindow : Window
                 {
                     await _configService.SaveAsync(_config);
                     _policyNormalizationPending = false;
-                    _diagnosticLog.Info("Alte nicht zulässige Remote-Provider-/RDP-Präferenzen wurden aus der Konfiguration bereinigt.");
+                    _diagnosticLog.Info("Alte nicht zulässige Remote-Provider-Präferenzen wurden auf NetSupport normalisiert.");
                 }
                 catch (Exception ex)
                 {
@@ -140,48 +140,11 @@ public partial class MainWindow : Window
     private bool NormalizeDomainPolicyPreferences()
     {
         var changed = false;
-
-        // Legacy builds exposed RDP options. They are now deliberately neutralized because
-        // domain policy permits remote administration through NetSupport only.
-        if (_config.UseEmbeddedRdp)
-        {
-            _config.UseEmbeddedRdp = false;
-            changed = true;
-        }
-
-        if (_config.UseFullScreenRdp)
-        {
-            _config.UseFullScreenRdp = false;
-            changed = true;
-        }
-
         foreach (var target in _config.Targets)
         {
-            if (!string.IsNullOrWhiteSpace(target.PreferredProviderId) &&
-                !string.Equals(target.PreferredProviderId, ApprovedProviderId, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(target.PreferredProviderId, ApprovedProviderId, StringComparison.OrdinalIgnoreCase))
             {
                 target.PreferredProviderId = ApprovedProviderId;
-                changed = true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(target.RdpUserName) ||
-                !string.IsNullOrWhiteSpace(target.RdpDomain) ||
-                target.RdpAdminSession ||
-                target.RdpUseMultiMonitor ||
-                !string.IsNullOrWhiteSpace(target.RdpSelectedMonitors) ||
-                target.RdpRedirectDrives ||
-                target.RdpRedirectMicrophone ||
-                target.RdpAudioRedirectionMode != 0)
-            {
-                target.RdpUserName = null;
-                target.RdpDomain = null;
-                target.RdpRedirectClipboard = true;
-                target.RdpAdminSession = false;
-                target.RdpUseMultiMonitor = false;
-                target.RdpSelectedMonitors = null;
-                target.RdpRedirectDrives = false;
-                target.RdpRedirectMicrophone = false;
-                target.RdpAudioRedirectionMode = 0;
                 changed = true;
             }
         }
@@ -973,17 +936,6 @@ public partial class MainWindow : Window
         destination.IsFavorite = source.IsFavorite;
         destination.Group = source.Group;
         destination.PreferredProviderId = ApprovedProviderId;
-
-        // Do not persist legacy RDP preferences. RDP is not an approved remote-control path.
-        destination.RdpUserName = null;
-        destination.RdpDomain = null;
-        destination.RdpRedirectClipboard = true;
-        destination.RdpAdminSession = false;
-        destination.RdpUseMultiMonitor = false;
-        destination.RdpSelectedMonitors = null;
-        destination.RdpRedirectDrives = false;
-        destination.RdpRedirectMicrophone = false;
-        destination.RdpAudioRedirectionMode = 0;
     }
 
     private void OpenSettingsButton_OnClick(object sender, RoutedEventArgs e)
