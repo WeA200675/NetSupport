@@ -24,11 +24,12 @@ public sealed class SystemHealthService(
             CheckConfigDirectory(),
             CheckNetSupport(),
             CheckNetSupportProfile(),
+            CheckNetSupportClientPort(),
             CheckAutoStart(),
             CheckDiagnostics()
         };
 
-        results.Add(await CheckActiveDirectoryModuleAsync(cancellationToken));
+        results.Add(await CheckActiveDirectoryDiscoveryAsync(cancellationToken));
         results.Add(await CheckLocalCimAsync(cancellationToken));
         return results;
     }
@@ -166,6 +167,25 @@ public sealed class SystemHealthService(
                 : "Profil wird mit /N geladen; /F ist nicht aktiviert.");
     }
 
+    private SystemHealthCheckResult CheckNetSupportClientPort()
+    {
+        try
+        {
+            NetSupportReachabilityService.ValidatePort(config.NetSupportClientPort);
+            return Healthy(
+                "NetSupport Client-Port",
+                $"TCP {config.NetSupportClientPort} ist für die optionale NetSupport-Erreichbarkeitsprüfung konfiguriert.",
+                "Der Systemzustand öffnet keine Verbindung zu Zielrechnern. Der Port wird erst über 'Status prüfen' gegen ausgewählte/geladene Ziele getestet und blockiert keinen NetSupport-Start.");
+        }
+        catch (ArgumentOutOfRangeException ex)
+        {
+            return Error(
+                "NetSupport Client-Port",
+                "Der konfigurierte NetSupport-Client-Port ist ungültig.",
+                ex.Message);
+        }
+    }
+
     private SystemHealthCheckResult CheckAutoStart() => new()
     {
         Name = "Windows-Autostart",
@@ -182,30 +202,67 @@ public sealed class SystemHealthService(
         Details = Path.Combine(configService.ConfigDirectory, "logs", "application.log")
     };
 
-    private static async Task<SystemHealthCheckResult> CheckActiveDirectoryModuleAsync(
+    private static async Task<SystemHealthCheckResult> CheckActiveDirectoryDiscoveryAsync(
         CancellationToken cancellationToken)
     {
-        var result = await RunPowerShellAsync(
-            "$m = Get-Module -ListAvailable ActiveDirectory | Select-Object -First 1; " +
-            "if ($null -eq $m) { exit 3 }; $m.Version.ToString()",
-            cancellationToken);
+        const string command = """
+            $m = Get-Module -ListAvailable ActiveDirectory | Select-Object -First 1
+            if ($null -ne $m) {
+                Write-Output ('RSAT|' + $m.Version.ToString())
+                exit 0
+            }
+
+            try {
+                $rootDse = [ADSI]'LDAP://RootDSE'
+                $dn = [string]$rootDse.defaultNamingContext
+                if ([string]::IsNullOrWhiteSpace($dn)) { exit 4 }
+                Write-Output ('LDAP|' + $dn)
+                exit 0
+            }
+            catch {
+                Write-Error $_
+                exit 5
+            }
+            """;
+
+        var result = await RunPowerShellAsync(command, cancellationToken);
 
         if (result.TimedOut)
-            return Warning("Active Directory / RSAT", "Prüfung des ActiveDirectory-Moduls hat das Zeitlimit überschritten.");
+            return Warning("Active Directory", "Prüfung der AD-Erkennung hat das Zeitlimit überschritten.");
 
         if (result.ExitCode == 0)
         {
-            var version = result.StandardOutput.Trim();
+            var output = result.StandardOutput.Trim();
+            if (output.StartsWith("RSAT|", StringComparison.OrdinalIgnoreCase))
+            {
+                var version = output[5..].Trim();
+                return Healthy(
+                    "Active Directory",
+                    "ActiveDirectory-PowerShell-Modul ist verfügbar; Domänensuche verwendet bevorzugt Get-ADComputer.",
+                    string.IsNullOrWhiteSpace(version) ? "Quelle: RSAT" : $"Quelle: RSAT · Modulversion: {version}");
+            }
+
+            if (output.StartsWith("LDAP|", StringComparison.OrdinalIgnoreCase))
+            {
+                return Healthy(
+                    "Active Directory",
+                    "RSAT ist nicht installiert, aber der read-only LDAP-Fallback ist verfügbar.",
+                    "'Domäne laden' kann Computerobjekte über LDAP lesen; es werden keine AD-Objekte verändert.");
+            }
+
             return Healthy(
-                "Active Directory / RSAT",
-                "ActiveDirectory-PowerShell-Modul ist verfügbar.",
-                string.IsNullOrWhiteSpace(version) ? null : $"Modulversion: {version}");
+                "Active Directory",
+                "Active-Directory-Erkennung ist verfügbar.",
+                output);
         }
 
+        var details = string.IsNullOrWhiteSpace(result.StandardError)
+            ? "Weder RSAT/Get-ADComputer noch der LDAP-RootDSE-Fallback war verfügbar."
+            : result.StandardError.Trim();
         return Warning(
-            "Active Directory / RSAT",
-            "ActiveDirectory-PowerShell-Modul wurde nicht gefunden.",
-            "'Domäne laden' benötigt RSAT / ActiveDirectory PowerShell.");
+            "Active Directory",
+            "Domänensuche ist auf diesem Admin-PC derzeit nicht verfügbar.",
+            details);
     }
 
     private static async Task<SystemHealthCheckResult> CheckLocalCimAsync(
