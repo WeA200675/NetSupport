@@ -6,13 +6,71 @@ Diese Datei hält die wesentlichen Entwicklungsschritte und Architekturentscheid
 
 ---
 
+## 2026-09-15 – NetSupport-Installationserkennung und lokale Diagnose
+
+Die NetSupport-spezifische Betriebsdiagnose wurde ausgebaut, damit unterschiedliche Admin-PCs mit abweichenden Installationspfaden/Versionen leichter vergleichbar sind.
+
+Neue Schicht:
+
+```text
+INetSupportInstallationService
+   +--> NetSupportInstallationService
+```
+
+Neue Datenstruktur:
+
+```text
+NetSupportInstallationCandidate
+```
+
+Lokale Erkennungsquellen:
+
+- aktuell konfigurierter Pfad
+- Program Files (x86)
+- Program Files
+- Windows-Uninstall-Registry unter HKLM/HKCU in 32-/64-Bit-Sicht
+
+Bewusst **keine** rekursive Laufwerkssuche.
+
+Neue Einstellungsfunktionen:
+
+- **Automatisch erkennen**
+- **NetSupport prüfen…**
+- Kandidatenansicht mit Pfad, Quelle, Produktname, Produktversion, Dateiversion und Hersteller
+- gültigen Kandidaten über **Pfad übernehmen** auswählen
+
+Der Prüfvorgang ist rein lokal und startet keine Remoteverbindung.
+
+Zusätzlich:
+
+- `ConfigService` verwendet dieselbe Erkennung für neue Benutzerprofile
+- `SystemHealthService` unterscheidet gültigen Pfad, veralteten Pfad mit gefundener Alternative und komplett fehlende Installation
+- Supportpakete enthalten NetSupport-Produkt-/Dateiversion und Erkennungsstatus
+- der vollständige Installationspfad wird in der bereinigten Support-Zusammenfassung nicht zusätzlich benötigt
+
+Details: [`NETSUPPORT_INTEGRATION.md`](NETSUPPORT_INTEGRATION.md), [`SYSTEM_HEALTH.md`](SYSTEM_HEALTH.md) und [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
+
+---
+
+## 2026-09-15 – NetSupport-Provider zusätzlich gegen fremde EXE gehärtet
+
+Neben der Zielwertvalidierung prüft `NetSupportProvider` nun vor **jedem** Prozessstart:
+
+- konfigurierter Pfad ist syntaktisch auflösbar
+- Datei existiert
+- Dateiname ist exakt `PCICTLUI.EXE`
+
+Damit kann auch eine manuell manipulierte `settings.json` nicht verwendet werden, um über den Remote-Provider ein beliebiges anderes Programm zu starten.
+
+Nach erfolgreichem `Process.Start` wird die PID des gestarteten NetSupport-Prozesses im optionalen Diagnoseprotokoll erfasst.
+
+---
+
 ## 2026-09-15 – Domänenrichtlinie geklärt: NetSupport-only
 
 Im weiteren Projektverlauf wurde klargestellt, dass Windows Remote Desktop in der Domäne für die Fernwartung deaktiviert ist und wegen Nachvollziehbarkeit sowie Problemen auf unterschiedlichen PC-Systemen nicht mehr eingesetzt werden darf.
 
 NetSupport Manager wurde gerade deshalb als einheitliches Remote-Control-Werkzeug eingeführt.
-
-Diese Information hat Vorrang vor den früheren technischen RDP-Experimenten.
 
 Umsetzung:
 
@@ -37,13 +95,12 @@ Die Übergabe des Zielrechners an `PCICTLUI.EXE` wurde an die dokumentierte NetS
 
 Wichtige Punkte:
 
-- IP-Verbindungen verwenden die von NetSupport dokumentierte Form `/c">Adresse"`
-- Rechnernamen werden vor dem Einsetzen in die rohe Befehlszeile auf DNS-/NetBIOS-artige Zeichen validiert
+- IP-Verbindungen verwenden die dokumentierte Form `/c">Adresse"`
+- Rechnernamen werden auf DNS-/NetBIOS-artige Zeichen validiert
 - Anführungszeichen und Zeilenumbrüche werden nicht zugelassen
 - `ProcessStartInfo.Arguments` wird bewusst direkt verwendet, damit .NET die eingebetteten NetSupport-Anführungszeichen nicht erneut escaped
 - `UseShellExecute = false`, damit direkt `PCICTLUI.EXE` gestartet wird
-- die erzeugte NetSupport-Befehlszeile wird im optionalen Diagnoseprotokoll nachvollziehbar erfasst
-- der Systemzustand zeigt zusätzlich die installierte `PCICTLUI.EXE`-Produkt-/Dateiversion, soweit auslesbar
+- die erzeugte NetSupport-Befehlszeile wird im optionalen Diagnoseprotokoll erfasst
 
 ---
 
@@ -67,15 +124,13 @@ Lokale Checks:
 
 - Remotezugriffsrichtlinie = NetSupport-only
 - AppData-Verzeichnis beschreibbar
-- `PCICTLUI.EXE` vorhanden und Version auslesbar
+- `PCICTLUI.EXE` / NetSupport-Installation
 - ActiveDirectory-PowerShell-Modul / RSAT
 - lokale CIM-/WSMan-Grundfunktion
 - Windows-Autostart
 - Diagnoseprotokoll
 
 Die Prüfung scannt keine Domänenrechner und verändert keine Remote-Systeme.
-
-Details: [`SYSTEM_HEALTH.md`](SYSTEM_HEALTH.md).
 
 ---
 
@@ -103,8 +158,6 @@ Funktionen:
 - best-effort Erfassung unbehandelter UI-/Task-/AppDomain-Fehler
 
 Kennwörter, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte werden nicht protokolliert.
-
-Details: [`OPERATIONS.md`](OPERATIONS.md).
 
 ---
 
@@ -137,9 +190,7 @@ Designentscheidungen:
 - Original-`settings.json` wird nie in das ZIP kopiert
 - Kennwörter/Credentials, Bildschirm-, Zwischenablage- und Remote-Dateiinhalte werden nicht aufgenommen
 - `remoteAccessPolicy = NetSupport-only` wird explizit dokumentiert
-- temporäre Paketdaten werden nach ZIP-Erzeugung best-effort entfernt
-
-Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
+- temporäre Paketdaten werden best-effort entfernt
 
 ---
 
@@ -149,13 +200,9 @@ Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
 
 Mit `SavedTargetView` können Suchtext, Gruppe und **Nur Favoriten** als benannte Ansichten gespeichert werden.
 
-Details: [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md) und [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
-
 ---
 
 ## 2026-09-15 – Lokaler Startverlauf
-
-Neue Schicht:
 
 ```text
 ISessionHistoryService
@@ -168,7 +215,7 @@ Datei:
 %AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
-Pro NetSupport-Aktionsstart werden Zeitpunkt, Ziel, Provider, Aktion und Start-Erfolg/Fehler erfasst. Der Verlauf ist auf 100 Einträge begrenzt und enthält keine Credentials oder Bildschirminhalte. Später wurde ein semikolongetrennter UTF-8/BOM-CSV-Export ergänzt.
+Pro NetSupport-Aktionsstart werden Zeitpunkt, Ziel, Provider, Aktion und Start-Erfolg/Fehler erfasst. Der Verlauf ist auf 100 Einträge begrenzt; später wurde ein CSV-Export ergänzt.
 
 Der lokale Verlauf ist eine Bedien-/Fehlersuchhilfe und kein Ersatz für die eigentliche Unternehmens-/NetSupport-Protokollierung einer Fernwartungssitzung.
 
@@ -195,8 +242,6 @@ Der lokale Verlauf ist eine Bedien-/Fehlersuchhilfe und kein Ersatz für die eig
 - Remote Command Prompt
 - File Transfer
 
-Die Oberfläche wurde anschließend auf rechnerbezogene Schnellaktionen umgestellt.
-
 ---
 
 ## 2026-09-14 – Projektstart
@@ -213,7 +258,7 @@ Grundentscheidungen:
 
 ### Historischer Hinweis
 
-In einer Zwischenphase wurde RDP als möglicher zweiter Provider technisch untersucht und weitgehend implementiert. Diese Arbeit wurde später vollständig zurückgenommen, nachdem die verbindliche Domänenvorgabe NetSupport-only bekannt war. Sie ist daher **kein aktuelles Produktmerkmal**.
+In einer Zwischenphase wurde RDP als möglicher zweiter Provider technisch untersucht und weitgehend implementiert. Diese Arbeit wurde später vollständig zurückgenommen, nachdem die verbindliche Domänenvorgabe NetSupport-only bekannt war. Sie ist **kein aktuelles Produktmerkmal**.
 
 ---
 
@@ -221,6 +266,7 @@ In einer Zwischenphase wurde RDP als möglicher zweiter Provider technisch unter
 
 ```text
 IRemoteProvider
+INetSupportInstallationService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
@@ -259,6 +305,7 @@ Aktuell gepflegte Dokumente:
 README.md
 docs/PROJECT_OVERVIEW.md
 docs/DOMAIN_REMOTE_POLICY.md
+docs/NETSUPPORT_INTEGRATION.md
 docs/DEVELOPMENT_LOG.md
 docs/TARGET_ORGANIZATION.md
 docs/SAVED_VIEWS_AND_HISTORY.md
@@ -272,8 +319,8 @@ docs/TESTING.md
 
 ## Nächste technische Optionen
 
-- NetSupport-Version und Installationsdiagnose weiter ausbauen
-- NetSupport-spezifische Start-/Fehlerdiagnose
+- NetSupport-Installationsordner optional auf Begleitdateien prüfen
+- NetSupport-Startfehler von späteren Verbindungsfehlern besser unterscheiden
 - zusätzliche Domänen-/Rechnermetadaten
 - Filter/Zeitraum für Verlauf/CSV
 - weitere **freigegebene** Discovery-/Inventarquellen
