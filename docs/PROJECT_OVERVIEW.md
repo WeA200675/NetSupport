@@ -8,19 +8,26 @@
 
 **NetSupport Remote Admin** ist eine kompakte Windows-Anwendung für die tägliche Administration einer größeren Anzahl von Domänenrechnern.
 
-NetSupport Manager wird nicht ersetzt, sondern als Remote-Backend hinter einer einfacheren Oberfläche verwendet. Windows Remote Desktop ist ein zusätzlicher Provider. Discovery, Rechnerdetails, Verlauf, Betriebseinstellungen, Diagnose/Support und RDP-Spezialfunktionen sind über eigene Schnittstellen gekapselt.
+NetSupport Manager bleibt das einzige freigegebene Remote-Control-Backend. Die Anwendung vereinfacht Suche, Auswahl, Statusprüfung, Rechnerdetails und das Starten der vorhandenen NetSupport-Funktionen.
 
-Wichtige Prinzipien:
+> **Domänenvorgabe:** RDP ist für die Fernwartung in dieser Umgebung deaktiviert und wird von dieser Anwendung nicht angeboten.
+
+Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
+
+---
+
+## Wichtige Prinzipien
 
 - wenige Klicks für häufige Aufgaben
 - Tray-/Infobereich-Betrieb
-- keine Abhängigkeit von unzuverlässig verteilten NetSupport-UI-Einstellungen
-- keine Speicherung von Passwörtern
-- explizites Speichern dauerhafter Zielpräferenzen
+- NetSupport Manager als einziges Remote-Control-Backend
+- keine Umgehung von Domänen-/Sicherheitsvorgaben
+- keine Speicherung von Kennwörtern
+- explizites Speichern dauerhafter Zielattribute
 - flüchtige Inventardaten bleiben flüchtig
-- dokumentierte Windows-/Microsoft-Schnittstellen vor undokumentierten Workarounds
-- Diagnose darf die eigentliche Remoteverwaltung niemals blockieren
-- Supportdaten werden gezielt erzeugt statt komplette Konfigurationsdateien blind zu archivieren
+- Diagnose darf die Fernwartung nicht blockieren
+- Supportdaten werden gezielt und anonymisierbar erzeugt
+- Architektur bleibt erweiterbar, obwohl aktuell nur NetSupport freigegeben ist
 
 ---
 
@@ -28,23 +35,79 @@ Wichtige Prinzipien:
 
 1. Anwendung starten oder aus dem Tray öffnen.
 2. Rechner direkt per Name/IP eingeben oder aus Active Directory laden.
-3. Liste über Text, Gruppe, Favoriten oder eine gespeicherte Ansicht filtern.
+3. Liste über Text, Gruppe, Favoriten oder gespeicherte Ansicht filtern.
 4. Ziel auswählen.
 5. Optional Online-Status und Rechnerdetails laden.
-6. Favorit, Gruppe, Standard-Provider und RDP-Zielpräferenzen mit **Speichern / Aktualisieren** sichern.
-7. Direkte Schnellaktion oder **Standardverbindung starten** verwenden.
-8. Unter **Zuletzt verwendet** jüngste Startversuche einsehen oder als CSV exportieren.
-9. Unter **Erweitert → Einstellungen** Start-, RDP-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
-10. Bei Bedarf ein anonymisierbares Supportpaket als ZIP erzeugen.
+6. Favorit, Gruppe und Standard-Provider speichern.
+7. NetSupport-Schnellaktion oder Standardverbindung starten.
+8. Unter **Zuletzt verwendet** Startversuche einsehen oder als CSV exportieren.
+9. Unter **Erweitert → Einstellungen** Start-, Autostart-, Diagnose- und NetSupport-Optionen ändern.
+10. Bei Bedarf **Systemzustand** prüfen oder ein anonymisierbares Supportpaket erzeugen.
+
+---
+
+## Remotezugriffsrichtlinie
+
+Im produktiven Startpfad wird ausschließlich registriert:
+
+```text
+NetSupportProvider
+```
+
+Architektur:
+
+```text
+App
+  |
+  +--> RemoteProviderRegistry
+          |
+          +--> NetSupportProvider
+                  |
+                  +--> PCICTLUI.EXE
+```
+
+Das Hauptfenster blockiert zusätzlich jeden Provider-Start, dessen ID nicht
+
+```text
+netsupport
+```
+
+entspricht.
+
+Frühere Entwicklungsstände enthielten testweise RDP-Unterstützung. Nach Klärung der Domänenvorgabe wurden RDP-Provider, ActiveX-Control, RDP-Sessionfenster und `.rdp`-Dateierzeugung aus dem aktiven Projekt entfernt.
+
+Alte RDP-Felder in vorhandenen `settings.json`-Dateien werden von `System.Text.Json` beim Einlesen ignoriert. Ein alter `preferredProviderId` wird auf `netsupport` normalisiert; beim nächsten Speichern wird nur noch das aktuelle Datenmodell geschrieben.
+
+---
+
+## NetSupport Manager
+
+`NetSupportProvider` startet `PCICTLUI.EXE`.
+
+Aktuelle Schnellaktionen:
+
+| Aktion | NetSupport-Modus |
+|---|---|
+| **Steuern** | Control |
+| **Nur ansehen** | View |
+| **Chat** | Chat |
+| **Inventar** | Inventory |
+| **Remote CMD** | Remote Command Prompt |
+| **Dateien** | File Transfer |
+
+Der Pfad zu `PCICTLUI.EXE` ist über die Einstellungsseite änderbar. Die Providerverfügbarkeit wird anschließend ohne Neustart neu bewertet.
 
 ---
 
 ## Zielorganisation
 
-Persistierbare Zielattribute umfassen unter anderem:
+Persistierbare Zielattribute:
 
 ```json
 {
+  "name": "PC-001",
+  "host": "PC-001",
+  "description": "Büro 1",
   "isFavorite": true,
   "group": "Büro",
   "preferredProviderId": "netsupport"
@@ -57,10 +120,8 @@ Funktionen:
 - **Nur Favoriten**
 - freie Gruppen wie `Büro`, `Werkstatt`, `Server`
 - Gruppenfilter
-- Gruppen werden von der Textsuche berücksichtigt
-- bevorzugter Control-Provider pro Ziel
-- Doppelklick nutzt den bevorzugten Provider
-- Fallback auf einen verfügbaren Control-Provider
+- Textsuche über Name, Host, Beschreibung und Gruppe
+- Doppelklick startet die NetSupport-Standardverbindung
 
 Details: [`TARGET_ORGANIZATION.md`](TARGET_ORGANIZATION.md).
 
@@ -85,94 +146,7 @@ Beispiel:
 }
 ```
 
-Die Ansichten liegen in `settings.json` und werden beim Auswählen sofort angewendet.
-
----
-
-## Lokaler Startverlauf und CSV-Export
-
-`ISessionHistoryService` protokolliert die letzten Remote-Aktionsstarts separat in:
-
-```text
-%AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-Gespeichert werden nur:
-
-- Zeit
-- Ziel
-- Provider
-- Aktion
-- Start erfolgreich/fehlgeschlagen
-- Fehlertext bei fehlgeschlagenem Start
-
-Der Verlauf ist auf 100 Einträge begrenzt, kann gelöscht werden und enthält keine Passwörter, Bildschirminhalte oder CIM-Inventardaten.
-
-Über **CSV exportieren** kann der vollständige lokale Verlauf semikolongetrennt und als UTF-8 mit BOM exportiert werden.
-
-Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md) und [`OPERATIONS.md`](OPERATIONS.md).
-
----
-
-## Einstellungen, Autostart und Diagnose
-
-Unter **Erweitert → Einstellungen** können ohne manuelle JSON-Bearbeitung geändert werden:
-
-- Mit Windows starten
-- beim Start minimiert öffnen
-- Diagnoseprotokoll aktivieren/deaktivieren
-- eingebettetes RDP bevorzugen
-- externes RDP im Vollbild starten
-- Pfad zu `PCICTLUI.EXE`
-
-### Windows-Autostart
-
-Autostart wird ausschließlich im Profil des aktuellen Benutzers verwaltet:
-
-```text
-HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-```
-
-Wert:
-
-```text
-NetSupportRemoteAdmin
-```
-
-### Diagnoseprotokoll
-
-Optionales Log:
-
-```text
-%AppData%\NetSupportRemoteAdmin\logs\application.log
-```
-
-Das Log wird bei ungefähr 2 MB nach `application.log.1` rotiert. Passwörter, RDP-Credentials, Bildschirm-/Zwischenablageinhalte oder Remote-Dateiinhalte werden nicht protokolliert.
-
-Details: [`OPERATIONS.md`](OPERATIONS.md).
-
----
-
-## Supportpaket
-
-`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche. Standardmäßig ist die Anonymisierung aktiviert.
-
-Das ZIP enthält:
-
-```text
-README.txt
-system-info.json
-configuration-summary.json
-recent-history.json
-recent-errors.txt
-logs/
-```
-
-Die originale `settings.json` wird nicht kopiert. RDP-Passwörter/Credentials, Sitzungsinhalte, Zwischenablageinhalte und Remote-Dateiinhalte werden nicht aufgenommen.
-
-Bei aktiver Anonymisierung werden bekannte Host-/Rechner-/Benutzer-/Domainwerte in Verlauf und Logs ersetzt. Ziele erscheinen z. B. als `target-001`. RDP-Benutzername/Domain werden in der Konfigurationsübersicht nur als `konfiguriert: ja/nein` dargestellt.
-
-Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
+Details: [`SAVED_VIEWS_AND_HISTORY.md`](SAVED_VIEWS_AND_HISTORY.md).
 
 ---
 
@@ -188,7 +162,7 @@ ITargetDiscoveryService
 
 Voraussetzung: RSAT / ActiveDirectory-PowerShell-Modul.
 
-`HostAvailabilityService` prüft Rechner parallel per Ping. Status und letzter Prüfzeitpunkt werden nicht dauerhaft gespeichert.
+`HostAvailabilityService` prüft Rechner parallel per Ping. Status und letzter Prüfzeitpunkt sind Laufzeitdaten und werden nicht dauerhaft gespeichert.
 
 ---
 
@@ -205,124 +179,150 @@ PowerShellTargetDetailsService
    +--> Get-CimInstance Win32_OperatingSystem
 ```
 
-Angezeigt werden IP-Adresse(n), angemeldeter Windows-Benutzer, Windows-Edition/-Version, Hersteller/Modell, letzter Prüfzeitpunkt und jüngster bekannter Remote-Start des Hosts. CIM/WSMan-Fehler blockieren die übrigen Remote-Funktionen nicht.
+Angezeigt werden unter anderem:
+
+- IP-Adresse(n)
+- angemeldeter Windows-Benutzer
+- Windows-Edition/-Version
+- Hersteller/Modell
+- letzter Prüfzeitpunkt
+- jüngster bekannter Remote-Start
+
+CIM/WSMan-Fehler blockieren die NetSupport-Funktionen nicht.
 
 ---
 
-## NetSupport Manager
+## Lokaler Startverlauf und CSV-Export
 
-Der NetSupport-Provider startet `PCICTLUI.EXE`.
-
-Aktuelle Schnellaktionen:
-
-| Aktion | Backend |
-|---|---|
-| Steuern | NetSupport Control |
-| Nur ansehen | NetSupport View |
-| Chat | NetSupport Chat |
-| Inventar | NetSupport Inventory |
-| Remote CMD | NetSupport Remote Command Prompt |
-| Dateien | NetSupport File Transfer |
-
-Der NetSupport-Pfad kann in der Einstellungsseite geändert werden; die Liste der verfügbaren Provider wird anschließend ohne Neustart aktualisiert.
-
----
-
-## Windows Remote Desktop
-
-### Eingebetteter Viewer
-
-Der normale RDP-Weg hostet Microsofts `MsRdpClient12NotSafeForScripting` in einem eigenen Fenster.
-
-Aktuelle Funktionen:
-
-- Connect / Reconnect / Disconnect
-- Vollbild
-- Connecting-/Connected-/Login-/Disconnect-Status
-- Extended Disconnect Reason und Fatal-Error-Anzeige
-- Remote-Auflösung und Auto-Reconnect-Status
-- SmartSizing
-- Zwischenablage
-- Laufwerksumleitung, standardmäßig deaktiviert
-- Mikrofonumleitung, standardmäßig deaktiviert
-- Audioausgabe: lokal / remote / aus
-- Admin-Sitzung
-- Benutzername/Domäne ohne Passwortspeicherung
-- Remote Alt+Tab, Start und Task-Manager
-- Multi-Monitor über `UseMultimon`
-
-Nicht geheime RDP-Präferenzen werden für gespeicherte Ziele erhalten. Audio-/Geräteoptionen werden vor dem Verbindungsaufbau gesetzt und sind daher ab dem nächsten Verbinden/Neuverbinden wirksam.
-
-### Externer RDP-Pfad
-
-Der externe `mstsc.exe`-Weg verwendet eine von `RdpConnectionFileService` erzeugte credential-freie `.rdp`-Datei. Dadurch werden folgende Präferenzen konsistent übertragen:
-
-- Bildschirmmodus
-- Multi-Monitor
-- optionale ausgewählte Monitor-IDs
-- Zwischenablage
-- Laufwerke
-- Mikrofon
-- Audioausgabe
-
-Eine Admin-Sitzung wird zusätzlich über `/admin` angefordert.
-
-### Gezielte Monitorwahl
-
-Für einzelne lokale RDP-Monitore kann pro Ziel gespeichert werden:
-
-```json
-"rdpSelectedMonitors": "0,1"
-```
-
-Lokale IDs werden mit `mstsc.exe /l` angezeigt. Ist `rdpSelectedMonitors` gesetzt, enthält die generierte `.rdp`-Datei unter anderem:
-
-```text
-use multimon:i:1
-selectedmonitors:s:0,1
-```
-
-Die Dateien liegen unter:
-
-```text
-%AppData%\NetSupportRemoteAdmin\rdp\
-```
-
-Sie enthalten keine Passwörter oder Credentials.
-
-Details: [`RDP_SELECTED_MONITORS.md`](RDP_SELECTED_MONITORS.md) und [`RDP_SESSION.md`](RDP_SESSION.md).
-
----
-
-## Persistente Dateien
-
-### Bedienkonfiguration
-
-```text
-%AppData%\NetSupportRemoteAdmin\settings.json
-```
-
-Enthält unter anderem gespeicherte Ziele, Favoriten/Gruppen, bevorzugte Provider, nicht geheime RDP-Präferenzen, `rdpSelectedMonitors`, gespeicherte Ansichten sowie Start-/RDP-/Diagnoseoptionen.
-
-### Startverlauf
+`ISessionHistoryService` speichert die letzten Remote-Aktionsstarts separat in:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
 ```
 
-### Diagnose
+Gespeichert werden:
+
+- Zeitpunkt
+- Ziel
+- Provider
+- Aktion
+- Start erfolgreich/fehlgeschlagen
+- Fehlertext bei fehlgeschlagenem Start
+
+Der Verlauf ist auf 100 Einträge begrenzt und kann als semikolongetrennte UTF-8-CSV mit BOM exportiert werden.
+
+---
+
+## Einstellungen und Autostart
+
+Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
+
+- Mit Windows starten
+- beim Start minimiert öffnen
+- Diagnoseprotokoll aktivieren/deaktivieren
+- Pfad zu `PCICTLUI.EXE`
+- Systemzustand öffnen
+- Diagnoseordner öffnen
+- Supportpaket erzeugen
+
+Autostart wird ausschließlich im Profil des aktuellen Benutzers verwaltet:
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
+```
+
+Wert:
+
+```text
+NetSupportRemoteAdmin
+```
+
+---
+
+## Systemzustand
+
+`ISystemHealthService` prüft ausschließlich den lokalen Admin-PC und scannt keine Domänenrechner.
+
+Aktuelle Checks:
+
+- Remotezugriffsrichtlinie = NetSupport-only
+- AppData-Verzeichnis beschreibbar
+- `PCICTLUI.EXE` vorhanden
+- ActiveDirectory-PowerShell-Modul / RSAT
+- lokale CIM-/WSMan-Grundfunktion
+- Autostartzustand
+- Diagnoseprotokollzustand
+
+Details: [`SYSTEM_HEALTH.md`](SYSTEM_HEALTH.md).
+
+---
+
+## Diagnoseprotokoll
+
+Optionales Log:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-### Generierte RDP-Verbindungsdateien
+Rotation bei ungefähr 2 MB nach:
 
 ```text
-%AppData%\NetSupportRemoteAdmin\rdp\
+application.log.1
 ```
 
-Support-ZIPs werden nur am vom Benutzer gewählten Zielpfad abgelegt. RDP-Passwörter oder andere Credentials werden nicht gespeichert.
+Das Log enthält Betriebsereignisse und Fehler, aber keine Kennwörter, Bildschirminhalte, Zwischenablageinhalte oder Inhalte übertragener Dateien.
+
+---
+
+## Supportpaket
+
+`ISupportBundleService` erzeugt auf Wunsch ein lokales ZIP für Fehlersuche. Standardmäßig ist die Anonymisierung aktiviert.
+
+Enthalten:
+
+```text
+README.txt
+system-info.json
+configuration-summary.json
+recent-history.json
+recent-errors.txt
+logs/
+```
+
+Die originale `settings.json` wird nicht kopiert. Kennwörter, gespeicherte Credentials und Sitzungsinhalte werden nicht aufgenommen.
+
+Die Konfigurationsübersicht enthält außerdem explizit:
+
+```text
+remoteAccessPolicy = NetSupport-only
+```
+
+Details: [`SUPPORT_BUNDLE.md`](SUPPORT_BUNDLE.md).
+
+---
+
+## Persistente Dateien
+
+Konfiguration:
+
+```text
+%AppData%\NetSupportRemoteAdmin\settings.json
+```
+
+Startverlauf:
+
+```text
+%AppData%\NetSupportRemoteAdmin\session-history.json
+```
+
+Diagnose:
+
+```text
+%AppData%\NetSupportRemoteAdmin\logs\application.log
+```
+
+Support-ZIPs werden nur am vom Benutzer gewählten Zielpfad abgelegt.
 
 ---
 
@@ -333,15 +333,6 @@ MainWindow
    |
    +--> RemoteProviderRegistry
    |       +--> NetSupportProvider --> PCICTLUI.EXE
-   |       +--> RdpProvider
-   |               +--> IRdpSessionLauncher
-   |               |       +--> EmbeddedRdpSessionLauncher
-   |               |               +--> RdpSessionWindow
-   |               |                       +--> RdpActiveXControl
-   |               |
-   |               +--> IRdpConnectionFileService
-   |                       +--> RdpConnectionFileService
-   |                               +--> .rdp + mstsc.exe
    |
    +--> ITargetDiscoveryService --> DomainComputerDiscoveryService
    +--> ITargetDetailsService --> PowerShellTargetDetailsService
@@ -349,6 +340,7 @@ MainWindow
    +--> IAutoStartService --> WindowsAutoStartService --> HKCU Run
    +--> IDiagnosticLogService --> DiagnosticLogService
    +--> ISupportBundleService --> SupportBundleService
+   +--> ISystemHealthService --> SystemHealthService
    +--> HostAvailabilityService
    +--> ConfigService
 ```
@@ -360,12 +352,13 @@ IRemoteProvider
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
-IRdpSessionLauncher
-IRdpConnectionFileService
 IAutoStartService
 IDiagnosticLogService
 ISupportBundleService
+ISystemHealthService
 ```
+
+Die Architektur bleibt erweiterbar. Ein zusätzlicher Remote-Provider darf in dieser Umgebung jedoch nur nach ausdrücklicher Freigabe durch die Domänen-/Sicherheitsvorgaben registriert werden.
 
 ---
 
@@ -376,7 +369,11 @@ dotnet restore NetSupport.sln
 dotnet build NetSupport.sln --configuration Release
 ```
 
-GitHub Actions führt zusätzlich einen self-contained Windows-x64-Publish aus und lädt das Artefakt `NetSupport.RemoteAdmin-win-x64` hoch.
+GitHub Actions erzeugt zusätzlich einen self-contained Windows-x64-Testbuild:
+
+```text
+NetSupport.RemoteAdmin-win-x64
+```
 
 Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
@@ -384,12 +381,12 @@ Praktische Prüfschritte: [`TESTING.md`](TESTING.md).
 
 ## Nächste sinnvolle Ausbaustufen
 
-- optional `IMsRdpExtendedSettings.SelectedMonitors` typisiert für eingebettetes RDP anbinden
-- weitere Tastatur-/Sondertastenfunktionen
-- detailliertere RDP-Fehlertexte
-- differenziertere Laufwerksauswahl statt nur alle/keine
-- Filter/Zeitraum für den History-Export
-- weitere Discovery-, Details-, History-, Support- und Remote-Provider
+- NetSupport-spezifische Status-/Diagnoseverbesserungen
+- bessere NetSupport-Prozess-/Startfehlertexte
+- optionales Erkennen der installierten NetSupport-Version
+- zusätzliche Rechner-/Domänenmetadaten
+- Filter/Zeitraum für History-Export
+- weitere freigegebene Discovery-/Inventarquellen
 
 ---
 
