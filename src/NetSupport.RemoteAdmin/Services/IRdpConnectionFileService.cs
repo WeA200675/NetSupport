@@ -6,7 +6,7 @@ public interface IRdpConnectionFileService
 {
     string? NormalizeMonitorIds(string? value);
 
-    string CreateSelectedMonitorsFile(RemoteTarget target, bool fullScreen);
+    string CreateConnectionFile(RemoteTarget target, bool fullScreen);
 
     void ShowLocalMonitorIds();
 }
