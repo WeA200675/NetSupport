@@ -25,6 +25,7 @@ public sealed class SupportBundleService : ISupportBundleService
     private readonly ConfigService _configService;
     private readonly ISessionHistoryService _historyService;
     private readonly IDiagnosticLogService _diagnosticLog;
+    private readonly INetSupportInstallationService _netSupportInstallationService = new NetSupportInstallationService();
 
     public SupportBundleService(
         AppConfig config,
@@ -103,7 +104,7 @@ Remotezugriffsrichtlinie: NetSupport-only
 
 Enthalten:
 - system-info.json: lokale Laufzeit-/Windows-Informationen
-- configuration-summary.json: bereinigte Konfigurationsübersicht
+- configuration-summary.json: bereinigte Konfigurationsübersicht inklusive NetSupport-Version/Erkennungsstatus
 - recent-history.json: bereinigter lokaler Startverlauf
 - recent-errors.txt: zuletzt bekannte Fehler aus Verlauf/Diagnoselog
 - logs/: vorhandene, beim Verpacken bereinigte Diagnoseprotokolle
@@ -206,17 +207,26 @@ insbesondere wenn die Anonymisierung deaktiviert wurde.
                 favoritesOnly = view.FavoritesOnly
             }).ToList();
 
+        var netSupportCandidates = _netSupportInstallationService.Discover(_config.NetSupportExecutable);
+        var configuredNetSupport = netSupportCandidates.FirstOrDefault(candidate =>
+            string.Equals(candidate.Source, "Konfiguriert", StringComparison.OrdinalIgnoreCase));
+        var detectedNetSupport = netSupportCandidates.FirstOrDefault(candidate => candidate.Exists);
+
         var data = new
         {
             remoteAccessPolicy = "NetSupport-only",
             startMinimized = _config.StartMinimized,
             diagnosticLoggingEnabled = _config.DiagnosticLoggingEnabled,
             netSupportExecutableConfigured = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable),
-            netSupportExecutableExists = !string.IsNullOrWhiteSpace(_config.NetSupportExecutable)
-                                         && File.Exists(_config.NetSupportExecutable),
+            netSupportExecutableExists = configuredNetSupport?.Exists == true,
             netSupportExecutableFileName = string.IsNullOrWhiteSpace(_config.NetSupportExecutable)
                 ? null
                 : Path.GetFileName(_config.NetSupportExecutable),
+            netSupportAlternativeInstallationFound = configuredNetSupport?.Exists != true && detectedNetSupport is not null,
+            netSupportProductName = detectedNetSupport?.ProductName,
+            netSupportProductVersion = detectedNetSupport?.ProductVersion,
+            netSupportFileVersion = detectedNetSupport?.FileVersion,
+            netSupportCompanyName = detectedNetSupport?.CompanyName,
             targetCount = _config.Targets.Count,
             savedViewCount = _config.SavedViews.Count,
             targets,
