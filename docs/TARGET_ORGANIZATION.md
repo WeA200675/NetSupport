@@ -1,4 +1,4 @@
-# Rechner organisieren: Favoriten, Gruppen und Standardverbindung
+# Rechner organisieren: Favoriten, Gruppen und Standardaktion
 
 > Diese Datei beschreibt die Organisationsfunktionen für größere Rechnerbestände in **NetSupport Remote Admin**.
 
@@ -6,7 +6,7 @@
 
 ## Ziel
 
-Bei ungefähr 40 oder mehr Zielrechnern soll nicht jedes Mal über eine lange unsortierte Liste navigiert werden müssen.
+Bei ungefähr 40 oder mehr Zielrechnern soll nicht jedes Mal über eine lange unsortierte Liste navigiert und anschließend dieselbe NetSupport-Aktion erneut gewählt werden müssen.
 
 Ein dauerhaft gespeicherter Rechner kann organisatorische Eigenschaften erhalten:
 
@@ -14,7 +14,8 @@ Ein dauerhaft gespeicherter Rechner kann organisatorische Eigenschaften erhalten
 {
   "isFavorite": true,
   "group": "Büro",
-  "preferredProviderId": "netsupport"
+  "preferredProviderId": "netsupport",
+  "preferredAction": "Control"
 }
 ```
 
@@ -69,7 +70,7 @@ Rechner, die nur vorübergehend aus Active Directory geladen wurden, erhalten ni
 
 Die Datenstruktur enthält weiterhin `preferredProviderId`, damit die Provider-Abstraktion sauber bleibt.
 
-Für diese Domäne gilt jedoch:
+Für diese Domäne gilt jedoch immer:
 
 ```text
 preferredProviderId = netsupport
@@ -81,20 +82,54 @@ Hintergrund: Die Domänenrichtlinie erlaubt Fernwartung ausschließlich über Ne
 
 ---
 
-## Standardverbindung
+## Bevorzugte NetSupport-Aktion
 
-Die Schaltfläche **Standardverbindung starten** verwendet NetSupport Control.
+Zusätzlich kann pro Rechner eine **Standardaktion** gespeichert werden.
 
-Ein Doppelklick auf einen Rechner startet ebenfalls die NetSupport-Standardverbindung.
+Unterstützte Werte:
 
-Für andere NetSupport-Funktionen bleiben die direkten Schnellaktionen erhalten:
+| Anzeige | Gespeicherter Wert | Bedeutung |
+|---|---|---|
+| Steuern | `Control` | NetSupport Control |
+| Nur ansehen | `View` | View ohne Steuerung |
+| Remote CMD | `CommandPrompt` | Remote Command Prompt |
+| Dateien | `FileTransfer` | Dateiübertragung |
+| Inventar | `Inventory` | NetSupport Inventory |
+| Chat | `Chat` | Chat |
 
-- Steuern
-- Nur ansehen
-- Remote CMD
-- Dateien
-- Inventar
-- Chat
+Die Auswahl erfolgt über die bereits vorhandene **Aktion**-Auswahl unter **Erweitert**.
+
+Der sichtbare Standard-Button zeigt die aktuelle Auswahl, zum Beispiel:
+
+```text
+Standardaktion: Nur ansehen
+```
+
+### Fallback
+
+Fehlt `preferredAction` in einer älteren Konfiguration oder enthält das Feld einen unbekannten Wert, verwendet die Anwendung automatisch:
+
+```text
+Control
+```
+
+Damit bleiben vorhandene Rechnerkonfigurationen kompatibel.
+
+---
+
+## Standardaktion starten
+
+Die Schaltfläche **Standardaktion: …** verwendet die aktuell im Editor gewählte NetSupport-Aktion.
+
+Das ist absichtlich getrennt von der Persistenz:
+
+- eine geänderte Aktion kann sofort ausprobiert werden
+- dadurch wird die Zielkonfiguration noch nicht verändert
+- dauerhaft wird die Auswahl erst mit **Speichern / Aktualisieren**
+
+Ein Doppelklick auf einen Rechner ist konservativer: Er verwendet immer die **zuletzt gespeicherte** `preferredAction`. Damit führt eine noch nicht gespeicherte Änderung nicht versehentlich zu einem anderen Doppelklick-Verhalten.
+
+Die direkten Schnellaktionen bleiben unabhängig davon weiterhin verfügbar.
 
 ---
 
@@ -120,6 +155,7 @@ Persistiert werden:
 - Favorit
 - Gruppe
 - `preferredProviderId = netsupport`
+- `preferredAction`
 
 Nicht gespeichert werden flüchtige Informationen wie:
 
@@ -157,7 +193,7 @@ Sortierreihenfolge:
 
 ## Designentscheidung
 
-Favoriten und Gruppen gehören in die lokale Bedienkonfiguration, weil sie administrative Arbeitsorganisation darstellen.
+Favoriten, Gruppen und die bevorzugte NetSupport-Aktion gehören in die lokale Bedienkonfiguration, weil sie administrative Arbeitsorganisation darstellen.
 
 Active Directory bleibt die Quelle für Domänenrechner. Das Tool schreibt diese Organisationsinformationen nicht nach AD zurück und baut keine zweite zentrale Inventardatenbank auf.
 
