@@ -35,6 +35,9 @@ public sealed class EmbeddedRdpSessionLauncher(
                 savedTarget.RdpUserName = target.RdpUserName;
                 savedTarget.RdpDomain = target.RdpDomain;
                 savedTarget.RdpRedirectClipboard = target.RdpRedirectClipboard;
+                savedTarget.RdpRedirectDrives = target.RdpRedirectDrives;
+                savedTarget.RdpRedirectMicrophone = target.RdpRedirectMicrophone;
+                savedTarget.RdpAudioRedirectionMode = target.RdpAudioRedirectionMode;
                 savedTarget.RdpAdminSession = target.RdpAdminSession;
                 savedTarget.RdpUseMultiMonitor = target.RdpUseMultiMonitor;
 
