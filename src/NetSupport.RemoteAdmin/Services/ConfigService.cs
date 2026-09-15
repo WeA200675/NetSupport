@@ -23,19 +23,23 @@ public sealed class ConfigService
 
         if (!File.Exists(ConfigPath))
         {
-            var defaults = CreateDefault();
+            var defaults = ConfigNormalizer.Normalize(CreateDefault());
             await SaveAsync(defaults, cancellationToken);
             return defaults;
         }
 
         await using var stream = File.OpenRead(ConfigPath);
-        return await JsonSerializer.DeserializeAsync<AppConfig>(stream, JsonOptions, cancellationToken)
-               ?? CreateDefault();
+        var loaded = await JsonSerializer.DeserializeAsync<AppConfig>(stream, JsonOptions, cancellationToken)
+                     ?? CreateDefault();
+
+        return ConfigNormalizer.Normalize(loaded);
     }
 
     public async Task SaveAsync(AppConfig config, CancellationToken cancellationToken = default)
     {
         Directory.CreateDirectory(ConfigDirectory);
+        ConfigNormalizer.Normalize(config);
+
         await using var stream = File.Create(ConfigPath);
         await JsonSerializer.SerializeAsync(stream, config, JsonOptions, cancellationToken);
     }
