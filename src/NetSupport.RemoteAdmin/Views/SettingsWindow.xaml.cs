@@ -37,8 +37,6 @@ public partial class SettingsWindow : Window
 
         AutoStartCheckBox.IsChecked = _autoStartService.IsEnabled;
         StartMinimizedCheckBox.IsChecked = _config.StartMinimized;
-        UseEmbeddedRdpCheckBox.IsChecked = _config.UseEmbeddedRdp;
-        UseFullScreenRdpCheckBox.IsChecked = _config.UseFullScreenRdp;
         DiagnosticLoggingCheckBox.IsChecked = _config.DiagnosticLoggingEnabled;
         NetSupportPathTextBox.Text = _config.NetSupportExecutable ?? string.Empty;
         LogPathTextBlock.Text = $"Protokoll: {_diagnosticLog.LogPath}";
@@ -153,15 +151,18 @@ public partial class SettingsWindow : Window
         try
         {
             _config.StartMinimized = StartMinimizedCheckBox.IsChecked == true;
-            _config.UseEmbeddedRdp = UseEmbeddedRdpCheckBox.IsChecked == true;
-            _config.UseFullScreenRdp = UseFullScreenRdpCheckBox.IsChecked == true;
             _config.DiagnosticLoggingEnabled = DiagnosticLoggingCheckBox.IsChecked == true;
             _config.NetSupportExecutable = string.IsNullOrWhiteSpace(netSupportPath) ? null : netSupportPath;
+
+            // Keep legacy RDP flags neutralized. They are retained only for backward-compatible
+            // deserialization of older settings files and are not configurable in this build.
+            _config.UseEmbeddedRdp = false;
+            _config.UseFullScreenRdp = false;
 
             _autoStartService.SetEnabled(AutoStartCheckBox.IsChecked == true);
             await _configService.SaveAsync(_config);
 
-            _diagnosticLog.Info("Einstellungen gespeichert.");
+            _diagnosticLog.Info("Einstellungen gespeichert. Remotezugriffsrichtlinie bleibt NetSupport-only.");
             DialogResult = true;
             Close();
         }
