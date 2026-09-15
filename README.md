@@ -9,6 +9,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md) – NetSupport-only-Domänenrichtlinie und Migration älterer Konfigurationen
 - [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
+- [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md) – lokale Control-Profile, `/N` und optionale `/F`-Profilbindung
 - [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md) – bevorzugte NetSupport-Aktion pro Rechner und Doppelklickverhalten
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standardaktion
@@ -62,14 +63,23 @@ Unter **Erweitert → Einstellungen → NetSupport Manager** stehen außerdem zu
 - **Durchsuchen…** für manuelle Auswahl
 - **Automatisch erkennen** über Standardpfade und lokale Installationsregistrierung
 - **NetSupport prüfen…** mit Kandidaten, Quelle, Produkt-/Dateiversion und Hersteller
+- vorhandenes lokales **Control-Profil** auswählen
+- Profile aus `HKCU\Software\NetSupport Ltd\PCICTL\ConfigList` neu laden
+- optional **Control auf dieses Profil festlegen (/F)**
 
-Die Erkennung durchsucht keine Laufwerke rekursiv und baut keine Remoteverbindung auf.
+Ein konfiguriertes Control-Profil wird beim Start mit `/N` an NetSupport übergeben. Mit aktivierter Profilbindung kommt `/F` hinzu. Fehlt das konfigurierte Profil lokal, wird der Remote-Start absichtlich blockiert, statt stillschweigend ein anderes Profil zu verwenden.
+
+Details: [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md).
+
+Die Installationserkennung durchsucht keine Laufwerke rekursiv und baut keine Remoteverbindung auf.
 
 Der Startpfad validiert außerdem:
 
 - ausschließlich `PCICTLUI.EXE` darf als Remote-Backend gestartet werden
 - Rechnername/IP wird vor dem Prozessstart geprüft
 - IP-Ziele verwenden die dokumentierte `/c">Adresse"`-Form
+- optionale Profilnamen werden vor der rohen Kommandozeile validiert
+- ein konfiguriertes Profil muss für den aktuellen Windows-Benutzer vorhanden sein
 - die tatsächlich erzeugte NetSupport-Befehlszeile und gestartete PID können im Diagnoseprotokoll nachvollzogen werden
 
 Details: [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md).
@@ -97,6 +107,7 @@ Unter **Erweitert → Einstellungen** stehen aktuell zur Verfügung:
 - Diagnoseprotokoll aktivieren/deaktivieren
 - NetSupport-Executable auswählen oder automatisch erkennen
 - NetSupport-Installation/Version prüfen
+- lokales NetSupport-Control-Profil auswählen und optional mit `/F` binden
 - **Systemzustand** des Admin-PCs prüfen
 - Diagnoseordner öffnen
 - anonymisierbares Supportpaket erstellen
@@ -115,7 +126,7 @@ Das optionale Diagnoseprotokoll liegt unter:
 
 Es rotiert bei ungefähr 2 MB nach `application.log.1`. Kennwörter und Sitzungsinhalte werden nicht protokolliert.
 
-Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion und den lokalen Erkennungsstatus, aber keine Credentials oder Original-`settings.json`.
+Das Supportpaket enthält zusätzlich NetSupport-Produkt-/Dateiversion, lokalen Erkennungsstatus und den bereinigten Profilstatus, aber keine Credentials oder Original-`settings.json`.
 
 ## Systemzustand
 
@@ -125,6 +136,7 @@ Die lokale Zustandsprüfung kontrolliert unter anderem:
 - AppData-Schreibbarkeit
 - Pfad/Verfügbarkeit und Version von `PCICTLUI.EXE`
 - alternative NetSupport-Installation, falls der konfigurierte Pfad veraltet ist
+- konfiguriertes NetSupport-Control-Profil und optionale `/F`-Bindung
 - RSAT / ActiveDirectory PowerShell
 - lokales CIM / WSMan
 - Windows-Autostart
@@ -157,6 +169,7 @@ Diagnose:
 ```text
 IRemoteProvider
 INetSupportInstallationService
+INetSupportProfileService
 ITargetDiscoveryService
 ITargetDetailsService
 ISessionHistoryService
