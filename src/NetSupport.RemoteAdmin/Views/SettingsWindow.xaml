@@ -1,8 +1,8 @@
 <Window x:Class="NetSupport.RemoteAdmin.Views.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Einstellungen" Height="630" Width="680"
-        MinHeight="560" MinWidth="600"
+        Title="Einstellungen" Height="610" Width="680"
+        MinHeight="540" MinWidth="600"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResizeWithGrip">
     <Grid Margin="20">
@@ -14,23 +14,25 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
             <TextBlock Text="Einstellungen" FontSize="24" FontWeight="SemiBold"/>
-            <TextBlock Text="Allgemeine Bedienung, RDP, Autostart und Diagnose" Opacity="0.65" Margin="0,4,0,0"/>
+            <TextBlock Text="NetSupport, Autostart und Diagnose" Opacity="0.65" Margin="0,4,0,0"/>
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <GroupBox Header="Start und Bedienung">
+                <GroupBox Header="Domänenrichtlinie">
+                    <StackPanel Margin="12">
+                        <TextBlock Text="Remotezugriff erfolgt ausschließlich über NetSupport Manager."
+                                   FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        <TextBlock Text="RDP ist in der Domäne nicht als Fernwartungsweg zugelassen und wird von dieser Anwendung weder angeboten noch als Provider registriert."
+                                   TextWrapping="Wrap" Opacity="0.62" FontSize="11" Margin="0,5,0,0"/>
+                    </StackPanel>
+                </GroupBox>
+
+                <GroupBox Header="Start und Bedienung" Margin="0,14,0,0">
                     <StackPanel Margin="12">
                         <CheckBox x:Name="AutoStartCheckBox" Content="Mit Windows starten" Margin="0,2,0,8"/>
                         <CheckBox x:Name="StartMinimizedCheckBox" Content="Beim Start minimiert im Infobereich öffnen" Margin="0,2,0,8"/>
                         <CheckBox x:Name="DiagnosticLoggingCheckBox" Content="Diagnoseprotokoll schreiben" Margin="0,2,0,0"/>
-                    </StackPanel>
-                </GroupBox>
-
-                <GroupBox Header="Remote Desktop" Margin="0,14,0,0">
-                    <StackPanel Margin="12">
-                        <CheckBox x:Name="UseEmbeddedRdpCheckBox" Content="Eingebetteten RDP-Viewer bevorzugen" Margin="0,2,0,8"/>
-                        <CheckBox x:Name="UseFullScreenRdpCheckBox" Content="Externes RDP standardmäßig im Vollbild starten" Margin="0,2,0,0"/>
                     </StackPanel>
                 </GroupBox>
 
