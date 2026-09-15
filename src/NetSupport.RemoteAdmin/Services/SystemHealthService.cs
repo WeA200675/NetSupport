@@ -64,11 +64,11 @@ public sealed class SystemHealthService(
         if (!string.IsNullOrWhiteSpace(config.NetSupportExecutable))
         {
             var configured = _netSupportInstallationService.Inspect(config.NetSupportExecutable, "Konfiguriert");
-            if (configured.Exists)
+            if (configured.IsUsable)
             {
                 return Healthy(
                     "NetSupport Manager",
-                    "Die konfigurierte PCICTLUI.EXE wurde gefunden.",
+                    "Die konfigurierte PCICTLUI.EXE wurde gefunden und als Control-Executable erkannt.",
                     FormatNetSupportDetails(configured));
             }
 
@@ -77,15 +77,21 @@ public sealed class SystemHealthService(
                 !string.Equals(alternativePath, configured.Path, StringComparison.OrdinalIgnoreCase))
             {
                 var alternative = _netSupportInstallationService.Inspect(alternativePath, "Automatisch erkannt");
+                var configuredReason = configured.Exists
+                    ? "Datei vorhanden, aber nicht PCICTLUI.EXE"
+                    : "Datei nicht vorhanden";
                 return Warning(
                     "NetSupport Manager",
-                    "Der konfigurierte Pfad ist ungültig, aber eine andere NetSupport-Installation wurde gefunden.",
-                    $"Konfiguriert: {configured.Path}\nGefunden: {FormatNetSupportDetails(alternative)}");
+                    "Der konfigurierte Pfad ist ungültig, aber eine andere gültige NetSupport-Installation wurde gefunden.",
+                    $"Konfiguriert ({configuredReason}): {configured.Path}\nGefunden: {FormatNetSupportDetails(alternative)}");
             }
 
+            var reason = configured.Exists
+                ? "Die konfigurierte Datei ist vorhanden, aber nicht PCICTLUI.EXE."
+                : "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.";
             return Error(
                 "NetSupport Manager",
-                "Die konfigurierte PCICTLUI.EXE wurde nicht gefunden.",
+                reason,
                 configured.Path);
         }
 
