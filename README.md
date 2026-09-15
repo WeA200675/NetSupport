@@ -9,8 +9,9 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) – aktueller Funktions- und Architekturstand
 - [`docs/DOMAIN_REMOTE_POLICY.md`](docs/DOMAIN_REMOTE_POLICY.md) – NetSupport-only-Domänenrichtlinie und Migration älterer Konfigurationen
 - [`docs/NETSUPPORT_INTEGRATION.md`](docs/NETSUPPORT_INTEGRATION.md) – Installationserkennung, PCICTLUI-CLI, Zielvalidierung und Startpfad
+- [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md) – bevorzugte NetSupport-Aktion pro Rechner und Doppelklickverhalten
 - [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md) – chronologische Entwicklungsentscheidungen
-- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standard-Provider
+- [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md) – Favoriten, Gruppen und Standardaktion
 - [`docs/SAVED_VIEWS_AND_HISTORY.md`](docs/SAVED_VIEWS_AND_HISTORY.md) – gespeicherte Filteransichten und lokaler Startverlauf
 - [`docs/OPERATIONS.md`](docs/OPERATIONS.md) – Einstellungen, Autostart, Diagnose und CSV-Export
 - [`docs/SUPPORT_BUNDLE.md`](docs/SUPPORT_BUNDLE.md) – anonymisierbares Diagnose-/Supportpaket
@@ -27,7 +28,8 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - Text-, Gruppen- und Favoritenfilter
 - gespeicherte Filteransichten
 - Favoriten und frei benennbare Rechnergruppen
-- Standardverbindung über NetSupport
+- bevorzugte NetSupport-Standardaktion pro gespeichertem Rechner
+- Doppelklick verwendet die zuletzt gespeicherte NetSupport-Aktion
 - parallele Online-/Offline-Prüfung
 - Rechnerdetails über DNS + CIM/WSMan
 - lokaler Verlauf der gestarteten Remote-Aktionen
@@ -42,7 +44,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 
 `PCICTLUI.EXE` wird als einziges Remote-Control-Backend verwendet.
 
-Unterstützte Schnellaktionen:
+Unterstützte Schnell- und Standardaktionen:
 
 - **Steuern**
 - **Nur ansehen**
@@ -51,7 +53,11 @@ Unterstützte Schnellaktionen:
 - **Remote CMD**
 - **Dateiübertragung**
 
-Unter **Erweitert → Einstellungen → NetSupport Manager** stehen jetzt zur Verfügung:
+Für einen gespeicherten Rechner kann unter **Erweitert → Aktion** eine bevorzugte Aktion gewählt werden. **Speichern / Aktualisieren** schreibt sie als lesbares `preferredAction` in die lokale Konfiguration. Fehlt der Wert oder ist er ungültig, bleibt **Steuern / Control** der Fallback. Eine noch nicht gespeicherte Auswahl kann über den Standard-Button testweise gestartet werden; Doppelklick verwendet dagegen bewusst die zuletzt gespeicherte Aktion.
+
+Details: [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md).
+
+Unter **Erweitert → Einstellungen → NetSupport Manager** stehen außerdem zur Verfügung:
 
 - **Durchsuchen…** für manuelle Auswahl
 - **Automatisch erkennen** über Standardpfade und lokale Installationsregistrierung
