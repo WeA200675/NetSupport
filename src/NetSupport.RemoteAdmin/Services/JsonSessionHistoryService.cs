@@ -183,6 +183,14 @@ public sealed class JsonSessionHistoryService : ISessionHistoryService
             return string.Empty;
 
         var normalized = value.Replace("\r", " ").Replace("\n", " ");
+
+        // Spreadsheet applications can interpret CSV cells beginning with =, +, -, @ or a tab
+        // as formulas/commands. Prefix an apostrophe before CSV quoting so exported history remains
+        // plain text even when a value originates from external metadata or an error message.
+        var firstMeaningful = normalized.FirstOrDefault(character => !char.IsWhiteSpace(character));
+        if (firstMeaningful is '=' or '+' or '-' or '@' || normalized.StartsWith('\t'))
+            normalized = "'" + normalized;
+
         if (!normalized.Contains(';') && !normalized.Contains('"'))
             return normalized;
 
