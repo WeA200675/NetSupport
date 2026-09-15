@@ -41,7 +41,7 @@ public sealed class NetSupportProfileService : INetSupportProfileService
         if (!IsSafeProfileName(normalized))
         {
             throw new ArgumentException(
-                "Der NetSupport-Profilname ist ungültig. Steuerzeichen und Anführungszeichen sind nicht erlaubt; maximal 128 Zeichen.",
+                "Der NetSupport-Profilname ist ungültig. Steuerzeichen, Anführungszeichen und Backslashes sind nicht erlaubt; maximal 128 Zeichen.",
                 nameof(profileName));
         }
 
@@ -54,7 +54,7 @@ public sealed class NetSupportProfileService : INetSupportProfileService
             return false;
 
         var trimmed = profileName.Trim();
-        if (trimmed.Length is < 1 or > 128 || trimmed.Contains('"'))
+        if (trimmed.Length is < 1 or > 128 || trimmed.Contains('"') || trimmed.Contains('\\'))
             return false;
 
         return trimmed.All(character => !char.IsControl(character));
