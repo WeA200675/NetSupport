@@ -77,6 +77,22 @@ Ping keine Antwort · NetSupport nicht erreichbar
 
 Damit wird ein ICMP-Fehler nicht als sicherer Beweis für einen ausgeschalteten Rechner dargestellt.
 
+### Einzelrechner-Verbindungsdiagnose
+
+Für den neuen read-only Diagnosepfad werden Ergebnisdarstellung und Eingabegrenzen separat geprüft:
+
+- Ping und NetSupport-TCP bleiben semantisch unabhängig
+- `Ping keine Antwort` kann zusammen mit einem erreichbaren NetSupport-Port auftreten
+- DNS-Adressen werden nachvollziehbar dargestellt
+- DNS-Fehler führen nicht zu Aussagen wie `offline` oder `ausgeschaltet`
+- der kopierbare Bericht enthält Ziel, konfigurierten Port und Laufzeiten
+- leeres Ziel wird **vor** einer Netzwerkprüfung abgewiesen
+- ungültige TCP-Ports werden **vor** einer Netzwerkprüfung abgewiesen
+
+Die Tests starten keine `PCICTLUI.EXE`. Die produktive Diagnose selbst prüft DNS, Ping und den konfigurierten NetSupport-Port parallel und bleibt von der eigentlichen Remote-Aktion getrennt.
+
+Details: [`TARGET_CONNECTION_DIAGNOSTICS.md`](TARGET_CONNECTION_DIAGNOSTICS.md).
+
 ### Active Directory
 
 Die Ergebnisverarbeitung der RSAT-/LDAP-Discovery wird isoliert geprüft:
@@ -113,12 +129,12 @@ Geprüft werden:
 
 Geprüft werden Mutex-Besitz und erneute Übernahme nach Dispose.
 
-## Letzte bestätigte CI-Validierung
+## Letzte bestätigte Feature-Validierung
 
-GitHub Actions **#661** auf Head:
+GitHub Actions **#671** auf Head:
 
 ```text
-98605a8d59838be1ae9c877187f783b7e2dbf39e
+e0bde9e47a74061bd501595bf22df4090fe96a86
 ```
 
 Ergebnis:
@@ -127,8 +143,8 @@ Ergebnis:
 Build succeeded
 0 Warnungen
 0 Fehler
-85 Tests insgesamt
-85 bestanden
+93 Tests insgesamt
+93 bestanden
 0 fehlgeschlagen
 ```
 
@@ -138,7 +154,7 @@ Artefakt:
 
 ```text
 NetSupport.RemoteAdmin-win-x64
-SHA-256: 8676d6db1243bb18887f5bd515a95e5cd58ccdc1e5b8bc5bc5ea9df0362ee08f
+SHA-256: d682706ef9c55326c6b310f7c490143f7868cee75d340a069f746b2c40d5449e
 ```
 
 ## Was diese Tests bewusst nicht beweisen
@@ -148,6 +164,7 @@ Praktisch zu testen bleiben insbesondere:
 - lokale NetSupport-Installation und Lizenzierung
 - tatsächliche `/C`-/`/VC`-/`/N`-/`/F`-Interpretation der eingesetzten NetSupport-Version
 - NetSupport-Client-Port/Firewall im realen Netz
+- DNS-/Ping-/Portdiagnose gegen typische echte Zielrechner
 - NetSupport-Berechtigungen und Sicherheitsprofile
 - Profilpasswort-Dialoge innerhalb NetSupport
 - RSAT bzw. LDAP gegen die reale Domäne
