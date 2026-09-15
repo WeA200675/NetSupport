@@ -1,32 +1,18 @@
 # Systemzustand des Admin-PCs
 
-> Diese Datei beschreibt die lokale Zustandsprüfung von **NetSupport Remote Admin**.
+> **Erweitert → Einstellungen → Systemzustand** prüft lokale Voraussetzungen des Admin-PCs. Es werden dabei keine Domänenrechner gescannt und keine Remote-Systeme verändert.
 
----
+## Geprüfte Bereiche
 
-## Ziel
+### Remotezugriffsrichtlinie
 
-Die Seite **Erweitert → Einstellungen → Systemzustand** zeigt, ob die wichtigsten lokalen Voraussetzungen auf dem Admin-PC verfügbar sind.
-
-Die Prüfung scannt **keine Domänenrechner** und verändert keine Remote-Systeme. Sie prüft ausschließlich lokale Komponenten und Konfigurationen.
-
----
-
-## Remotezugriffsrichtlinie
-
-Der erste Check bestätigt:
+Der Check bestätigt die produktive Richtlinie:
 
 ```text
 NetSupport-only
 ```
 
-RDP wird nicht als Remote-Provider registriert und ist kein Bestandteil der lokalen Zustandsprüfung.
-
-Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
-
----
-
-## Geprüfte Komponenten
+RDP ist weder Provider noch Diagnose-Fallback.
 
 ### Anwendungsdaten
 
@@ -36,204 +22,94 @@ Geprüft wird, ob
 %AppData%\NetSupportRemoteAdmin
 ```
 
-angelegt und beschrieben werden kann. Dazu wird kurz eine temporäre Testdatei erzeugt und direkt wieder gelöscht.
-
----
+angelegt und beschrieben werden kann. Eine temporäre Testdatei wird unmittelbar wieder gelöscht.
 
 ### NetSupport Manager
 
-Der Check verwendet dieselbe Installationserkennung wie die Einstellungsseite.
+Die konfigurierte `PCICTLUI.EXE` wird mit derselben bounded Installationserkennung wie die Einstellungsseite geprüft. Soweit verfügbar werden Produkt-/Dateiversion, Hersteller und Erkennungsquelle angezeigt.
 
-Quellen:
-
-- aktuell konfigurierter Pfad
-- Standardpfad unter Program Files (x86)
-- Standardpfad unter Program Files
-- Windows-Uninstall-Registry in HKLM/HKCU und 32-/64-Bit-Sicht
-
-Es gibt drei typische Ergebnisse:
-
-#### OK – konfigurierter Pfad gültig
-
-Die konfigurierte `PCICTLUI.EXE` existiert. Zusätzlich werden soweit verfügbar angezeigt:
-
-- Produktname
-- Produktversion
-- Dateiversion
-- Hersteller
-- Erkennungsquelle
-
-#### Hinweis – konfigurierter Pfad defekt, andere Installation gefunden
-
-Beispiel: Ein alter Admin-PC-Pfad zeigt auf eine nicht mehr vorhandene Installation, aber eine gültige `PCICTLUI.EXE` wurde an anderer Stelle erkannt.
-
-Dann kann unter **Einstellungen → Automatisch erkennen** oder **NetSupport prüfen…** der gefundene Pfad übernommen werden.
-
-#### Fehler – keine Installation auffindbar
-
-Wenn weder der konfigurierte Pfad noch bekannte lokale Quellen eine `PCICTLUI.EXE` liefern, wird ein Fehler angezeigt.
-
-NetSupport bleibt dann bewusst der einzige Remote-Provider; es gibt keinen alternativen Fernwartungs-Fallback.
-
----
+Ist der konfigurierte Pfad defekt, aber eine andere gültige lokale `PCICTLUI.EXE` auffindbar, erscheint ein reparierbarer Hinweis. Es gibt keinen alternativen Fernwartungs-Provider.
 
 ### NetSupport Control-Profil
 
-Der Systemzustand prüft separat die optionale Control-Profilkonfiguration.
-
-Lokale Quelle:
+Optional konfigurierte lokale Control-Profile werden read-only unter
 
 ```text
 HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
 ```
 
-Typische Ergebnisse:
+geprüft. `/F` ohne Profil, ungültige Profilnamen oder fehlende konfigurierte Profile werden als Fehler gemeldet, weil auch der produktive Provider in diesen Fällen bewusst nicht auf ein anderes Profil zurückfällt.
 
-#### Info – kein festes Profil konfiguriert
+### NetSupport Client-Port
 
-Wenn `netSupportProfileName` leer und `/F` nicht aktiviert ist, verwendet NetSupport sein normales Standardverhalten.
-
-Der Check zeigt zusätzlich an, wie viele lokale Control-Profile erkannt wurden.
-
-#### OK – Profil vorhanden
-
-Wenn ein Profil konfiguriert ist und als Unterschlüssel unter `ConfigList` gefunden wird, ist der Check grün.
-
-Zusätzlich wird angezeigt, ob die Profilbindung aktiv ist:
+Der konfigurierte Diagnose-Port wird lokal validiert:
 
 ```text
-/N Profil
-/F + /N Profil
+TCP 5405
 ```
 
-#### Fehler – Profil fehlt oder Konfiguration ungültig
+ist der Standardwert, kann aber in den Einstellungen geändert werden.
 
-Fehler werden angezeigt, wenn:
+Der Systemzustand baut **keine** TCP-Verbindung zu Zielrechnern auf. Der Port wird erst über **Status prüfen** gegen die geladenen Ziele getestet. Ein fehlgeschlagener Porttest blockiert keinen NetSupport-Start.
 
-- `/F` aktiviert ist, aber kein Profilname gesetzt wurde
-- der Profilname syntaktisch ungültig ist
-- das konfigurierte Profil für den aktuellen Windows-Benutzer nicht vorhanden ist
+### Active Directory
 
-Ein fehlendes Profil ist bewusst ein Fehler, weil der produktive Provider in diesem Fall ebenfalls den Remote-Start blockiert. Die Anwendung soll nicht stillschweigend mit einem anderen NetSupport-Profil weiterarbeiten.
+Die Zustandsprüfung unterscheidet zwei read-only Discovery-Wege:
 
-Details: [`NETSUPPORT_CONTROL_PROFILES.md`](NETSUPPORT_CONTROL_PROFILES.md).
+1. **RSAT / `Get-ADComputer` vorhanden** – bevorzugter Weg.
+2. **RSAT fehlt, LDAP verfügbar** – `LDAP://RootDSE` kann den Domänen-Namenskontext ermitteln; die Anwendung kann den read-only LDAP-Fallback verwenden.
 
----
+Sind beide Wege nicht verfügbar, erscheint eine Warnung. Die Systemzustandsseite führt dabei keine vollständige Domänenrechnersuche aus.
 
-### Active Directory / RSAT
-
-Über eine lokale, nicht interaktive Windows-PowerShell-Abfrage wird geprüft, ob das Modul
-
-```text
-ActiveDirectory
-```
-
-vorhanden ist.
-
-Dieses Modul wird für **Domäne laden** benötigt. Ein fehlendes Modul blockiert die NetSupport-Schnellaktionen nicht.
-
----
+Details: [`ACTIVE_DIRECTORY_DISCOVERY.md`](ACTIVE_DIRECTORY_DISCOVERY.md).
 
 ### CIM / WSMan
 
-Die Anwendung führt lokal eine einfache Abfrage aus:
+Lokal wird eine einfache `Win32_OperatingSystem`-CIM-Abfrage ausgeführt. Ein erfolgreicher lokaler Test garantiert nicht, dass ein entfernter Rechner per CIM erreichbar ist; Firewall und Berechtigungen können pro Ziel abweichen.
 
-```powershell
-Get-CimInstance Win32_OperatingSystem
-```
-
-Ein grüner lokaler Check garantiert nicht, dass ein entfernter Rechner per CIM erreichbar ist. Für Remote-CIM müssen zusätzlich Berechtigungen, Firewall und Zielkonfiguration stimmen.
-
-CIM/WSMan wird nur für zusätzliche Rechnerdetails verwendet. NetSupport selbst hängt davon nicht ab.
-
----
+CIM/WSMan dient nur zusätzlichen Rechnerdetails und ist keine Voraussetzung für NetSupport.
 
 ### Windows-Autostart
 
-Der Systemzustand zeigt informativ an, ob der Benutzer-Autostart aktiv ist.
+Informativ wird der Benutzer-Autostart unter
 
 ```text
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run\NetSupportRemoteAdmin
 ```
 
-Ein deaktivierter Autostart ist kein Fehler.
-
----
+angezeigt. Ein deaktivierter Autostart ist kein Fehler.
 
 ### Diagnoseprotokoll
 
-Der Systemzustand zeigt an, ob das optionale Diagnoseprotokoll aktiviert ist.
+Der Check zeigt, ob das optionale lokale Diagnoseprotokoll aktiviert ist:
 
 ```text
 %AppData%\NetSupportRemoteAdmin\logs\application.log
 ```
 
-Ein deaktiviertes Protokoll ist kein Fehler, erschwert aber die spätere Fehlersuche.
-
----
-
 ## Zeitlimits
 
-PowerShell-basierte Checks besitzen ein lokales Zeitlimit von ungefähr acht Sekunden. Dadurch kann eine defekte PowerShell-/CIM-Umgebung das Systemzustandsfenster nicht unbegrenzt blockieren.
+PowerShell-basierte lokale Health-Checks besitzen ein Zeitlimit von ungefähr acht Sekunden. Die vollständige Domänenrechnersuche besitzt separat ein Limit von 30 Sekunden.
 
-NetSupport-Installations- und Profilprüfung sind rein lokal und durchsuchen keine Laufwerke bzw. Zielrechner.
-
----
+Dadurch sollen defekte PowerShell-, LDAP- oder CIM-Wege die Bedienoberfläche nicht unbegrenzt blockieren.
 
 ## Statusstufen
 
-- **OK** – Voraussetzung ist vorhanden und der Check war erfolgreich.
-- **Info** – neutraler Zustand, z. B. kein festes NetSupport-Profil oder Autostart aus.
+- **OK** – Voraussetzung ist vorhanden bzw. der konfigurierte lokale Wert ist gültig.
+- **Info** – neutraler Zustand, z. B. Autostart aus oder kein festes NetSupport-Profil.
 - **Hinweis** – optionale Voraussetzung fehlt oder eine reparierbare Abweichung wurde gefunden.
-- **Fehler** – zentrale lokale Voraussetzung fehlt oder eine Startkonfiguration würde den NetSupport-Provider blockieren.
+- **Fehler** – zentrale lokale Konfiguration ist ungültig oder würde einen produktiven NetSupport-Start blockieren.
 
----
+## Sicherheitsgrenze
 
-## Architektur
+Der Systemzustand ist ein lokaler Diagnosecheck. Er:
 
-```text
-SettingsWindow
-   |
-   +--> SystemHealthWindow
-           |
-           +--> ISystemHealthService
-                   |
-                   +--> SystemHealthService
-                           +--> INetSupportInstallationService
-                           +--> INetSupportProfileService
-                           +--> Dateisystem
-                           +--> powershell.exe
-                           +--> ActiveDirectory-Modul
-                           +--> lokales CIM
-                           +--> Autostart/Diagnosezustand
-```
+- führt keine NetSupport-Remoteaktion aus
+- scannt keine Zielrechner
+- speichert keine Credentials
+- ändert keine GPOs
+- ändert keine Ziel-Firewall
+- ändert keine AD-Objekte
+- schreibt nicht in die NetSupport-`ConfigList`
 
-NetSupport-Installationserkennung:
-
-```text
-INetSupportInstallationService
-   +--> NetSupportInstallationService
-```
-
-NetSupport-Profilprüfung:
-
-```text
-INetSupportProfileService
-   +--> NetSupportProfileService
-           +--> HKCU\Software\NetSupport Ltd\PCICTL\ConfigList
-```
-
-Modelle:
-
-```text
-Models/SystemHealthCheckResult.cs
-Models/NetSupportInstallationCandidate.cs
-```
-
----
-
-## Sicherheits- und Betriebsprinzip
-
-Der Systemzustand ist ein **lokaler Diagnosecheck**. Er führt keine Remote-Aktionen aus, speichert keine Credentials und ändert keine GPO-/HKLM- oder NetSupport-ConfigList-Einstellungen.
-
-Damit kann die Seite auf einem neuen Admin-PC verwendet werden, um vor dem produktiven Einsatz fehlende oder veraltete Voraussetzungen zu erkennen.
+Damit kann er auf einem Admin-PC gefahrlos zur Vorprüfung der lokalen Voraussetzungen verwendet werden.
