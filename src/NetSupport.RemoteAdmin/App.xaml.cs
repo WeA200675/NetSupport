@@ -60,11 +60,11 @@ public partial class App : System.Windows.Application
                 registry,
                 discovery,
                 availability,
-                netSupportReachability,
                 detailsService,
                 historyService,
                 autoStartService,
                 diagnosticLog);
+            window.InitializeNetSupportReachability(netSupportReachability);
             MainWindow = window;
 
             if (!config.StartMinimized)
