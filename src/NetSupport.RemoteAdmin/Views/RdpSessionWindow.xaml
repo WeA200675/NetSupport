@@ -4,14 +4,15 @@
         xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="RDP Session"
         Width="1280"
-        Height="820"
-        MinWidth="900"
-        MinHeight="600"
+        Height="860"
+        MinWidth="940"
+        MinHeight="640"
         WindowStartupLocation="CenterOwner">
     <DockPanel>
         <Border DockPanel.Dock="Top" Padding="10" BorderBrush="#DDD" BorderThickness="0,0,0,1">
             <Grid>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -89,6 +90,28 @@
                             Click="TaskManagerButton_OnClick"/>
 
                     <TextBlock Grid.Column="6" Text="Zwischenablage/Admin/Mehrere Monitore werden beim Neuverbinden übernommen. Remote-Aktionen benötigen eine aktive Sitzung."
+                               VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
+                </Grid>
+
+                <Grid Grid.Row="3" Grid.ColumnSpan="2" Margin="0,9,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="210"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Audio" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                    <ComboBox x:Name="AudioModeComboBox" Grid.Column="1" Height="30" VerticalContentAlignment="Center"
+                              DisplayMemberPath="Name" ToolTip="Wird bei der nächsten Verbindung angewendet."/>
+                    <CheckBox x:Name="DriveRedirectionCheckBox" Grid.Column="2" Content="Laufwerke"
+                              VerticalAlignment="Center" Margin="18,0,0,0"
+                              ToolTip="Leitet lokale Laufwerke in die Remotesitzung um; wird bei der nächsten Verbindung angewendet."/>
+                    <CheckBox x:Name="MicrophoneRedirectionCheckBox" Grid.Column="3" Content="Mikrofon"
+                              VerticalAlignment="Center" Margin="18,0,0,0"
+                              ToolTip="Leitet das lokale Standardmikrofon in die Remotesitzung um; wird bei der nächsten Verbindung angewendet."/>
+                    <TextBlock Grid.Column="4" Text="Laufwerksumleitung ist aus Sicherheitsgründen standardmäßig aus. Audio/Mikrofon werden erst beim Neuverbinden angewendet."
                                VerticalAlignment="Center" TextWrapping="Wrap" Opacity="0.55" FontSize="11" Margin="16,0,0,0"/>
                 </Grid>
             </Grid>
