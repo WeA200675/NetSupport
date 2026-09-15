@@ -6,6 +6,8 @@ namespace NetSupport.RemoteAdmin.Services;
 
 public sealed class DomainComputerDiscoveryService : ITargetDiscoveryService
 {
+    private const int DiscoveryTimeoutSeconds = 30;
+
     public string DisplayName => "Active Directory (RSAT/LDAP)";
 
     private const string DiscoveryScript = """
@@ -78,10 +80,28 @@ public sealed class DomainComputerDiscoveryService : ITargetDiscoveryService
         if (!process.Start())
             throw new InvalidOperationException("PowerShell konnte nicht gestartet werden.");
 
-        var outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-        var errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
 
-        await process.WaitForExitAsync(cancellationToken);
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(DiscoveryTimeoutSeconds));
+
+        try
+        {
+            await process.WaitForExitAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            TryKill(process);
+
+            if (cancellationToken.IsCancellationRequested)
+                throw;
+
+            throw new TimeoutException(
+                $"Active-Directory-Abfrage wurde nach {DiscoveryTimeoutSeconds} Sekunden abgebrochen. " +
+                "Bitte Domänen-/LDAP-Erreichbarkeit prüfen.");
+        }
+
         var output = await outputTask;
         var error = await errorTask;
 
@@ -139,5 +159,18 @@ public sealed class DomainComputerDiscoveryService : ITargetDiscoveryService
     {
         var trimmed = value?.Trim();
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
+    }
+
+    private static void TryKill(Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+                process.Kill(entireProcessTree: true);
+        }
+        catch
+        {
+            // Best effort: cancellation/timeout must not be replaced by a cleanup error.
+        }
     }
 }
