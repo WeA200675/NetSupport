@@ -109,8 +109,8 @@ public sealed class DomainComputerDiscoveryService : ITargetDiscoveryService
             .Where(item => item.ValueKind == JsonValueKind.Object)
             .Select(item =>
             {
-                var name = GetString(item, "Name");
-                var dnsHostName = GetString(item, "DNSHostName");
+                var name = GetString(item, "Name").Trim();
+                var dnsHostName = GetString(item, "DNSHostName").Trim();
                 return new RemoteTarget
                 {
                     Name = name,
