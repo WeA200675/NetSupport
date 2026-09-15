@@ -24,18 +24,27 @@ public sealed partial class NetSupportProvider(
         RemoteAction.FileTransfer
     };
 
-    public bool IsAvailable => !string.IsNullOrWhiteSpace(config.NetSupportExecutable)
-                               && File.Exists(config.NetSupportExecutable);
+    public bool IsAvailable
+    {
+        get
+        {
+            try
+            {
+                _ = GetValidatedExecutablePath();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 
     public Task ConnectAsync(RemoteTarget target, RemoteAction action, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!IsAvailable)
-        {
-            throw new InvalidOperationException(
-                "NetSupport Manager (PCICTLUI.EXE) wurde nicht gefunden. Bitte den Pfad unter Erweitert → Einstellungen prüfen.");
-        }
+        var executablePath = GetValidatedExecutablePath();
 
         if (!SupportedActions.Contains(action))
             throw new NotSupportedException($"Die Aktion '{action}' wird von NetSupport nicht unterstützt.");
@@ -49,15 +58,16 @@ public sealed partial class NetSupportProvider(
         // command line directly to PCICTLUI.EXE instead of asking .NET to reconstruct it.
         var psi = new ProcessStartInfo
         {
-            FileName = config.NetSupportExecutable!,
+            FileName = executablePath,
             Arguments = arguments,
             UseShellExecute = false,
-            WorkingDirectory = Path.GetDirectoryName(config.NetSupportExecutable!)
-                               ?? Environment.CurrentDirectory
+            WorkingDirectory = Path.GetDirectoryName(executablePath) ?? Environment.CurrentDirectory
         };
 
         diagnosticLog.Info($"NetSupport CLI: {Path.GetFileName(psi.FileName)} {arguments}");
-        _ = Process.Start(psi) ?? throw new InvalidOperationException("NetSupport konnte nicht gestartet werden.");
+        var process = Process.Start(psi)
+                      ?? throw new InvalidOperationException("NetSupport konnte nicht gestartet werden.");
+        diagnosticLog.Info($"NetSupport-Prozess gestartet: PID {process.Id}; Aktion {action}; Ziel {target.Host}");
         return Task.CompletedTask;
     }
 
@@ -83,6 +93,39 @@ public sealed partial class NetSupportProvider(
         }
 
         return $"/c {trimmed}";
+    }
+
+    private string GetValidatedExecutablePath()
+    {
+        if (string.IsNullOrWhiteSpace(config.NetSupportExecutable))
+        {
+            throw new InvalidOperationException(
+                "NetSupport Manager (PCICTLUI.EXE) ist nicht konfiguriert. Bitte den Pfad unter Erweitert → Einstellungen prüfen.");
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(Environment.ExpandEnvironmentVariables(config.NetSupportExecutable.Trim().Trim('"')));
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException("Der konfigurierte NetSupport-Pfad ist ungültig.", ex);
+        }
+
+        if (!string.Equals(Path.GetFileName(fullPath), "PCICTLUI.EXE", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Der konfigurierte NetSupport-Pfad muss auf PCICTLUI.EXE zeigen. Andere Programme werden nicht über den Remote-Provider gestartet.");
+        }
+
+        if (!File.Exists(fullPath))
+        {
+            throw new InvalidOperationException(
+                $"NetSupport Manager wurde am konfigurierten Pfad nicht gefunden: {fullPath}");
+        }
+
+        return fullPath;
     }
 
     private static IEnumerable<string> GetActionArguments(RemoteAction action) => action switch
