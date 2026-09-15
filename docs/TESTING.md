@@ -195,17 +195,84 @@ Ohne `rdpSelectedMonitors` prüfen:
 
 ## 9. RDP-Präferenzen
 
-Bei gespeichertem Ziel prüfen:
+Bei einem bereits gespeicherten Ziel prüfen:
 
 - Benutzername/Domäne bleiben erhalten.
 - Zwischenablage bleibt erhalten.
+- Laufwerksumleitung bleibt erhalten.
+- Mikrofonumleitung bleibt erhalten.
+- Audioausgabemodus bleibt erhalten.
 - Admin-Sitzung bleibt erhalten.
 - normaler Multi-Monitor-Schalter bleibt erhalten.
 - `settings.json` enthält kein Passwort.
 
 ---
 
-## 10. Multi-Monitor – alle Monitore
+## 10. RDP-Audio und Geräteumleitung
+
+Für diese Tests die Sitzung jeweils über **Neu verbinden** neu aufbauen, weil die Einstellungen vor `Connect()` gesetzt werden.
+
+### Zwischenablage
+
+- aktivieren → Text zwischen lokal und remote kopieren, soweit Zielrichtlinien dies erlauben
+- deaktivieren → neue Sitzung aufbauen und prüfen, dass Umleitung nicht angeboten wird
+
+### Laufwerke
+
+1. **Laufwerke** zunächst deaktiviert lassen.
+2. Verbindung herstellen und prüfen, dass lokale Laufwerke nicht absichtlich umgeleitet werden.
+3. **Laufwerke** aktivieren.
+4. Neu verbinden.
+5. Prüfen, ob Windows RDP lokale Laufwerke in der Sitzung anbietet bzw. den entsprechenden Sicherheitsdialog zeigt.
+
+Die Option muss bei neuen Zielen standardmäßig aus sein.
+
+### Mikrofon
+
+1. **Mikrofon** deaktiviert → neu verbinden.
+2. Danach aktivieren → neu verbinden.
+3. Auf einem geeigneten Ziel prüfen, ob das lokale Standardmikrofon als Remote-Audioeingang verfügbar wird.
+
+### Audioausgabe
+
+Alle drei Varianten einzeln mit Neuverbinden testen:
+
+```text
+Auf diesem Computer
+Auf dem Remotecomputer
+Kein Audio
+```
+
+Prüfen:
+
+- Modus lokal: Remote-Audio wird am Admin-PC wiedergegeben.
+- Modus remote: Audio bleibt am Zielrechner, soweit Windows/RDP dies zulässt.
+- kein Audio: RDP-Audio wird nicht wiedergegeben.
+
+### Externer mstsc-Fallback
+
+`Eingebetteten RDP-Viewer bevorzugen` deaktivieren und erneut verbinden.
+
+Die generierte Datei unter
+
+```text
+%AppData%\NetSupportRemoteAdmin\rdp\
+```
+
+soll je nach Einstellung passende Werte enthalten:
+
+```text
+redirectclipboard:i:0|1
+drivestoredirect:s:*     oder leer
+audiocapturemode:i:0|1
+audiomode:i:0|1|2
+```
+
+Die Datei darf keinen Benutzernamen und kein Passwort enthalten.
+
+---
+
+## 11. Multi-Monitor – alle Monitore
 
 Mit mindestens zwei lokalen Monitoren:
 
@@ -218,7 +285,7 @@ Bei Multi-Monitor wird SmartSizing nicht zusätzlich erzwungen.
 
 ---
 
-## 11. Gezielte RDP-Monitorwahl
+## 12. Gezielte RDP-Monitorwahl
 
 Voraussetzung: mehrere lokale Monitore.
 
@@ -231,72 +298,35 @@ Voraussetzung: mehrere lokale Monitore.
 
 ### Auswahl speichern
 
-1. Gültige IDs eintragen, zum Beispiel:
-
-```text
-0,1
-```
-
+1. Gültige IDs eintragen, zum Beispiel `0,1`.
 2. **Speichern / Aktualisieren**.
-3. `settings.json` prüfen:
-
-```json
-"rdpSelectedMonitors": "0,1"
-```
+3. `settings.json` auf `"rdpSelectedMonitors": "0,1"` prüfen.
 
 ### RDP starten
 
-RDP für das Ziel starten.
-
 Erwartet:
 
-- der externe Windows-RDP-Client wird verwendet, nicht der eingebettete Viewer
+- der externe Windows-RDP-Client wird verwendet
 - unter `%AppData%\NetSupportRemoteAdmin\rdp\` entsteht eine `.rdp`-Datei
 - Datei enthält `use multimon:i:1`
 - Datei enthält `selectedmonitors:s:0,1`
+- Redirection-/Audioeinstellungen werden ebenfalls übernommen
 - Datei enthält **kein Passwort**
-- Zwischenablagepräferenz wird übernommen
 - Admin-Sitzung nutzt weiterhin `/admin`
 
 ### Eingabevalidierung
 
-Ungültig testen, zum Beispiel:
+Ungültig `0,a` testen: verständliche Warnung, nicht speichern, App bleibt stabil.
 
-```text
-0,a
-```
-
-Erwartet:
-
-- **Speichern / Aktualisieren** zeigt eine verständliche Warnung
-- ungültige Auswahl wird nicht gespeichert
-- Anwendung bleibt stabil
-
-Duplikate testen:
-
-```text
-0, 1, 1
-```
-
-Erwartet gespeichert:
-
-```text
-0,1
-```
+Duplikate `0, 1, 1` testen: gespeichert wird `0,1`.
 
 ### Zurück zum eingebetteten Viewer
 
-1. Monitor-ID-Feld leeren.
-2. **Speichern / Aktualisieren**.
-3. RDP erneut starten.
-
-Bei aktiviertem `useEmbeddedRdp` muss wieder der eingebettete Viewer verwendet werden.
-
-Hinweis: Windows selbst prüft, ob die ausgewählten Displays für `selectedmonitors` passend/zusammenhängend sind. Die Anwendung validiert nur die ID-Syntax.
+Monitor-ID-Feld leeren, **Speichern / Aktualisieren**, erneut RDP starten. Bei aktiviertem `useEmbeddedRdp` muss wieder der eingebettete Viewer verwendet werden.
 
 ---
 
-## 12. Remote-Aktionen
+## 13. Remote-Aktionen
 
 In aktiver eingebetteter RDP-Sitzung:
 
@@ -308,7 +338,7 @@ Nicht unterstützte Aktionen dürfen nur eine Statusmeldung erzeugen.
 
 ---
 
-## 13. Auto-Reconnect
+## 14. Auto-Reconnect
 
 Netz kurz unterbrechen und wiederherstellen.
 
@@ -321,18 +351,6 @@ Erwartet:
 
 ---
 
-## 14. Normaler externer RDP-Fallback
-
-`useEmbeddedRdp` optional auf `false` setzen, aber `rdpSelectedMonitors` leer lassen.
-
-Prüfen:
-
-- `mstsc.exe` startet.
-- Admin-Sitzung → `/admin`.
-- normaler Multi-Monitor → `/multimon`.
-
----
-
 ## 15. Einstellungsfenster
 
 **Erweitert → Einstellungen** öffnen.
@@ -342,17 +360,14 @@ Prüfen:
 - aktueller NetSupport-Pfad wird angezeigt.
 - **Durchsuchen…** kann `PCICTLUI.EXE` auswählen.
 - ungültiger/nicht vorhandener Pfad erzeugt eine Warnung.
-- **Eingebetteten RDP-Viewer bevorzugen** wird in `settings.json` gespeichert.
-- **Externes RDP standardmäßig im Vollbild starten** wird gespeichert.
-- **Beim Start minimiert** wird gespeichert.
-- **Diagnoseprotokoll schreiben** wird gespeichert.
+- Embedded-RDP, externer Vollbildmodus, Start minimiert und Diagnose werden gespeichert.
 - nach Änderung des NetSupport-Pfads aktualisiert sich die Providerliste ohne Programmneustart.
 
 ---
 
 ## 16. Windows-Autostart
 
-In **Einstellungen** → **Mit Windows starten** aktivieren.
+**Mit Windows starten** aktivieren.
 
 Prüfen:
 
@@ -360,22 +375,13 @@ Prüfen:
 HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 
-muss einen Wert `NetSupportRemoteAdmin` enthalten.
-
-Danach deaktivieren und prüfen, dass genau dieser Wert entfernt wird.
-
-Optional mit einem Testlogin prüfen:
-
-- Autostart aktiviert → Anwendung startet beim Login.
-- **Beim Start minimiert** zusätzlich aktiviert → Anwendung landet direkt im Tray.
-
-Es dürfen keine HKLM-/maschinenweiten Autostartwerte angelegt werden.
+muss einen Wert `NetSupportRemoteAdmin` enthalten. Danach deaktivieren und prüfen, dass genau dieser Wert entfernt wird. Es dürfen keine HKLM-/maschinenweiten Autostartwerte angelegt werden.
 
 ---
 
 ## 17. Diagnoseprotokoll
 
-Diagnose in den Einstellungen aktivieren und einige Aktionen ausführen.
+Diagnose aktivieren und einige Aktionen ausführen.
 
 Pfad:
 
@@ -385,19 +391,13 @@ Pfad:
 
 Prüfen:
 
-- Programmstart wird protokolliert.
-- Remote-Aktionsstart erscheint mit Provider/Aktion/Zielhost.
-- AD-/Statusfehler erscheinen bei absichtlichem Fehlerfall.
-- **Diagnoseordner öffnen** öffnet den richtigen Ordner.
+- Programmstart und Remote-Aktionsstarts werden protokolliert.
+- AD-/Statusfehler erscheinen bei Fehlerfällen.
+- **Diagnoseordner öffnen** funktioniert.
 - kein Passwort/Credential steht im Log.
 - keine Bildschirm-/Zwischenablageinhalte stehen im Log.
-
-Rotation testen, wenn praktikabel:
-
-- Log über ungefähr 2 MB wachsen lassen oder Testdatei entsprechend vorbereiten.
-- beim nächsten Schreibvorgang entsteht `application.log.1` und ein neues `application.log`.
-
-Diagnose deaktivieren und prüfen, dass neue normale Logeinträge ausbleiben.
+- Rotation erzeugt bei ungefähr 2 MB `application.log.1`.
+- nach Deaktivieren der Diagnose bleiben neue normale Logeinträge aus.
 
 ---
 
@@ -407,14 +407,12 @@ Vorbereitung:
 
 1. Diagnose aktivieren.
 2. Mindestens einen gespeicherten Testrechner mit erkennbarem Namen/Host anlegen.
-3. Einige erfolgreiche Aktionen und mindestens einen absichtlich fehlerhaften Providerstart erzeugen.
+3. Erfolgreiche und eine absichtlich fehlerhafte Remote-Aktion erzeugen.
 4. **Erweitert → Einstellungen → Diagnose und Support** öffnen.
 
 ### Mit Anonymisierung
 
-1. **Supportpaket anonymisieren (empfohlen)** aktiviert lassen.
-2. **Supportpaket erstellen…** wählen.
-3. ZIP speichern und entpacken.
+**Supportpaket anonymisieren (empfohlen)** aktiviert lassen, ZIP erzeugen und entpacken.
 
 Erwarteter Inhalt:
 
@@ -430,27 +428,22 @@ logs/
 Prüfen:
 
 - Original-`settings.json` ist **nicht** enthalten.
-- bekannte Hostnamen/Anzeigenamen erscheinen in der bereinigten Konfiguration/History als `target-...`.
-- lokale Rechner-/Benutzer-/Domainwerte werden in bereinigten Logs ersetzt, soweit sie als bekannte Werte vorliegen.
-- RDP-Benutzername und RDP-Domain stehen in `configuration-summary.json` nicht im Klartext; nur `...Configured`-Informationen sind enthalten.
+- bekannte Hostnamen/Anzeigenamen erscheinen als `target-...`.
+- lokale Rechner-/Benutzer-/Domainwerte werden in bereinigten Logs ersetzt, soweit bekannt.
+- RDP-Benutzername und RDP-Domain stehen nicht im Klartext; nur `...Configured`-Informationen.
+- nicht geheime RDP-Schalter für Clipboard/Laufwerke/Mikrofon/Audio dürfen zur Diagnose enthalten sein.
 - Passwörter/Credentials sind nirgends enthalten.
 - Bildschirm-/Zwischenablage-/Remote-Dateiinhalte sind nicht enthalten.
-- `recent-errors.txt` enthält die erwarteten technischen Fehler in bereinigter Form.
-- `system-info.json` enthält bei aktiver Anonymisierung `local-machine`, `local-user`, `local-domain` statt Klartextidentitäten.
+- `recent-errors.txt` enthält erwartete technische Fehler in bereinigter Form.
+- `system-info.json` verwendet `local-machine`, `local-user`, `local-domain`.
 
 ### Ohne Anonymisierung
 
-Test optional wiederholen und die Anonymisierung deaktivieren.
-
-Prüfen:
-
-- Host-/Anzeigenamen dürfen jetzt für die Fehlersuche im Paket enthalten sein.
-- Passwörter/Credentials dürfen trotzdem nicht aufgenommen werden.
-- vor einer externen Weitergabe muss das Paket manuell geprüft werden.
+Optional wiederholen. Host-/Anzeigenamen dürfen enthalten sein; Passwörter/Credentials trotzdem nicht. Vor externer Weitergabe manuell prüfen.
 
 ### Temporäre Dateien
 
-Nach Erzeugung des Pakets sollte kein dauerhaftes `NetSupportRemoteAdmin-support-*`-Arbeitsverzeichnis im Temp-Pfad zurückbleiben, sofern Windows die Bereinigung nicht durch einen Dateilock verhindert hat.
+Nach Erzeugung sollte kein dauerhaftes `NetSupportRemoteAdmin-support-*`-Arbeitsverzeichnis im Temp-Pfad zurückbleiben, sofern Windows die Bereinigung nicht durch einen Dateilock verhindert hat.
 
 Details: `docs/SUPPORT_BUNDLE.md`.
 
@@ -458,33 +451,14 @@ Details: `docs/SUPPORT_BUNDLE.md`.
 
 ## Lokale Dateien
 
-Konfiguration:
-
 ```text
 %AppData%\NetSupportRemoteAdmin\settings.json
-```
-
-Startverlauf:
-
-```text
 %AppData%\NetSupportRemoteAdmin\session-history.json
-```
-
-Diagnose:
-
-```text
 %AppData%\NetSupportRemoteAdmin\logs\application.log
-```
-
-Generierte gezielte RDP-Verbindungen:
-
-```text
 %AppData%\NetSupportRemoteAdmin\rdp\
 ```
 
-Supportpakete liegen ausschließlich am beim Speichern ausgewählten Zielort.
-
-In den normalen AppData-Dateien dürfen keine Passwörter oder andere Credentials auftauchen.
+Supportpakete liegen ausschließlich am beim Speichern ausgewählten Zielort. In den normalen AppData-Dateien dürfen keine Passwörter oder andere Credentials auftauchen.
 
 ---
 
