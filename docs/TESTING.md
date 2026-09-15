@@ -135,6 +135,25 @@ Wichtig:
 - geschlossener NetSupport-Port kann auch Firewall/Netzweg/falschen Port bedeuten
 - ein fehlgeschlagener Diagnosecheck darf den eigentlichen NetSupport-Start nicht blockieren
 
+## 9a. Einzelrechner-Verbindungsdiagnose
+
+Für einen ausgewählten oder oben direkt eingegebenen Test-PC **Verbindung diagnostizieren** öffnen.
+
+Prüfen:
+
+- DNS/IP wird separat angezeigt.
+- Ping/ICMP wird separat angezeigt.
+- NetSupport TCP verwendet den aktuell konfigurierten Client-Port.
+- jede Prüfung zeigt eine Laufzeit.
+- `Ping keine Antwort` darf zusammen mit `TCP 5405 erreichbar` vorkommen.
+- bei absichtlich falschem NetSupport-Port erscheint der Port als nicht erreichbar, ohne den Rechner als ausgeschaltet zu bezeichnen.
+- **Diagnose kopieren** erzeugt einen lesbaren Kurzbericht.
+- der Kurzbericht enthält keine Kennwörter oder Sitzungsinhalte.
+- die Diagnose startet keine `PCICTLUI.EXE` und keine Remote-Sitzung.
+- nach einem fehlgeschlagenen Diagnosecheck muss eine echte NetSupport-Aktion weiterhin startbar sein.
+
+Details: [`TARGET_CONNECTION_DIAGNOSTICS.md`](TARGET_CONNECTION_DIAGNOSTICS.md).
+
 ## 10. Rechnerdetails
 
 Für einen erreichbaren Test-PC **Rechnerdetails laden**:
@@ -244,6 +263,7 @@ Ein Build ist für einen breiteren Pilotbetrieb geeignet, wenn:
 - Installation/Profil auf den vorgesehenen Admin-PCs funktionieren
 - Control/View und benötigte weitere Aktionen auf typischen Test-PCs funktionieren
 - TCP-Portdiagnose zum realen NetSupport-Setup passt
+- Einzelrechner-Diagnose liefert plausible DNS-/Ping-/NetSupport-Ergebnisse, ohne Remote-Sitzung zu starten
 - RSAT oder LDAP-Discovery in der realen Domäne funktioniert
 - optionale CIM-Fehler NetSupport nicht blockieren
 - Migration/Recovery praktisch geprüft sind

@@ -13,6 +13,7 @@ Eine erweiterbare .NET-8/WPF-Anwendung für die tägliche Fernwartung von Window
 - bevorzugte NetSupport-Aktion pro gespeichertem Rechner
 - Schnellaktionen: **Steuern**, **Nur ansehen**, **Chat**, **Inventar**, **Remote CMD**, **Dateiübertragung**
 - parallele Ping- und NetSupport-TCP-Erreichbarkeitsdiagnose
+- Einzelziel-Diagnose mit DNS/IP, Ping, NetSupport-Port und kopierbarem Kurzbericht
 - konfigurierbarer NetSupport-Client-Port, Standard TCP 5405
 - zusätzliche Rechnerdetails über DNS + CIM/WSMan
 - lokaler Startverlauf, maximal 100 Einträge, plus gehärteter CSV-Export
@@ -51,7 +52,7 @@ Ein fehlendes konfiguriertes Profil blockiert den Start bewusst, statt stillschw
 
 ## Erreichbarkeitsdiagnose
 
-**Status prüfen** kombiniert zwei unabhängige Hinweise:
+**Status prüfen** kombiniert für die Rechnerliste zwei unabhängige Hinweise:
 
 ```text
 Ping/ICMP
@@ -65,6 +66,10 @@ Ping keine Antwort · NetSupport erreichbar
 ```
 
 Dadurch wird ein ICMP-Block nicht fälschlich als ausgeschalteter PC dargestellt. Ein fehlgeschlagener Portcheck ist ebenfalls nur Diagnose und blockiert **keinen** Start von `PCICTLUI.EXE`.
+
+Für einen einzelnen Rechner gibt es zusätzlich **Verbindung diagnostizieren**. Diese read-only Prüfung zeigt DNS/IP-Auflösung, Ping und den konfigurierten NetSupport-Port inklusive Laufzeiten in einem eigenen Dialog. Ein kurzer Bericht kann bewusst in die Zwischenablage kopiert werden; die Funktion startet keine Remote-Sitzung.
+
+Details: [`docs/TARGET_CONNECTION_DIAGNOSTICS.md`](docs/TARGET_CONNECTION_DIAGNOSTICS.md).
 
 ## Active Directory
 
@@ -132,6 +137,7 @@ NetSupport.RemoteAdmin-win-x64
 - [`docs/NETSUPPORT_CONTROL_PROFILES.md`](docs/NETSUPPORT_CONTROL_PROFILES.md)
 - [`docs/NETSUPPORT_PREFERRED_ACTIONS.md`](docs/NETSUPPORT_PREFERRED_ACTIONS.md)
 - [`docs/ACTIVE_DIRECTORY_DISCOVERY.md`](docs/ACTIVE_DIRECTORY_DISCOVERY.md)
+- [`docs/TARGET_CONNECTION_DIAGNOSTICS.md`](docs/TARGET_CONNECTION_DIAGNOSTICS.md)
 - [`docs/CONFIGURATION_LIFECYCLE.md`](docs/CONFIGURATION_LIFECYCLE.md)
 - [`docs/AUTOMATED_TESTS.md`](docs/AUTOMATED_TESTS.md)
 - [`docs/TARGET_ORGANIZATION.md`](docs/TARGET_ORGANIZATION.md)
