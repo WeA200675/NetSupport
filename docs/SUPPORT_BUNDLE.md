@@ -31,11 +31,15 @@ logs/
 
 ### `README.txt`
 
-Enthält Erstellungszeitpunkt, Anonymisierungsstatus und eine Übersicht der enthaltenen bzw. bewusst ausgeschlossenen Daten.
+Enthält Erstellungszeitpunkt, Anonymisierungsstatus und die Betriebsregel:
+
+```text
+Remotezugriffsrichtlinie: NetSupport-only
+```
 
 ### `system-info.json`
 
-Enthält nur technische Laufzeitinformationen wie:
+Enthält technische Laufzeitinformationen wie:
 
 - App-Version
 - Windows-/OS-Beschreibung
@@ -51,12 +55,11 @@ Die originale `settings.json` wird **nicht** kopiert.
 
 Stattdessen wird eine bereinigte Zusammenfassung erzeugt, unter anderem mit:
 
-- Start-/RDP-/Diagnoseoptionen
+- `remoteAccessPolicy = NetSupport-only`
+- Start-/Diagnoseoptionen
 - Anzahl gespeicherter Ziele und Ansichten
 - vorhandenem/nicht vorhandenem NetSupport-Executable
 - Favorit/Gruppe/Standard-Provider
-- nicht geheimen RDP-Schaltern
-- Information, ob RDP-Benutzername/Domain konfiguriert sind, aber **nicht deren Wert**
 
 ### `recent-history.json`
 
@@ -83,14 +86,12 @@ Vorhandene Diagnoseprotokolle werden beim Erstellen des Pakets neu gelesen und �
 
 Unabhängig von der Anonymisierungsoption werden bewusst nicht in das Supportpaket geschrieben:
 
-- RDP-Passwörter
-- andere Kennwörter
+- Kennwörter
 - gespeicherte Windows-Credentials
 - Original-`settings.json`
 - Bildschirm-/Sitzungsinhalte
 - Zwischenablageinhalte
 - Inhalte übertragener Dateien
-- RDP-Benutzername oder Domain als Klartext in der Konfigurationsübersicht
 
 ---
 
@@ -108,14 +109,12 @@ PC-SERVER-02 -> target-002
 Zusätzlich werden bekannte lokale Identitäten und Pfade ersetzt, unter anderem:
 
 ```text
-Rechnername       -> local-machine
-Benutzername      -> local-user
-Windows-Domain    -> local-domain
-Benutzerprofil    -> user-profile
+Rechnername        -> local-machine
+Benutzername       -> local-user
+Windows-Domain     -> local-domain
+Benutzerprofil     -> user-profile
 Konfigurationspfad -> config-directory
 ```
-
-Auch bekannte RDP-Benutzer-/Domainwerte werden beim Bereinigen von Logs ersetzt, sofern sie dort entgegen der normalen Logging-Regeln auftauchen sollten.
 
 Gruppen und gespeicherte Ansichten werden in der Konfigurationsübersicht bei aktiver Anonymisierung ebenfalls abstrahiert.
 
@@ -125,7 +124,7 @@ Gruppen und gespeicherte Ansichten werden in der Konfigurationsübersicht bei ak
 
 Bei deaktivierter Anonymisierung können Hostnamen, Anzeigenamen, Gruppen und lokale Rechner-/Benutzerkennungen im Paket enthalten sein.
 
-Auch dann werden Passwörter/Credentials nicht bewusst aufgenommen.
+Auch dann werden Kennwörter/Credentials nicht bewusst aufgenommen.
 
 Vor einer externen Weitergabe sollte das ZIP trotzdem kurz geprüft werden.
 
@@ -166,15 +165,15 @@ Der Service erzeugt bewusst eine eigene Supportdarstellung statt bestehende Konf
 Für einen manuellen Test:
 
 1. Diagnoseprotokoll aktivieren.
-2. Einige erfolgreiche und eine absichtlich fehlerhafte Remote-Aktion starten.
+2. Einige erfolgreiche und eine absichtlich fehlerhafte NetSupport-Aktion starten.
 3. **Einstellungen → Supportpaket erstellen…** öffnen.
 4. Anonymisierung aktiviert lassen.
 5. ZIP entpacken.
 6. Prüfen, dass Hostnamen durch `target-...` ersetzt wurden.
 7. Prüfen, dass `settings.json` nicht enthalten ist.
-8. Nach bekannten Benutzernamen, Domainnamen und Passwörtern suchen.
-9. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
-10. Test optional mit deaktivierter Anonymisierung wiederholen und ZIP vor Weitergabe manuell prüfen.
+8. Nach bekannten Benutzernamen, Domainnamen und Kennwörtern suchen.
+9. Prüfen, dass `configuration-summary.json` `remoteAccessPolicy: NetSupport-only` enthält.
+10. `recent-errors.txt` auf sinnvolle Fehlermeldungen prüfen.
 
 ---
 
@@ -182,4 +181,4 @@ Für einen manuellen Test:
 
 Das Supportpaket reduziert das Risiko einer unbeabsichtigten Weitergabe interner Namen und Konfigurationen. Es ist jedoch keine formale Data-Loss-Prevention- oder Compliance-Lösung.
 
-Insbesondere frei formulierte Fehlermeldungen von Fremdkomponenten können theoretisch unbekannte Informationen enthalten. Deshalb sollte ein Paket vor externer Weitergabe weiterhin kurz geprüft werden.
+Frei formulierte Fehlermeldungen von Fremdkomponenten können theoretisch unbekannte Informationen enthalten. Deshalb sollte ein Paket vor externer Weitergabe weiterhin kurz geprüft werden.
