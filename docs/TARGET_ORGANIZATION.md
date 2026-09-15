@@ -6,9 +6,9 @@
 
 ## Ziel
 
-Bei ungefähr 40 oder mehr Zielrechnern soll nicht jedes Mal über eine lange unsortierte Liste und anschließend über die gewünschte Fernsteuerung navigiert werden müssen.
+Bei ungefähr 40 oder mehr Zielrechnern soll nicht jedes Mal über eine lange unsortierte Liste navigiert werden müssen.
 
-Dafür kann ein dauerhaft gespeicherter Rechner jetzt drei zusätzliche, nicht geheime Eigenschaften erhalten:
+Ein dauerhaft gespeicherter Rechner kann organisatorische Eigenschaften erhalten:
 
 ```json
 {
@@ -34,9 +34,9 @@ Ein Rechner kann als **Favorit** markiert werden.
 
 Auswirkungen:
 
-- Favoriten werden in der Rechnerliste vor normalen Rechnern sortiert.
+- Favoriten werden vor normalen Rechnern sortiert.
 - In der Liste erscheint ein `★`.
-- Über **Nur Favoriten** kann die Liste auf diese Rechner reduziert werden.
+- **Nur Favoriten** reduziert die Liste auf diese Rechner.
 - Der Favoritenstatus wird erst durch **Speichern / Aktualisieren** dauerhaft gespeichert.
 
 Favoriten verändern weder Active Directory noch NetSupport-Konfigurationen.
@@ -54,94 +54,72 @@ Jeder gespeicherte Rechner kann optional einer frei benannten Gruppe zugeordnet 
 - Schulungsraum
 - Testgeräte
 
-Die Gruppenbezeichnung ist absichtlich nur Text und benötigt keine separate Gruppenverwaltung.
-
 Verwendung:
 
 - Die normale Suche berücksichtigt den Gruppennamen.
-- Oben in der Oberfläche steht zusätzlich ein Gruppenfilter bereit.
-- Die Liste wird innerhalb der Favoriten nach Gruppe und anschließend nach Rechnername sortiert.
-- Neue Gruppennamen werden nach dem Speichern automatisch in den Gruppenfilter aufgenommen.
+- Ein Gruppenfilter steht separat zur Verfügung.
+- Innerhalb der Favoriten wird nach Gruppe und anschließend Rechnername sortiert.
+- Neue Gruppennamen erscheinen nach dem Speichern automatisch im Gruppenfilter.
 
 Rechner, die nur vorübergehend aus Active Directory geladen wurden, erhalten nicht automatisch eine Gruppe.
 
 ---
 
-## Bevorzugter Remote-Provider
+## Standard-Provider
 
-Ein Ziel kann einen **Standard-Provider** erhalten.
+Die Datenstruktur enthält weiterhin `preferredProviderId`, damit die Provider-Abstraktion sauber bleibt.
 
-Aktuell sind je nach Installation typischerweise verfügbar:
+Für diese Domäne gilt jedoch:
 
 ```text
-netsupport
-rdp
+preferredProviderId = netsupport
 ```
 
-Die technische Einstellung wird als `preferredProviderId` gespeichert.
+Andere bzw. alte Provider-IDs werden beim Programmstart auf `netsupport` normalisiert.
 
-Beispiele:
-
-```json
-"preferredProviderId": "netsupport"
-```
-
-oder
-
-```json
-"preferredProviderId": "rdp"
-```
-
-Der Benutzer sieht in der Oberfläche den lesbaren Providernamen statt der internen ID.
+Hintergrund: Die Domänenrichtlinie erlaubt Fernwartung ausschließlich über NetSupport Manager. Details: [`DOMAIN_REMOTE_POLICY.md`](DOMAIN_REMOTE_POLICY.md).
 
 ---
 
 ## Standardverbindung
 
-Die Schaltfläche **Standardverbindung starten** verwendet den für diesen Rechner gewählten Provider und startet dessen normale `Control`-Aktion.
+Die Schaltfläche **Standardverbindung starten** verwendet NetSupport Control.
 
-Ein Doppelklick auf einen Rechner verwendet ebenfalls die Standardverbindung.
+Ein Doppelklick auf einen Rechner startet ebenfalls die NetSupport-Standardverbindung.
 
-Die direkten Schnellaktionen bleiben trotzdem erhalten. Man kann also beispielsweise einen Rechner standardmäßig per RDP öffnen und bei Bedarf weiterhin explizit **Steuern** anklicken, um NetSupport Control zu verwenden.
+Für andere NetSupport-Funktionen bleiben die direkten Schnellaktionen erhalten:
+
+- Steuern
+- Nur ansehen
+- Remote CMD
+- Dateien
+- Inventar
+- Chat
 
 ---
 
-## Fallback-Verhalten
+## Verhalten bei fehlendem NetSupport
 
-Ein gespeicherter Provider kann auf einem anderen Admin-PC fehlen. Deshalb darf ein alter oder nicht verfügbarer `preferredProviderId` die Bedienung nicht blockieren.
+Wenn `PCICTLUI.EXE` auf dem Admin-PC fehlt oder der konfigurierte Pfad ungültig ist, wird **kein alternativer Remote-Provider** verwendet.
 
-Die Auswahl erfolgt in dieser Reihenfolge:
+Die Anwendung zeigt stattdessen einen verständlichen Fehler bzw. der Systemzustand markiert NetSupport als nicht verfügbar.
 
-1. gespeicherter, verfügbarer Provider mit `Control`-Unterstützung
-2. NetSupport, falls verfügbar
-3. erster anderer verfügbarer Provider mit `Control`-Unterstützung
-
-Wenn überhaupt kein geeigneter Provider vorhanden ist, zeigt die Anwendung eine Statusmeldung statt abzustürzen.
+Das ist beabsichtigt: Ein technischer Fallback darf die Domänenrichtlinie nicht umgehen.
 
 ---
 
 ## Speichern und Aktualisieren
 
-Die frühere Schaltfläche **Speichern** wurde zu
+**Speichern / Aktualisieren** kann bestehende Ziele direkt ändern.
 
-```text
-Speichern / Aktualisieren
-```
+Persistiert werden:
 
-erweitert.
-
-Dadurch können bestehende Ziele jetzt direkt geändert werden.
-
-Persistiert werden unter anderem:
-
-- Name / Host / Beschreibung
+- Name
+- Host
+- Beschreibung
 - Favorit
 - Gruppe
-- bevorzugter Provider
-- RDP-Benutzername und Domäne
-- Zwischenablagepräferenz
-- Admin-Sitzung
-- Multi-Monitor-Präferenz
+- `preferredProviderId = netsupport`
 
 Nicht gespeichert werden flüchtige Informationen wie:
 
@@ -179,8 +157,8 @@ Sortierreihenfolge:
 
 ## Designentscheidung
 
-Favoriten, Gruppen und Standard-Provider gehören in die lokale Bedienkonfiguration, weil sie persönliche bzw. administrative Arbeitsorganisation darstellen.
+Favoriten und Gruppen gehören in die lokale Bedienkonfiguration, weil sie administrative Arbeitsorganisation darstellen.
 
-Active Directory bleibt die Quelle für Domänenrechner. Das Tool versucht nicht, diese Organisationsinformationen zurück in AD zu schreiben und baut auch keine zweite zentrale Inventardatenbank auf.
+Active Directory bleibt die Quelle für Domänenrechner. Das Tool schreibt diese Organisationsinformationen nicht nach AD zurück und baut keine zweite zentrale Inventardatenbank auf.
 
-Die zusätzlichen Felder sind bewusst einfache Eigenschaften von `RemoteTarget`, sodass später beispielsweise andere Discovery-Quellen oder weitere Remote-Provider dieselbe Organisationslogik weiterverwenden können.
+Die Provider-Abstraktion bleibt als technische Architektur erhalten. Ein weiterer Remote-Provider darf jedoch nur nach ausdrücklicher Freigabe durch die Domänen-/Sicherheitsvorgaben registriert werden.
