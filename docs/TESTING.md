@@ -401,6 +401,61 @@ Diagnose deaktivieren und prüfen, dass neue normale Logeinträge ausbleiben.
 
 ---
 
+## 18. Supportpaket und Anonymisierung
+
+Vorbereitung:
+
+1. Diagnose aktivieren.
+2. Mindestens einen gespeicherten Testrechner mit erkennbarem Namen/Host anlegen.
+3. Einige erfolgreiche Aktionen und mindestens einen absichtlich fehlerhaften Providerstart erzeugen.
+4. **Erweitert → Einstellungen → Diagnose und Support** öffnen.
+
+### Mit Anonymisierung
+
+1. **Supportpaket anonymisieren (empfohlen)** aktiviert lassen.
+2. **Supportpaket erstellen…** wählen.
+3. ZIP speichern und entpacken.
+
+Erwarteter Inhalt:
+
+```text
+README.txt
+system-info.json
+configuration-summary.json
+recent-history.json
+recent-errors.txt
+logs/
+```
+
+Prüfen:
+
+- Original-`settings.json` ist **nicht** enthalten.
+- bekannte Hostnamen/Anzeigenamen erscheinen in der bereinigten Konfiguration/History als `target-...`.
+- lokale Rechner-/Benutzer-/Domainwerte werden in bereinigten Logs ersetzt, soweit sie als bekannte Werte vorliegen.
+- RDP-Benutzername und RDP-Domain stehen in `configuration-summary.json` nicht im Klartext; nur `...Configured`-Informationen sind enthalten.
+- Passwörter/Credentials sind nirgends enthalten.
+- Bildschirm-/Zwischenablage-/Remote-Dateiinhalte sind nicht enthalten.
+- `recent-errors.txt` enthält die erwarteten technischen Fehler in bereinigter Form.
+- `system-info.json` enthält bei aktiver Anonymisierung `local-machine`, `local-user`, `local-domain` statt Klartextidentitäten.
+
+### Ohne Anonymisierung
+
+Test optional wiederholen und die Anonymisierung deaktivieren.
+
+Prüfen:
+
+- Host-/Anzeigenamen dürfen jetzt für die Fehlersuche im Paket enthalten sein.
+- Passwörter/Credentials dürfen trotzdem nicht aufgenommen werden.
+- vor einer externen Weitergabe muss das Paket manuell geprüft werden.
+
+### Temporäre Dateien
+
+Nach Erzeugung des Pakets sollte kein dauerhaftes `NetSupportRemoteAdmin-support-*`-Arbeitsverzeichnis im Temp-Pfad zurückbleiben, sofern Windows die Bereinigung nicht durch einen Dateilock verhindert hat.
+
+Details: `docs/SUPPORT_BUNDLE.md`.
+
+---
+
 ## Lokale Dateien
 
 Konfiguration:
@@ -427,7 +482,9 @@ Generierte gezielte RDP-Verbindungen:
 %AppData%\NetSupportRemoteAdmin\rdp\
 ```
 
-In keiner dieser Dateien dürfen Passwörter oder andere Credentials auftauchen.
+Supportpakete liegen ausschließlich am beim Speichern ausgewählten Zielort.
+
+In den normalen AppData-Dateien dürfen keine Passwörter oder andere Credentials auftauchen.
 
 ---
 
@@ -437,11 +494,10 @@ Hilfreich sind:
 
 - Funktion und sichtbare Fehlermeldung
 - Windows-Version des Admin-PCs
-- Ziel anonymisiert, falls nötig
+- möglichst ein **anonymisiertes Supportpaket**
 - eingebettetes oder externes RDP
 - bei Monitorproblemen Ausgabe von `mstsc /l` ohne vertrauliche Daten
 - gewünschte Monitor-ID-Liste
-- relevanter Ausschnitt aus `application.log`, nachdem interne Hostnamen bei Bedarf anonymisiert wurden
 - zugehöriger GitHub-Actions-Build/Commit
 
-Keine Kennwörter oder Zugangsdaten in Issues, Screenshots oder Logs aufnehmen.
+Keine Kennwörter oder Zugangsdaten in Issues, Screenshots, ZIPs oder Logs aufnehmen.
