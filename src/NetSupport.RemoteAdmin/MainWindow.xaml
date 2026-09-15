@@ -180,6 +180,9 @@
                                        FontSize="11" TextWrapping="Wrap"/>
                             <Button x:Name="RefreshDetailsButton" Content="Rechnerdetails laden" Height="32" Margin="0,10,0,0"
                                     Click="RefreshDetailsButton_OnClick"/>
+                            <Button x:Name="TargetDiagnosticsButton" Content="Verbindung diagnostizieren" Height="32" Margin="0,7,0,0"
+                                    ToolTip="Prüft DNS, Ping und den konfigurierten NetSupport-Client-Port ohne Remote-Sitzung"
+                                    Click="TargetDiagnosticsButton_OnClick"/>
                         </StackPanel>
                     </Border>
 

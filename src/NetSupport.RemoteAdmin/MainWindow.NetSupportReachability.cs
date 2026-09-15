@@ -11,6 +11,7 @@ public partial class MainWindow
     internal void InitializeNetSupportReachability(NetSupportReachabilityService service)
     {
         _netSupportReachability = service ?? throw new ArgumentNullException(nameof(service));
+        _targetConnectionDiagnostics = new TargetConnectionDiagnosticService(_availability, service);
 
         // Replace the original ping-only handler without changing the XAML contract.
         RefreshStatusButton.Click -= RefreshStatusButton_OnClick;

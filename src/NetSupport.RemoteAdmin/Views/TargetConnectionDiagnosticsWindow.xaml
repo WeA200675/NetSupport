@@ -1,0 +1,71 @@
+<Window x:Class="NetSupport.RemoteAdmin.Views.TargetConnectionDiagnosticsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Verbindungsdiagnose" Height="430" Width="620"
+        MinHeight="390" MinWidth="540"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Verbindungsdiagnose" FontSize="22" FontWeight="SemiBold"/>
+            <TextBlock x:Name="TargetTextBlock" Margin="0,4,0,0" Opacity="0.7"/>
+            <TextBlock Text="Read-only: Es wird keine NetSupport-Sitzung gestartet und nichts am Zielrechner geändert."
+                       Margin="0,7,0,14" Opacity="0.62" FontSize="11" TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <Border Grid.Row="1" BorderThickness="1" BorderBrush="#33000000" CornerRadius="4" Padding="14">
+            <StackPanel>
+                <TextBlock x:Name="SummaryTextBlock" FontWeight="SemiBold" FontSize="15" TextWrapping="Wrap"/>
+                <Separator Margin="0,12"/>
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="DNS / IP" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock x:Name="DnsTextBlock" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+
+                    <TextBlock Grid.Row="1" Text="Ping / ICMP" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock x:Name="PingTextBlock" Grid.Row="1" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+
+                    <TextBlock Grid.Row="2" Text="NetSupport" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock x:Name="NetSupportTextBlock" Grid.Row="2" Grid.Column="1" Margin="0,4" TextWrapping="Wrap"/>
+
+                    <TextBlock Grid.Row="3" Text="Geprüft" FontWeight="SemiBold" Margin="0,4"/>
+                    <TextBlock x:Name="CheckedAtTextBlock" Grid.Row="3" Grid.Column="1" Margin="0,4"/>
+                </Grid>
+
+                <TextBlock Margin="0,14,0,0" Opacity="0.58" FontSize="11" TextWrapping="Wrap"
+                           Text="Hinweis: Ein fehlgeschlagener Ping beweist nicht, dass der Rechner ausgeschaltet ist. Der TCP-Test bestätigt nur die Erreichbarkeit des konfigurierten NetSupport-Client-Ports, nicht Anmeldung oder Berechtigung."/>
+            </StackPanel>
+        </Border>
+
+        <Grid Grid.Row="2" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Der kopierte Bericht enthält Rechnername/IP, aber keine Kennwörter oder Sitzungsinhalte."
+                       VerticalAlignment="Center" Opacity="0.55" FontSize="10" TextWrapping="Wrap"/>
+            <Button Grid.Column="1" Content="Diagnose kopieren" Width="130" Height="32" Margin="10,0,0,0"
+                    Click="CopyButton_OnClick"/>
+            <Button Grid.Column="2" Content="Schließen" Width="100" Height="32" Margin="8,0,0,0"
+                    IsDefault="True" Click="CloseButton_OnClick"/>
+        </Grid>
+    </Grid>
+</Window>
